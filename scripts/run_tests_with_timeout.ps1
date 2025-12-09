@@ -43,9 +43,11 @@ if (-not (Test-Path $testFile)) {
 }
 
 Write-Host "Compiling test..."
-$testSourceDir = Join-Path "." (Join-Path "src" "test" (Join-Path "java"))
+$testSourceDir = Join-Path "." (Join-Path "src" (Join-Path "test" "java"))
 $mainSourceDir = Join-Path "." (Join-Path "src" (Join-Path "main" "java"))
+$pathSeparator = if ($IsWindows) { ";" } else { ":" }
 $sourcepath = "$testSourceDir$pathSeparator$mainSourceDir"
+$cp = "$buildDir$pathSeparator$junitStandalone$pathSeparator."
 javac -cp $cp -d $buildDir -encoding UTF-8 -sourcepath $sourcepath $testFile 2>&1 | Out-Null
 
 if ($LASTEXITCODE -ne 0) {
@@ -66,7 +68,7 @@ $job = Start-Job -ScriptBlock {
 # Wait for job with timeout
 $result = Wait-Job -Job $job -Timeout $TimeoutSeconds
 
-if ($result -eq $null) {
+if ($null -eq $result) {
     Write-Host "`nTIMEOUT: Tests exceeded $TimeoutSeconds seconds. Killing process..."
     Stop-Job -Job $job
     Remove-Job -Job $job -Force
