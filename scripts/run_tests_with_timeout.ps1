@@ -15,18 +15,16 @@ if (-not (Test-Path $junitStandalone)) {
 }
 
 # Ensure build directory exists and has compiled classes
-if (-not (Test-Path "build")) {
+if (-not (Test-Path $buildDir)) {
     Write-Host "Error: Build directory not found. Run build.ps1 first." -ForegroundColor Red
     exit 1
 }
 
-$cp = "build;$junitStandalone;."
-
 # Find test file in Maven test directory
-$testFile = "src\test\java\com\kotor\resource\formats\ncs\NCSDecompCLIRoundTripTest.java"
+$testFile = Join-Path "." (Join-Path "src" (Join-Path "test" (Join-Path "java" (Join-Path "com" (Join-Path "kotor" (Join-Path "resource" (Join-Path "formats" (Join-Path "ncs" "NCSDecompCLIRoundTripTest.java"))))))))
 if (-not (Test-Path $testFile)) {
     # Try alternative location
-    $testFile = "com\kotor\resource\formats\ncs\NCSDecompCLIRoundTripTest.java"
+    $testFile = Join-Path "." (Join-Path "com" (Join-Path "kotor" (Join-Path "resource" (Join-Path "formats" (Join-Path "ncs" "NCSDecompCLIRoundTripTest.java")))))
     if (-not (Test-Path $testFile)) {
         Write-Host "Error: Test file not found" -ForegroundColor Red
         exit 1
@@ -34,7 +32,10 @@ if (-not (Test-Path $testFile)) {
 }
 
 Write-Host "Compiling test..."
-javac -cp $cp -d build -encoding UTF-8 -sourcepath "src\test\java;src\main\java" $testFile 2>&1 | Out-Null
+$testSourceDir = Join-Path "." (Join-Path "src" "test" (Join-Path "java"))
+$mainSourceDir = Join-Path "." (Join-Path "src" (Join-Path "main" "java"))
+$sourcepath = "$testSourceDir$pathSeparator$mainSourceDir"
+javac -cp $cp -d $buildDir -encoding UTF-8 -sourcepath $sourcepath $testFile 2>&1 | Out-Null
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Compilation failed!"

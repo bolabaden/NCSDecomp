@@ -39,17 +39,24 @@ This project follows standard Maven directory layout conventions:
 
 - Java Development Kit (JDK) 8 or later
 - Apache Maven 3.6.0 or later (optional, for Maven builds)
-- PowerShell (for Windows build scripts)
+- PowerShell Core 6+ (for cross-platform build scripts) or Windows PowerShell 5.1+ (Windows only)
+  - PowerShell Core works on Windows, macOS, and Linux
+  - Download from: https://github.com/PowerShell/PowerShell/releases
 
 ### Build Options
 
-#### Option 1: Using PowerShell Scripts (Recommended for Windows)
+#### Option 1: Using PowerShell Scripts (Cross-Platform)
+
+**Note:** These scripts work on Windows, macOS, and Linux when using PowerShell Core 6+.
 
 ```powershell
 # Build JAR file
 .\scripts\build.ps1
 
-# Build self-contained .exe (requires JDK 14+ with jpackage)
+# Build self-contained executable (requires JDK 14+ with jpackage)
+# On Windows: creates .exe
+# On macOS: creates .app
+# On Linux: creates executable binary
 .\scripts\build-exe.ps1
 
 # Build and publish distribution package
@@ -60,6 +67,7 @@ The PowerShell build script will:
 1. Compile all Java source files from `src/main/java`
 2. Copy resources from `src/main/resources` to the build directory
 3. Create a JAR file named `NCSDecomp-CLI.jar` in the project root
+4. Automatically detect the platform and use appropriate settings
 
 #### Option 2: Using Maven
 

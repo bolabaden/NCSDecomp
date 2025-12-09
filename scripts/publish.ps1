@@ -5,8 +5,14 @@
 
 # Publish script for NCSDecomp CLI
 # Packages everything needed for end-user distribution
+# Cross-platform compatible (Windows, macOS, Linux)
 
 $ErrorActionPreference = "Stop"
+
+# Detect platform (PowerShell Core 6+)
+$IsWindows = if ($PSVersionTable.PSVersion.Major -ge 6) { $IsWindows } else { $env:OS -eq "Windows_NT" }
+$IsLinux = if ($PSVersionTable.PSVersion.Major -ge 6) { $IsLinux } else { $false }
+$IsMacOS = if ($PSVersionTable.PSVersion.Major -ge 6) { $IsMacOS } else { $false }
 
 Write-Host "NCSDecomp CLI - Publishing Package" -ForegroundColor Green
 Write-Host "================================" -ForegroundColor Green
@@ -14,7 +20,8 @@ Write-Host ""
 
 # Build everything first
 Write-Host "Step 1: Building JAR..." -ForegroundColor Yellow
-& "$PSScriptRoot\build.ps1"
+$buildScript = Join-Path $PSScriptRoot "build.ps1"
+& $buildScript
 if ($LASTEXITCODE -ne 0) {
     Write-Host "JAR build failed!" -ForegroundColor Red
     exit 1
@@ -31,7 +38,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 # Create publish directory
-$publishDir = "publish"
+$publishDir = Join-Path "." "publish"
 if (Test-Path $publishDir) {
     Write-Host ""
     Write-Host "Cleaning previous publish directory..." -ForegroundColor Yellow
@@ -102,52 +109,95 @@ if (Test-Path $tslSource) {
 }
 
 # Copy user-friendly README
-if (Test-Path "docs\README-USER.md") {
-    Copy-Item "docs\README-USER.md" "$publishDir\README.txt"
+$docsReadmeUser = Join-Path "." (Join-Path "docs" "README-USER.md")
+$rootReadmeUser = Join-Path "." "README-USER.md"
+if (Test-Path $docsReadmeUser) {
+    Copy-Item $docsReadmeUser (Join-Path $publishDir "README.txt")
     Write-Host "  - Copied README.txt" -ForegroundColor Cyan
-} elseif (Test-Path "README-USER.md") {
-    Copy-Item "README-USER.md" "$publishDir\README.txt"
+} elseif (Test-Path $rootReadmeUser) {
+    Copy-Item $rootReadmeUser (Join-Path $publishDir "README.txt")
     Write-Host "  - Copied README.txt" -ForegroundColor Cyan
 }
 
 # Copy technical documentation
-if (Test-Path "docs\README-CLI.md") {
-    Copy-Item "docs\README-CLI.md" "$publishDir\README-TECHNICAL.md"
+$docsReadmeCli = Join-Path "." (Join-Path "docs" "README-CLI.md")
+$rootReadmeCli = Join-Path "." "README-CLI.md"
+if (Test-Path $docsReadmeCli) {
+    Copy-Item $docsReadmeCli (Join-Path $publishDir "README-TECHNICAL.md")
     Write-Host "  - Copied README-TECHNICAL.md" -ForegroundColor Cyan
-} elseif (Test-Path "README-CLI.md") {
-    Copy-Item "README-CLI.md" "$publishDir\README-TECHNICAL.md"
+} elseif (Test-Path $rootReadmeCli) {
+    Copy-Item $rootReadmeCli (Join-Path $publishDir "README-TECHNICAL.md")
     Write-Host "  - Copied README-TECHNICAL.md" -ForegroundColor Cyan
 }
 
 # Create examples directory
-New-Item -ItemType Directory -Path "$publishDir\examples" -Force | Out-Null
+$examplesDir = Join-Path $publishDir "examples"
+New-Item -ItemType Directory -Path $examplesDir -Force | Out-Null
 
-# Create example batch files
-$example1 = @"
+# Create example scripts (batch files for Windows, shell scripts for Unix)
+if ($IsWindows) {
+    # Windows batch files
+    $example1 = @"
 @echo off
 REM Example: Decompile a single file (KotOR 2/TSL)
 NCSDecompCLI\NCSDecompCLI.exe -i "script.ncs" -o "script.nss" --k2
 pause
 "@
-$example1 | Out-File "$publishDir\examples\example1-decompile-single.bat" -Encoding ASCII
+    $example1 | Out-File (Join-Path $examplesDir "example1-decompile-single.bat") -Encoding ASCII
 
-$example2 = @"
+    $example2 = @"
 @echo off
 REM Example: Decompile entire directory recursively (KotOR 1)
 NCSDecompCLI\NCSDecompCLI.exe -i "scripts_folder" -r --k1 -O "output_folder"
 pause
 "@
-$example2 | Out-File "$publishDir\examples\example2-decompile-folder.bat" -Encoding ASCII
+    $example2 | Out-File (Join-Path $examplesDir "example2-decompile-folder.bat") -Encoding ASCII
 
-$example3 = @"
+    $example3 = @"
 @echo off
 REM Example: View decompiled code in console
 NCSDecompCLI\NCSDecompCLI.exe -i "script.ncs" --stdout --k2
 pause
 "@
-$example3 | Out-File "$publishDir\examples\example3-view-in-console.bat" -Encoding ASCII
+    $example3 | Out-File (Join-Path $examplesDir "example3-view-in-console.bat") -Encoding ASCII
+    Write-Host "  - Created example batch files" -ForegroundColor Cyan
+} else {
+    # Unix shell scripts
+    $example1 = @"
+#!/bin/bash
+# Example: Decompile a single file (KotOR 2/TSL)
+./NCSDecompCLI/NCSDecompCLI -i "script.ncs" -o "script.nss" --k2
+"@
+    $example1File = Join-Path $examplesDir "example1-decompile-single.sh"
+    $example1 | Out-File $example1File -Encoding utf8NoBOM
+    if (-not $IsWindows) {
+        # Make executable on Unix
+        chmod +x $example1File
+    }
 
-Write-Host "  - Created example batch files" -ForegroundColor Cyan
+    $example2 = @"
+#!/bin/bash
+# Example: Decompile entire directory recursively (KotOR 1)
+./NCSDecompCLI/NCSDecompCLI -i "scripts_folder" -r --k1 -O "output_folder"
+"@
+    $example2File = Join-Path $examplesDir "example2-decompile-folder.sh"
+    $example2 | Out-File $example2File -Encoding utf8NoBOM
+    if (-not $IsWindows) {
+        chmod +x $example2File
+    }
+
+    $example3 = @"
+#!/bin/bash
+# Example: View decompiled code in console
+./NCSDecompCLI/NCSDecompCLI -i "script.ncs" --stdout --k2
+"@
+    $example3File = Join-Path $examplesDir "example3-view-in-console.sh"
+    $example3 | Out-File $example3File -Encoding utf8NoBOM
+    if (-not $IsWindows) {
+        chmod +x $example3File
+    }
+    Write-Host "  - Created example shell scripts" -ForegroundColor Cyan
+}
 
 Write-Host ""
 Write-Host "Step 4: Creating version info..." -ForegroundColor Yellow
@@ -155,10 +205,16 @@ $versionInfo = @"
 NCSDecomp CLI Distribution Package
 Version: 2.0
 Build Date: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
+Platform: $(if ($IsWindows) { "Windows" } elseif ($IsMacOS) { "macOS" } elseif ($IsLinux) { "Linux" } else { "Unknown" })
 
 For more information, visit: https://bolabaden.org
 "@
-$versionInfo | Out-File "$publishDir\VERSION.txt" -Encoding ASCII
+$versionFile = Join-Path $publishDir "VERSION.txt"
+if ($IsWindows) {
+    $versionInfo | Out-File $versionFile -Encoding ASCII
+} else {
+    $versionInfo | Out-File $versionFile -Encoding utf8NoBOM
+}
 Write-Host "  - Created VERSION.txt" -ForegroundColor Cyan
 
 Write-Host ""
@@ -168,8 +224,10 @@ Write-Host ""
 Write-Host "Distribution package ready in: $publishDir" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Package contents:" -ForegroundColor Yellow
+$publishDirResolved = (Resolve-Path $publishDir).Path
+$pathSeparator = if ($IsWindows) { "\" } else { "/" }
 Get-ChildItem $publishDir -Recurse | ForEach-Object {
-    $relativePath = $_.FullName.Replace((Resolve-Path $publishDir).Path + "\", "")
+    $relativePath = $_.FullName.Replace($publishDirResolved + $pathSeparator, "")
     $size = if ($_.PSIsContainer) { "<DIR>" } else { "$([math]::Round($_.Length / 1KB, 2)) KB" }
     Write-Host "  $relativePath ($size)" -ForegroundColor Gray
 }
