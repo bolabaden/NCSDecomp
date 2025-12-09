@@ -253,10 +253,10 @@ try {
     Write-Host "Portable executables ready! Run directly without installation." -ForegroundColor Green
     Write-Host ""
     Write-Host "CLI Usage examples:" -ForegroundColor Cyan
-    $exePathExample = if ($IsWindows) { 
-        ".\dist-exe\NCSDecompCLI\NCSDecompCLI.exe" 
-    } else { 
-        "./dist-exe/NCSDecompCLI/NCSDecompCLI" 
+    $exePathExample = if ($IsWindows) {
+        ".\dist-exe\NCSDecompCLI\NCSDecompCLI.exe"
+    } else {
+        "./dist-exe/NCSDecompCLI/NCSDecompCLI"
     }
     Write-Host "  $exePathExample --help" -ForegroundColor White
     Write-Host "  $exePathExample --version" -ForegroundColor White
