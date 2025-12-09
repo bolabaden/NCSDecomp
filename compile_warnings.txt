@@ -1,0 +1,596 @@
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\ActionsData.java:11: warning: [rawtypes] found raw type: ArrayList
+   private ArrayList actions;
+           ^
+  missing type arguments for generic class ArrayList<E>
+  where E is a type-variable:
+    E extends Object declared in class ArrayList
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\ActionsData.java:24: warning: [deprecation] Integer(int) in Integer has been deprecated
+         throw new RuntimeException("Invalid action call: action " + new Integer(index).toString());
+                                                                     ^
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\ActionsData.java:30: warning: [rawtypes] found raw type: ArrayList
+      this.actions = new ArrayList(877);
+                         ^
+  missing type arguments for generic class ArrayList<E>
+  where E is a type-variable:
+    E extends Object declared in class ArrayList
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\ActionsData.java:40: warning: [unchecked] unchecked call to add(E) as a member of the raw type ArrayList
+               this.actions.add(new ActionsData.Action(m.group(1), m.group(2), m.group(3)));
+                               ^
+  where E is a type-variable:
+    E extends Object declared in class ArrayList
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\ActionsData.java:45: warning: [deprecation] Integer(int) in Integer has been deprecated
+      System.out.println("read actions.  There were " + new Integer(this.actions.size()).toString());
+                                                        ^
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\ActionsData.java:56: warning: [rawtypes] found raw type: ArrayList
+   public ArrayList getParamTypes(int index) {
+          ^
+  missing type arguments for generic class ArrayList<E>
+  where E is a type-variable:
+    E extends Object declared in class ArrayList
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\ActionsData.java:64: warning: [rawtypes] found raw type: ArrayList
+      private ArrayList paramlist;
+              ^
+  missing type arguments for generic class ArrayList<E>
+  where E is a type-variable:
+    E extends Object declared in class ArrayList
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\ActionsData.java:69: warning: [rawtypes] found raw type: ArrayList
+         this.paramlist = new ArrayList();
+                              ^
+  missing type arguments for generic class ArrayList<E>
+  where E is a type-variable:
+    E extends Object declared in class ArrayList
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\ActionsData.java:77: warning: [unchecked] unchecked call to add(E) as a member of the raw type ArrayList
+               this.paramlist.add(new Type(m.group(1)));
+                                 ^
+  where E is a type-variable:
+    E extends Object declared in class ArrayList
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\ActionsData.java:85: warning: [deprecation] Integer(int) in Integer has been deprecated
+         return "\"" + this.name + "\" " + this.returntype.toValueString() + " " + new Integer(this.paramsize).toString();
+                                                                                   ^
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\ActionsData.java:88: warning: [rawtypes] found raw type: ArrayList
+      public ArrayList params() {
+             ^
+  missing type arguments for generic class ArrayList<E>
+  where E is a type-variable:
+    E extends Object declared in class ArrayList
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\ActionsData.java:16: warning: [this-escape] possible 'this' escape before subclass is fully initialized
+      this.readActions();
+                      ^
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\ActionsData.java:40: warning: [this-escape] previous possible 'this' escape happens here via invocation
+               this.actions.add(new ActionsData.Action(m.group(1), m.group(2), m.group(3)));
+                                ^
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\utils\Type.java:77: warning: [deprecation] Byte(byte) in Byte has been deprecated
+      return new Byte(this.type).toString();
+             ^
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\utils\Type.java:202: warning: [deprecation] Byte(byte) in Byte has been deprecated
+            throw new RuntimeException("Unknown type code: " + new Byte(type).toString());
+                                                               ^
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decoder.java:88: warning: [deprecation] Integer(int) in Integer has been deprecated
+         strbuffer.append(" " + new Integer(commandpos).toString());
+                                ^
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decoder.java:130: warning: [deprecation] Byte(byte) in Byte has been deprecated
+                  strbuffer.append(" " + new Byte(bx).toString());
+                                         ^
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decoder.java:145: warning: [deprecation] Byte(byte) in Byte has been deprecated
+                        throw new RuntimeException("Unknown or unexpected constant type: " + new Byte(bx).toString());
+                                                                                             ^
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decoder.java:155: warning: [deprecation] Byte(byte) in Byte has been deprecated
+                  strbuffer.append(" " + new Byte(b).toString());
+                                         ^
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decoder.java:207: warning: [deprecation] Byte(byte) in Byte has been deprecated
+                  throw new RuntimeException("Unknown command type: " + new Byte(buffer[0]).toString());
+                                                                        ^
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decoder.java:212: warning: [deprecation] Integer(int) in Integer has been deprecated
+            System.out.println("error in .ncs file at pos " + new Integer(this.pos).toString());
+                                                              ^
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decoder.java:233: warning: [deprecation] Byte(byte) in Byte has been deprecated
+      return new Byte(this.readByte()).toString();
+             ^
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decoder.java:252: warning: [deprecation] Long(long) in Long has been deprecated
+         return new Long(l).toString();
+                ^
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decoder.java:288: warning: [deprecation] Float(float) in Float has been deprecated
+         return new Float(Float.intBitsToFloat(i.intValue())).toString();
+                ^
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decoder.java:434: warning: [deprecation] Byte(byte) in Byte has been deprecated
+            throw new RuntimeException("Unknown command code: " + new Byte(command).toString());
+                                                                  ^
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decompiler.java:96: warning: [rawtypes] found raw type: Hashtable
+   private Hashtable hash_Func2VarVec;
+           ^
+  missing type arguments for generic class Hashtable<K,V>
+  where K,V are type-variables:
+    K extends Object declared in class Hashtable
+    V extends Object declared in class Hashtable
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decompiler.java:101: warning: [rawtypes] found raw type: HashMap
+   private HashMap hash_TabComponent2File;
+           ^
+  missing type arguments for generic class HashMap<K,V>
+  where K,V are type-variables:
+    K extends Object declared in class HashMap
+    V extends Object declared in class HashMap
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decompiler.java:102: warning: [rawtypes] found raw type: HashMap
+   private HashMap hash_TabComponent2Func2VarVec;
+           ^
+  missing type arguments for generic class HashMap<K,V>
+  where K,V are type-variables:
+    K extends Object declared in class HashMap
+    V extends Object declared in class HashMap
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decompiler.java:103: warning: [rawtypes] found raw type: HashMap
+   private HashMap hash_TabComponent2TreeModel;
+           ^
+  missing type arguments for generic class HashMap<K,V>
+  where K,V are type-variables:
+    K extends Object declared in class HashMap
+    V extends Object declared in class HashMap
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decompiler.java:104: warning: [rawtypes] found raw type: Vector
+   protected static Vector unsavedFiles;
+                    ^
+  missing type arguments for generic class Vector<E>
+  where E is a type-variable:
+    E extends Object declared in class Vector
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decompiler.java:157: warning: [rawtypes] found raw type: HashMap
+      this.hash_TabComponent2Func2VarVec = new HashMap();
+                                               ^
+  missing type arguments for generic class HashMap<K,V>
+  where K,V are type-variables:
+    K extends Object declared in class HashMap
+    V extends Object declared in class HashMap
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decompiler.java:158: warning: [rawtypes] found raw type: HashMap
+      this.hash_TabComponent2File = new HashMap();
+                                        ^
+  missing type arguments for generic class HashMap<K,V>
+  where K,V are type-variables:
+    K extends Object declared in class HashMap
+    V extends Object declared in class HashMap
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decompiler.java:159: warning: [rawtypes] found raw type: HashMap
+      this.hash_TabComponent2TreeModel = new HashMap();
+                                             ^
+  missing type arguments for generic class HashMap<K,V>
+  where K,V are type-variables:
+    K extends Object declared in class HashMap
+    V extends Object declared in class HashMap
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decompiler.java:160: warning: [rawtypes] found raw type: Vector
+      unsavedFiles = new Vector();
+                         ^
+  missing type arguments for generic class Vector<E>
+  where E is a type-variable:
+    E extends Object declared in class Vector
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decompiler.java:161: warning: [rawtypes] found raw type: Hashtable
+      this.jTree = new JTree(new Hashtable());
+                                 ^
+  missing type arguments for generic class Hashtable<K,V>
+  where K,V are type-variables:
+    K extends Object declared in class Hashtable
+    V extends Object declared in class Hashtable
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decompiler.java:234: warning: [rawtypes] found raw type: List
+               final List list = (List)tr.getTransferData(flavors[i]);
+                     ^
+  missing type arguments for generic class List<E>
+  where E is a type-variable:
+    E extends Object declared in interface List
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decompiler.java:258: error: repeated interface
+               (TreeModel & TreeModel)this.hash_TabComponent2TreeModel.get(((JTabbedPane)arg0.getSource()).getTabComponentAt(this.jTB.getSelectedIndex()))
+                            ^
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decompiler.java:277: warning: [rawtypes] found raw type: Hashtable
+               Hashtable func2VarVec = this.fileDecompiler.updateSubName(file, this.currentNodeString, changedPath.getLastPathComponent().toString());
+               ^
+  missing type arguments for generic class Hashtable<K,V>
+  where K,V are type-variables:
+    K extends Object declared in class Hashtable
+    V extends Object declared in class Hashtable
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decompiler.java:278: warning: [unchecked] unchecked call to put(K,V) as a member of the raw type HashMap
+               this.hash_TabComponent2Func2VarVec.put(this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()), func2VarVec);
+                                                     ^
+  where K,V are type-variables:
+    K extends Object declared in class HashMap
+    V extends Object declared in class HashMap
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decompiler.java:279: warning: [unchecked] unchecked call to put(K,V) as a member of the raw type HashMap
+               this.hash_TabComponent2TreeModel.put(this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()), this.jTree.getModel());
+                                                   ^
+  where K,V are type-variables:
+    K extends Object declared in class HashMap
+    V extends Object declared in class HashMap
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decompiler.java:285: warning: [rawtypes] found raw type: Vector
+               Vector variables = (Vector)((Hashtable)this.hash_TabComponent2Func2VarVec.get(this.jTB.getTabComponentAt(this.jTB.getSelectedIndex())))
+               ^
+  missing type arguments for generic class Vector<E>
+  where E is a type-variable:
+    E extends Object declared in class Vector
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decompiler.java:289: warning: [rawtypes] found raw type: Vector
+               Vector var10 = null;
+               ^
+  missing type arguments for generic class Vector<E>
+  where E is a type-variable:
+    E extends Object declared in class Vector
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decompiler.java:302: warning: [unchecked] unchecked call to add(E) as a member of the raw type Vector
+            unsavedFiles.add(this.hash_TabComponent2File.get(this.jTB.getTabComponentAt(this.jTB.getSelectedIndex())));
+                            ^
+  where E is a type-variable:
+    E extends Object declared in class Vector
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decompiler.java:542: warning: [unchecked] unchecked call to put(K,V) as a member of the raw type HashMap
+            this.hash_TabComponent2File.put(this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()), file);
+                                           ^
+  where K,V are type-variables:
+    K extends Object declared in class HashMap
+    V extends Object declared in class HashMap
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decompiler.java:543: warning: [unchecked] unchecked call to put(K,V) as a member of the raw type HashMap
+            this.hash_TabComponent2Func2VarVec.put(this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()), this.hash_Func2VarVec);
+                                                  ^
+  where K,V are type-variables:
+    K extends Object declared in class HashMap
+    V extends Object declared in class HashMap
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decompiler.java:544: warning: [unchecked] unchecked call to put(K,V) as a member of the raw type HashMap
+            this.hash_TabComponent2TreeModel.put(this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()), this.jTree.getModel());
+                                                ^
+  where K,V are type-variables:
+    K extends Object declared in class HashMap
+    V extends Object declared in class HashMap
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decompiler.java:556: warning: [unchecked] unchecked call to put(K,V) as a member of the raw type HashMap
+            this.hash_TabComponent2File.put(this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()), file);
+                                           ^
+  where K,V are type-variables:
+    K extends Object declared in class HashMap
+    V extends Object declared in class HashMap
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decompiler.java:557: warning: [unchecked] unchecked call to put(K,V) as a member of the raw type HashMap
+            this.hash_TabComponent2Func2VarVec.put(this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()), this.hash_Func2VarVec);
+                                                  ^
+  where K,V are type-variables:
+    K extends Object declared in class HashMap
+    V extends Object declared in class HashMap
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decompiler.java:558: warning: [unchecked] unchecked call to put(K,V) as a member of the raw type HashMap
+            this.hash_TabComponent2TreeModel.put(this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()), this.jTree.getModel());
+                                                ^
+  where K,V are type-variables:
+    K extends Object declared in class HashMap
+    V extends Object declared in class HashMap
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decompiler.java:578: warning: [unchecked] unchecked call to put(K,V) as a member of the raw type HashMap
+            this.hash_TabComponent2File.put(this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()), file);
+                                           ^
+  where K,V are type-variables:
+    K extends Object declared in class HashMap
+    V extends Object declared in class HashMap
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decompiler.java:579: warning: [unchecked] unchecked call to put(K,V) as a member of the raw type HashMap
+            this.hash_TabComponent2Func2VarVec.put(this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()), this.hash_Func2VarVec);
+                                                  ^
+  where K,V are type-variables:
+    K extends Object declared in class HashMap
+    V extends Object declared in class HashMap
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decompiler.java:580: warning: [unchecked] unchecked call to put(K,V) as a member of the raw type HashMap
+            this.hash_TabComponent2TreeModel.put(this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()), this.jTree.getModel());
+                                                ^
+  where K,V are type-variables:
+    K extends Object declared in class HashMap
+    V extends Object declared in class HashMap
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decompiler.java:682: warning: [unchecked] unchecked call to add(E) as a member of the raw type Vector
+            unsavedFiles.add(this.hash_TabComponent2File.get(this.jTB.getTabComponentAt(this.jTB.getSelectedIndex())));
+                            ^
+  where E is a type-variable:
+    E extends Object declared in class Vector
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decompiler.java:779: warning: [unchecked] unchecked call to put(K,V) as a member of the raw type HashMap
+               this.hash_TabComponent2File.put(this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()), this.file);
+                                              ^
+  where K,V are type-variables:
+    K extends Object declared in class HashMap
+    V extends Object declared in class HashMap
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decompiler.java:780: warning: [unchecked] unchecked call to put(K,V) as a member of the raw type HashMap
+               this.hash_TabComponent2Func2VarVec.put(this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()), this.hash_Func2VarVec);
+                                                     ^
+  where K,V are type-variables:
+    K extends Object declared in class HashMap
+    V extends Object declared in class HashMap
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decompiler.java:781: warning: [unchecked] unchecked call to put(K,V) as a member of the raw type HashMap
+               this.hash_TabComponent2TreeModel.put(this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()), this.jTree.getModel());
+                                                   ^
+  where K,V are type-variables:
+    K extends Object declared in class HashMap
+    V extends Object declared in class HashMap
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decompiler.java:792: warning: [unchecked] unchecked call to put(K,V) as a member of the raw type HashMap
+               this.hash_TabComponent2File.put(this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()), this.file);
+                                              ^
+  where K,V are type-variables:
+    K extends Object declared in class HashMap
+    V extends Object declared in class HashMap
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decompiler.java:793: warning: [unchecked] unchecked call to put(K,V) as a member of the raw type HashMap
+               this.hash_TabComponent2Func2VarVec.put(this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()), this.hash_Func2VarVec);
+                                                     ^
+  where K,V are type-variables:
+    K extends Object declared in class HashMap
+    V extends Object declared in class HashMap
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decompiler.java:794: warning: [unchecked] unchecked call to put(K,V) as a member of the raw type HashMap
+               this.hash_TabComponent2TreeModel.put(this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()), this.jTree.getModel());
+                                                   ^
+  where K,V are type-variables:
+    K extends Object declared in class HashMap
+    V extends Object declared in class HashMap
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decompiler.java:813: warning: [unchecked] unchecked call to put(K,V) as a member of the raw type HashMap
+               this.hash_TabComponent2File.put(this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()), this.file);
+                                              ^
+  where K,V are type-variables:
+    K extends Object declared in class HashMap
+    V extends Object declared in class HashMap
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decompiler.java:814: warning: [unchecked] unchecked call to put(K,V) as a member of the raw type HashMap
+               this.hash_TabComponent2Func2VarVec.put(this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()), this.hash_Func2VarVec);
+                                                     ^
+  where K,V are type-variables:
+    K extends Object declared in class HashMap
+    V extends Object declared in class HashMap
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decompiler.java:815: warning: [unchecked] unchecked call to put(K,V) as a member of the raw type HashMap
+               this.hash_TabComponent2TreeModel.put(this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()), this.jTree.getModel());
+                                                   ^
+  where K,V are type-variables:
+    K extends Object declared in class HashMap
+    V extends Object declared in class HashMap
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decompiler.java:66: warning: [serial] serializable class Decompiler has no definition of serialVersionUID
+public class Decompiler
+       ^
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decompiler.java:90: warning: [serial] non-transient instance field of a serializable class declared with a non-serializable type
+   private Element rootElement;
+                   ^
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Decompiler.java:105: warning: [serial] non-transient instance field of a serializable class declared with a non-serializable type
+   private FileDecompiler fileDecompiler = new FileDecompiler();
+                          ^
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\Settings.java:17: warning: [serial] serializable class Settings has no definition of serialVersionUID
+public class Settings extends Properties implements ActionListener {
+       ^
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\FileDecompiler.java:24: warning: [rawtypes] found raw type: Hashtable
+   private Hashtable filedata;
+           ^
+  missing type arguments for generic class Hashtable<K,V>
+  where K,V are type-variables:
+    K extends Object declared in class Hashtable
+    V extends Object declared in class Hashtable
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\FileDecompiler.java:30: warning: [rawtypes] found raw type: Hashtable
+         this.filedata = new Hashtable(1);
+                             ^
+  missing type arguments for generic class Hashtable<K,V>
+  where K,V are type-variables:
+    K extends Object declared in class Hashtable
+    V extends Object declared in class Hashtable
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\FileDecompiler.java:41: warning: [rawtypes] found raw type: Hashtable
+   public Hashtable getVariableData(File file) {
+          ^
+  missing type arguments for generic class Hashtable<K,V>
+  where K,V are type-variables:
+    K extends Object declared in class Hashtable
+    V extends Object declared in class Hashtable
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\FileDecompiler.java:68: warning: [unchecked] unchecked call to put(K,V) as a member of the raw type Hashtable
+         this.filedata.put(file, data);
+                          ^
+  where K,V are type-variables:
+    K extends Object declared in class Hashtable
+    V extends Object declared in class Hashtable
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\FileDecompiler.java:89: warning: [rawtypes] found raw type: Hashtable
+   public Hashtable updateSubName(File file, String oldname, String newname) {
+          ^
+  missing type arguments for generic class Hashtable<K,V>
+  where K,V are type-variables:
+    K extends Object declared in class Hashtable
+    V extends Object declared in class Hashtable
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\FileDecompiler.java:125: warning: [rawtypes] found raw type: Enumeration
+      Enumeration en = this.filedata.elements();
+      ^
+  missing type arguments for generic class Enumeration<E>
+  where E is a type-variable:
+    E extends Object declared in interface Enumeration
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\FileDecompiler.java:133: warning: [rawtypes] found raw type: Enumeration
+      Enumeration var4 = null;
+      ^
+  missing type arguments for generic class Enumeration<E>
+  where E is a type-variable:
+    E extends Object declared in interface Enumeration
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\FileDecompiler.java:501: warning: [deprecation] Integer(int) in Integer has been deprecated
+      String cmd = "nwnnsscomp -d -g " + new Integer(gflag) + " -o \"" + outname + "\" \"" + inpath + "\"";
+                                         ^
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\FileDecompiler.java:528: warning: [deprecation] Integer(int) in Integer has been deprecated
+      String cmd = "nwnnsscomp -c -g " + new Integer(gflag) + " -o " + "\"" + outname + "\" \"" + file.getAbsolutePath() + "\"";
+                                         ^
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\FileDecompiler.java:1248: warning: [rawtypes] found raw type: ArrayList
+      private ArrayList subs = new ArrayList();
+              ^
+  missing type arguments for generic class ArrayList<E>
+  where E is a type-variable:
+    E extends Object declared in class ArrayList
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\FileDecompiler.java:1248: warning: [rawtypes] found raw type: ArrayList
+      private ArrayList subs = new ArrayList();
+                                   ^
+  missing type arguments for generic class ArrayList<E>
+  where E is a type-variable:
+    E extends Object declared in class ArrayList
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\FileDecompiler.java:1263: warning: [rawtypes] found raw type: Iterator
+         Iterator it = this.subs.iterator();
+         ^
+  missing type arguments for generic class Iterator<E>
+  where E is a type-variable:
+    E extends Object declared in interface Iterator
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\FileDecompiler.java:1290: warning: [unchecked] unchecked call to add(E) as a member of the raw type ArrayList
+         this.subs.add(sub);
+                      ^
+  where E is a type-variable:
+    E extends Object declared in class ArrayList
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\FileDecompiler.java:1298: error: incompatible types: Object cannot be converted to SubScriptState
+         for (SubScriptState state : this.subs) {
+                                         ^
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\FileDecompiler.java:1326: warning: [rawtypes] found raw type: Hashtable
+      public Hashtable getVars() {
+             ^
+  missing type arguments for generic class Hashtable<K,V>
+  where K,V are type-variables:
+    K extends Object declared in class Hashtable
+    V extends Object declared in class Hashtable
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\FileDecompiler.java:1330: warning: [rawtypes] found raw type: Hashtable
+            Hashtable vars = new Hashtable(1);
+            ^
+  missing type arguments for generic class Hashtable<K,V>
+  where K,V are type-variables:
+    K extends Object declared in class Hashtable
+    V extends Object declared in class Hashtable
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\FileDecompiler.java:1330: warning: [rawtypes] found raw type: Hashtable
+            Hashtable vars = new Hashtable(1);
+                                 ^
+  missing type arguments for generic class Hashtable<K,V>
+  where K,V are type-variables:
+    K extends Object declared in class Hashtable
+    V extends Object declared in class Hashtable
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\FileDecompiler.java:1332: error: incompatible types: Object cannot be converted to SubScriptState
+            for (SubScriptState state : this.subs) {
+                                            ^
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\FileDecompiler.java:1333: warning: [unchecked] unchecked call to put(K,V) as a member of the raw type Hashtable
+               vars.put(state.getName(), state.getVariables());
+                       ^
+  where K,V are type-variables:
+    K extends Object declared in class Hashtable
+    V extends Object declared in class Hashtable
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\FileDecompiler.java:1337: warning: [unchecked] unchecked call to put(K,V) as a member of the raw type Hashtable
+               vars.put("GLOBALS", this.globals.getVariables());
+                       ^
+  where K,V are type-variables:
+    K extends Object declared in class Hashtable
+    V extends Object declared in class Hashtable
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\FileDecompiler.java:1375: error: incompatible types: Object cannot be converted to SubScriptState
+               for (SubScriptState state : this.subs) {
+                                               ^
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\FileDecompiler.java:1400: warning: [rawtypes] found raw type: Iterator
+            Iterator it = null;
+            ^
+  missing type arguments for generic class Iterator<E>
+  where E is a type-variable:
+    E extends Object declared in interface Iterator
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\FileDecompiler.java:1414: warning: [deprecation] exec(String) in Runtime has been deprecated
+            Process proc = rt.exec(args);
+                             ^
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\DecompilerException.java:3: warning: [serial] serializable class DecompilerException has no definition of serialVersionUID
+public class DecompilerException extends Exception {
+       ^
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\scriptutils\SubScriptState.java:86: warning: [rawtypes] found raw type: Hashtable
+   private Hashtable vardecs;
+           ^
+  missing type arguments for generic class Hashtable<K,V>
+  where K,V are type-variables:
+    K extends Object declared in class Hashtable
+    V extends Object declared in class Hashtable
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\scriptutils\SubScriptState.java:87: warning: [rawtypes] found raw type: Hashtable
+   private Hashtable varcounts;
+           ^
+  missing type arguments for generic class Hashtable<K,V>
+  where K,V are type-variables:
+    K extends Object declared in class Hashtable
+    V extends Object declared in class Hashtable
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\scriptutils\SubScriptState.java:88: warning: [rawtypes] found raw type: Hashtable
+   private Hashtable varnames;
+           ^
+  missing type arguments for generic class Hashtable<K,V>
+  where K,V are type-variables:
+    K extends Object declared in class Hashtable
+    V extends Object declared in class Hashtable
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\scriptutils\SubScriptState.java:94: warning: [rawtypes] found raw type: Hashtable
+      this.vardecs = new Hashtable(1);
+                         ^
+  missing type arguments for generic class Hashtable<K,V>
+  where K,V are type-variables:
+    K extends Object declared in class Hashtable
+    V extends Object declared in class Hashtable
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\scriptutils\SubScriptState.java:96: warning: [rawtypes] found raw type: Hashtable
+      this.varcounts = new Hashtable(1);
+                           ^
+  missing type arguments for generic class Hashtable<K,V>
+  where K,V are type-variables:
+    K extends Object declared in class Hashtable
+    V extends Object declared in class Hashtable
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\scriptutils\SubScriptState.java:100: warning: [rawtypes] found raw type: Hashtable
+      this.varnames = new Hashtable(1);
+                          ^
+  missing type arguments for generic class Hashtable<K,V>
+  where K,V are type-variables:
+    K extends Object declared in class Hashtable
+    V extends Object declared in class Hashtable
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\scriptutils\SubScriptState.java:108: warning: [rawtypes] found raw type: Hashtable
+      this.vardecs = new Hashtable(1);
+                         ^
+  missing type arguments for generic class Hashtable<K,V>
+  where K,V are type-variables:
+    K extends Object declared in class Hashtable
+    V extends Object declared in class Hashtable
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\scriptutils\SubScriptState.java:112: warning: [rawtypes] found raw type: Hashtable
+      this.varcounts = new Hashtable(1);
+                           ^
+  missing type arguments for generic class Hashtable<K,V>
+  where K,V are type-variables:
+    K extends Object declared in class Hashtable
+    V extends Object declared in class Hashtable
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\scriptutils\SubScriptState.java:114: warning: [rawtypes] found raw type: Hashtable
+      this.varnames = new Hashtable(1);
+                          ^
+  missing type arguments for generic class Hashtable<K,V>
+  where K,V are type-variables:
+    K extends Object declared in class Hashtable
+    V extends Object declared in class Hashtable
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\scriptutils\SubScriptState.java:134: warning: [rawtypes] found raw type: Enumeration
+         Enumeration en = this.vardecs.keys();
+         ^
+  missing type arguments for generic class Enumeration<E>
+  where E is a type-variable:
+    E extends Object declared in interface Enumeration
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\scriptutils\SubScriptState.java:139: warning: [deprecation] Integer(int) in Integer has been deprecated
+            this.vardecs.put(var, new Integer(1));
+                                  ^
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\scriptutils\SubScriptState.java:139: warning: [unchecked] unchecked call to put(K,V) as a member of the raw type Hashtable
+            this.vardecs.put(var, new Integer(1));
+                            ^
+  where K,V are type-variables:
+    K extends Object declared in class Hashtable
+    V extends Object declared in class Hashtable
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\scriptutils\SubScriptState.java:143: warning: [rawtypes] found raw type: Enumeration
+      Enumeration en = null;
+      ^
+  missing type arguments for generic class Enumeration<E>
+  where E is a type-variable:
+    E extends Object declared in interface Enumeration
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\scriptutils\SubScriptState.java:148: warning: [rawtypes] found raw type: Enumeration
+         Enumeration en = this.vardecs.keys();
+         ^
+  missing type arguments for generic class Enumeration<E>
+  where E is a type-variable:
+    E extends Object declared in interface Enumeration
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\scriptutils\SubScriptState.java:338: error: incompatible types: Object cannot be converted to Variable
+                     for (Variable var : vars) {
+                                         ^
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\scriptutils\SubScriptState.java:789: error: incompatible types: Object cannot be converted to Variable
+      for (Variable var : vars) {
+                          ^
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\scriptutils\SubScriptState.java:852: error: incompatible types: Object cannot be converted to AUnkLoopControl
+         for (AUnkLoopControl unk : acase.getUnknowns()) {
+                                                     ^
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\stack\LocalVarStack.java:167: error: incompatible types: Object cannot be converted to StackEntry
+      for (StackEntry entry : this.stack) {
+                                  ^
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\stack\VarStruct.java:23: error: incompatible types: Object cannot be converted to Type
+      for (Type type : structtype.types()) {
+                                       ^
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\scriptnode\ASub.java:115: error: incompatible types: Object cannot be converted to ScriptNode
+         for (ScriptNode param : this.params) {
+                                     ^
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\scriptnode\ASwitch.java:102: error: incompatible types: Object cannot be converted to ScriptNode
+         for (ScriptNode param : this.cases) {
+                                     ^
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\scriptnode\ASwitchCase.java:29: error: incompatible types: Object cannot be converted to ScriptNode
+      for (ScriptNode node : this.children) {
+                                 ^
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\scriptnode\AActionExp.java:17: error: repeated interface
+         this.addParam((AExpression & AExpression)params.get(i));
+                                      ^
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\scriptnode\AActionExp.java:70: error: incompatible types: Object cannot be converted to ScriptNode
+         for (ScriptNode param : this.params) {
+                                     ^
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\scriptnode\AFcnCallExp.java:16: error: repeated interface
+         this.addParam((AExpression & AExpression)params.get(i));
+                                      ^
+G:\GitHub\HoloPatcher.NET\vendor\DeNCS\DeNCS\com\\kotor\\resource\\formats\\ncs\scriptnode\AFcnCallExp.java:54: error: incompatible types: Object cannot be converted to ScriptNode
+         for (ScriptNode param : this.params) {
+                                     ^
+Note: Some input files additionally use or override a deprecated API.
+Note: Some input files additionally use unchecked or unsafe operations.
+16 errors
+100 warnings
+only showing the first 100 warnings, of 296 total; use -Xmaxwarns if you would like to see more
+

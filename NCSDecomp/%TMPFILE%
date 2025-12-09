@@ -1,0 +1,197 @@
+.\com\\kotor\\resource\\formats\\ncs\Decompiler.java:139: warning: [this-escape] possible 'this' escape before subclass is fully initialized
+      menuItem.addActionListener(this);
+                                 ^
+.\com\\kotor\\resource\\formats\\ncs\FileDecompiler.java:639: warning: [dangling-doc-comments] documentation comment is not attached to any declaration
+   /**
+   ^
+.\com\\kotor\\resource\\formats\\ncs\scriptutils\SubScriptState.java:224: warning: [cast] redundant cast to VarStruct
+            varstructs.add((VarStruct) var.varstruct());
+                           ^
+.\com\\kotor\\resource\\formats\\ncs\scriptutils\SubScriptState.java:318: warning: [cast] redundant cast to AVarDecl
+      AVarDecl vardec = (AVarDecl) this.vardecs.get(var);
+                        ^
+.\com\\kotor\\resource\\formats\\ncs\scriptutils\SubScriptState.java:355: warning: [cast] redundant cast to AVarDecl
+                        AVarDecl vardec = (AVarDecl) this.vardecs.get(var);
+                                          ^
+.\com\\kotor\\resource\\formats\\ncs\scriptutils\SubScriptState.java:818: warning: [cast] redundant cast to AVarDecl
+            AVarDecl vardec = (AVarDecl) this.vardecs.get(var);
+                              ^
+.\com\\kotor\\resource\\formats\\ncs\scriptutils\SubScriptState.java:919: warning: [cast] redundant cast to AControlLoop
+      return (AControlLoop) (NodeUtils.isJzPastOne(beforeJump)
+             ^
+.\com\\kotor\\resource\\formats\\ncs\utils\SubroutineState.java:65: warning: [cast] redundant cast to SubroutineState.DecisionData
+            ((SubroutineState.DecisionData)it.next()).close();
+             ^
+.\com\\kotor\\resource\\formats\\ncs\utils\SubroutineState.java:158: warning: [cast] redundant cast to SubroutineState.DecisionData
+         SubroutineState.DecisionData decision = (SubroutineState.DecisionData)this.decisionqueue.getFirst();
+                                                 ^
+.\com\\kotor\\resource\\formats\\ncs\utils\SubroutineState.java:174: warning: [cast] redundant cast to SubroutineState.DecisionData
+      if (((SubroutineState.DecisionData)this.decisionqueue.getFirst()).destination == pos) {
+           ^
+.\com\\kotor\\resource\\formats\\ncs\utils\SubroutineState.java:309: warning: [cast] redundant cast to SubroutineState.DecisionData
+      SubroutineState.DecisionData data = (SubroutineState.DecisionData)this.decisionqueue.getLast();
+                                          ^
+.\com\\kotor\\resource\\formats\\ncs\utils\SubroutineState.java:319: warning: [cast] redundant cast to SubroutineState.DecisionData
+         SubroutineState.DecisionData data = (SubroutineState.DecisionData)this.decisionqueue.getLast();
+                                             ^
+.\com\\kotor\\resource\\formats\\ncs\stack\VarStruct.java:46: warning: [cast] redundant cast to Variable
+            ((Variable)this.vars.get(i)).close();
+             ^
+.\com\\kotor\\resource\\formats\\ncs\stack\VarStruct.java:101: warning: [cast] redundant cast to Variable
+         ((Variable)this.vars.get(0)).name("z");
+          ^
+.\com\\kotor\\resource\\formats\\ncs\stack\VarStruct.java:102: warning: [cast] redundant cast to Variable
+         ((Variable)this.vars.get(1)).name("y");
+          ^
+.\com\\kotor\\resource\\formats\\ncs\stack\VarStruct.java:103: warning: [cast] redundant cast to Variable
+         ((Variable)this.vars.get(2)).name("x");
+          ^
+.\com\\kotor\\resource\\formats\\ncs\stack\VarStruct.java:106: warning: [cast] redundant cast to Variable
+            ((Variable)this.vars.get(i)).name(this.structtype.elementName(this.vars.size() - i - 1));
+             ^
+.\com\\kotor\\resource\\formats\\ncs\stack\VarStruct.java:114: warning: [cast] redundant cast to Variable
+         ((Variable)this.vars.get(i)).assigned();
+          ^
+.\com\\kotor\\resource\\formats\\ncs\stack\VarStruct.java:121: warning: [cast] redundant cast to Variable
+         ((Variable)this.vars.get(i)).addedToStack(stack);
+          ^
+.\com\\kotor\\resource\\formats\\ncs\stack\VarStruct.java:34: warning: [this-escape] possible 'this' escape before subclass is fully initialized
+            this.addVar(new VarStruct((StructType)type));
+                       ^
+.\com\\kotor\\resource\\formats\\ncs\stack\LocalTypeStack.java:91: warning: [cast] redundant cast to Type
+            Type type = (Type)this.stack.removeFirst();
+                        ^
+.\com\\kotor\\resource\\formats\\ncs\scriptnode\ScriptRootNode.java:54: warning: [cast] redundant cast to ScriptNode
+      return (ScriptNode)this.children.removeLast();
+             ^
+.\com\\kotor\\resource\\formats\\ncs\scriptnode\ScriptRootNode.java:63: warning: [cast] redundant cast to ScriptNode
+      ScriptNode child = (ScriptNode)this.children.remove(index);
+                         ^
+.\com\\kotor\\resource\\formats\\ncs\scriptnode\ScriptRootNode.java:69: warning: [cast] redundant cast to ScriptNode
+      return (ScriptNode)this.children.getLast();
+             ^
+.\com\\kotor\\resource\\formats\\ncs\scriptnode\ScriptRootNode.java:73: warning: [cast] redundant cast to ScriptNode
+      return this.children.size() < pos ? null : (ScriptNode)this.children.get(this.children.size() - pos);
+                                                 ^
+.\com\\kotor\\resource\\formats\\ncs\scriptnode\ASub.java:29: warning: [this-escape] possible 'this' escape before subclass is fully initialized
+         this.addParam(params.get(i));
+                      ^
+.\com\\kotor\\resource\\formats\\ncs\scriptnode\AVarDecl.java:16: warning: [this-escape] possible 'this' escape before subclass is fully initialized
+      this.var(var);
+              ^
+.\com\\kotor\\resource\\formats\\ncs\scriptnode\AVarRef.java:16: warning: [this-escape] possible 'this' escape before subclass is fully initialized
+      this.var(var);
+              ^
+.\com\\kotor\\resource\\formats\\ncs\scriptnode\AVarRef.java:20: warning: [this-escape] possible 'this' escape before subclass is fully initialized
+      this.var(struct);
+              ^
+.\com\\kotor\\resource\\formats\\ncs\scriptnode\ASwitch.java:37: warning: [cast] redundant cast to ASwitchCase
+         ((ASwitchCase)this.cases.get(this.cases.size() - 1)).end(end);
+          ^
+.\com\\kotor\\resource\\formats\\ncs\scriptnode\ASwitch.java:56: warning: [cast] redundant cast to ASwitchCase
+      return (ASwitchCase)this.cases.get(this.cases.size() - 1);
+             ^
+.\com\\kotor\\resource\\formats\\ncs\scriptnode\ASwitch.java:69: warning: [cast] redundant cast to ASwitchCase
+            return this.cases.size() > index ? (ASwitchCase)this.cases.get(index) : this.defaultcase;
+                                               ^
+.\com\\kotor\\resource\\formats\\ncs\scriptnode\ASwitch.java:75: warning: [cast] redundant cast to ASwitchCase
+      return this.cases.size() > 0 ? (ASwitchCase)this.cases.get(0) : this.defaultcase;
+                                     ^
+.\com\\kotor\\resource\\formats\\ncs\scriptnode\ASwitch.java:80: warning: [cast] redundant cast to ASwitchCase
+         return ((ASwitchCase)this.cases.get(0)).getStart();
+                 ^
+.\com\\kotor\\resource\\formats\\ncs\scriptnode\ASwitch.java:20: warning: [this-escape] possible 'this' escape before subclass is fully initialized
+      this.switchExp(switchexp);
+                    ^
+.\com\\kotor\\resource\\formats\\ncs\scriptnode\ASwitchCase.java:15: warning: [this-escape] possible 'this' escape before subclass is fully initialized
+      this.val(val);
+              ^
+.\com\\kotor\\resource\\formats\\ncs\scriptnode\ASwitchCase.java:27: warning: [this-escape] previous possible 'this' escape happens here via invocation
+      val.parent(this);
+                 ^
+.\com\\kotor\\resource\\formats\\ncs\TreeModelFactory.java:14: warning: [serial] serializable class TreeModelFactory has no definition of serialVersionUID
+public class TreeModelFactory extends JTree {
+       ^
+.\com\\kotor\\resource\\formats\\ncs\lexer\LexerException.java:10: warning: [serial] serializable class LexerException has no definition of serialVersionUID
+public class LexerException extends Exception {
+       ^
+.\com\\kotor\\resource\\formats\\ncs\node\TypedLinkedList.java:15: warning: [serial] serializable class TypedLinkedList has no definition of serialVersionUID
+public class TypedLinkedList<T> extends LinkedList<T> {
+       ^
+.\com\\kotor\\resource\\formats\\ncs\node\TypedLinkedList.java:16: warning: [serial] non-transient instance field of a serializable class declared with a non-serializable type
+   private final Cast<T> cast;
+                         ^
+.\com\\kotor\\resource\\formats\\ncs\node\TypedLinkedList.java:24: warning: [this-escape] possible 'this' escape before subclass is fully initialized
+      this.addAll(c);
+                 ^
+.\com\\kotor\\resource\\formats\\ncs\node\TypedLinkedList.java:33: warning: [this-escape] possible 'this' escape before subclass is fully initialized
+      this.addAll(c);
+                 ^
+.\com\\kotor\\resource\\formats\\ncs\parser\Parser.java:305: warning: [cast] redundant cast to State
+         State s = (State)this.stack.next();
+                   ^
+.\com\\kotor\\resource\\formats\\ncs\parser\Parser.java:312: warning: [cast] redundant cast to State
+      State s = (State)this.stack.previous();
+                ^
+.\com\\kotor\\resource\\formats\\ncs\parser\Parser.java:318: warning: [cast] redundant cast to State
+      return (Node)((State)this.stack.previous()).node;
+                    ^
+.\com\\kotor\\resource\\formats\\ncs\parser\Parser.java:778: warning: [fallthrough] possible fall-through into case
+                  default:
+                  ^
+.\com\\kotor\\resource\\formats\\ncs\parser\ParserException.java:12: warning: [serial] serializable class ParserException has no definition of serialVersionUID
+public class ParserException extends Exception {
+       ^
+.\com\\kotor\\resource\\formats\\ncs\parser\ParserException.java:13: warning: [serial] non-transient instance field of a serializable class declared with a non-serializable type
+   Token token;
+         ^
+.\com\\kotor\\resource\\formats\\ncs\scriptnode\AActionExp.java:35: warning: [cast] redundant cast to AExpression
+      return (AExpression)this.params.get(pos);
+             ^
+.\com\\kotor\\resource\\formats\\ncs\scriptnode\AActionExp.java:22: warning: [this-escape] possible 'this' escape before subclass is fully initialized
+         this.addParam(params.get(i));
+                      ^
+.\com\\kotor\\resource\\formats\\ncs\scriptnode\ABinaryExp.java:16: warning: [this-escape] possible 'this' escape before subclass is fully initialized
+      this.left(left);
+               ^
+.\com\\kotor\\resource\\formats\\ncs\scriptnode\AConditionalExp.java:16: warning: [this-escape] possible 'this' escape before subclass is fully initialized
+      this.left(left);
+               ^
+.\com\\kotor\\resource\\formats\\ncs\scriptnode\AExpressionStatement.java:11: warning: [this-escape] possible 'this' escape before subclass is fully initialized
+      exp.parent(this);
+                 ^
+.\com\\kotor\\resource\\formats\\ncs\scriptnode\AFcnCallExp.java:21: warning: [this-escape] possible 'this' escape before subclass is fully initialized
+         this.addParam(params.get(i));
+                      ^
+.\com\\kotor\\resource\\formats\\ncs\scriptnode\AIf.java:10: warning: [this-escape] possible 'this' escape before subclass is fully initialized
+      this.condition(condition);
+                    ^
+.\com\\kotor\\resource\\formats\\ncs\scriptnode\AModifyExp.java:14: warning: [this-escape] possible 'this' escape before subclass is fully initialized
+      this.varRef(varref);
+                 ^
+.\com\\kotor\\resource\\formats\\ncs\scriptnode\AReturnStatement.java:14: warning: [this-escape] possible 'this' escape before subclass is fully initialized
+      this.returnexp(returnexp);
+                    ^
+.\com\\kotor\\resource\\formats\\ncs\scriptnode\AUnaryExp.java:15: warning: [this-escape] possible 'this' escape before subclass is fully initialized
+      this.exp(exp);
+              ^
+.\com\\kotor\\resource\\formats\\ncs\scriptnode\AUnaryModExp.java:16: warning: [this-escape] possible 'this' escape before subclass is fully initialized
+      this.varRef(varref);
+                 ^
+.\com\\kotor\\resource\\formats\\ncs\scriptnode\AVectorConstExp.java:15: warning: [this-escape] possible 'this' escape before subclass is fully initialized
+      this.exp1(exp1);
+               ^
+.\com\\kotor\\resource\\formats\\ncs\utils\FlattenSub.java:46: warning: [this-escape] possible 'this' escape before subclass is fully initialized
+      this.setSub(sub);
+                 ^
+.\com\\kotor\\resource\\formats\\ncs\utils\SubroutinePathFinder.java:57: warning: [fallthrough] possible fall-through into case
+         case 1:
+         ^
+.\com\\kotor\\resource\\formats\\ncs\utils\SubroutinePathFinder.java:59: warning: [fallthrough] possible fall-through into case
+         case 2:
+         ^
+.\com\\kotor\\resource\\formats\\ncs\utils\SubroutinePathFinder.java:61: warning: [fallthrough] possible fall-through into case
+         default:
+         ^
+65 warnings
+

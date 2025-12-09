@@ -1,0 +1,210 @@
+# NCSDecomp - KotOR Script Decompiler
+
+## Welcome
+
+**NCSDecomp** is a tool that converts compiled KotOR game scripts (`.ncs` files) back into readable source code (`.nss` files). This version includes both a simple-to-use Windows program and command-line tools.
+
+---
+
+## 🚀 Quick Start Guide
+
+### Option 1: Using the Windows Program (Easiest!)
+
+1. **Navigate** to the `NCSDecompCLI` folder
+2. **Run** `NCSDecompCLI.exe` from Command Prompt (see examples below)
+
+That's it! No Java installation needed - everything is included.
+
+### Option 2: Using the JAR File
+
+If you prefer the JAR version, you'll need Java installed on your computer. Then you can run:
+
+```shell
+java -jar NCSDecomp-CLI.jar [options]
+```
+
+---
+
+## 📖 How to Use
+
+### Opening Command Prompt (Windows)
+
+1. Press `Windows Key + R`
+2. Type `cmd` and press Enter
+3. Navigate to the `NCSDecompCLI` folder where NCSDecomp is located:
+   ```
+   cd C:\path\to\NCSDecomp\NCSDecompCLI
+   ```
+
+### Basic Examples
+
+#### Decompile a Single File (KotOR 2 / TSL)
+
+```powershell
+.\NCSDecompCLI.exe -i "script.ncs" -o "script.nss" --k2
+```
+
+This will:
+- Read `script.ncs`
+- Create `script.nss` with the decompiled code
+- Use KotOR 2 definitions (TSL)
+
+#### Decompile a Single File (KotOR 1)
+
+```powershell
+.\NCSDecompCLI.exe -i "script.ncs" -o "script.nss" --k1
+```
+
+#### Decompile an Entire Folder
+
+```powershell
+.\NCSDecompCLI.exe -i "scripts_folder" -r --k2 -O "output_folder"
+```
+
+This will:
+- Process all `.ncs` files in `scripts_folder`
+- Include all subfolders (`-r` means recursive)
+- Save results to `output_folder`
+- Use KotOR 2 definitions (`--k2`)
+
+#### View Decompiled Code in Console
+
+```powershell
+.\NCSDecompCLI.exe -i "script.ncs" --stdout --k2
+```
+
+This displays the code directly in the command window instead of saving to a file.
+
+---
+
+## 🎮 Game Mode Selection
+
+NCSDecomp needs to know which game you're working with:
+
+- **`--k1`** or **`--game=k1`** - For Knights of the Old Republic (KotOR 1)
+- **`--k2`** or **`--tsl`** or **`--game=k2`** - For Knights of the Old Republic II: The Sith Lords (TSL)
+
+If you don't specify, it defaults to KotOR 1 mode.
+
+---
+
+## 📁 Required Files
+
+The required `nwscript.nss` files are automatically included in the `app` subdirectory. The executable will find them automatically - no manual setup needed!
+
+- `k1_nwscript.nss` - Required for KotOR 1 scripts (automatically in `app` folder)
+- `tsl_nwscript.nss` - Required for KotOR 2/TSL scripts (automatically in `app` folder)
+
+**Note:** If using the JAR version, you need to have these files in your current working directory.
+
+---
+
+## 🔧 Common Options
+
+| Option | Description | Example |
+|--------|-------------|---------|
+| `-i`, `--input` | Input file or folder | `-i "script.ncs"` |
+| `-o`, `--output` | Output file name | `-o "output.nss"` |
+| `-O`, `--out-dir` | Output folder | `-O "results"` |
+| `-r`, `--recursive` | Process subfolders | `-r` |
+| `--k1` | Use KotOR 1 mode | `--k1` |
+| `--k2`, `--tsl` | Use KotOR 2/TSL mode | `--k2` |
+| `--stdout` | Show output in console | `--stdout` |
+| `--overwrite` | Overwrite existing files | `--overwrite` |
+| `--quiet` | Less verbose output | `--quiet` |
+| `--help` | Show help message | `--help` |
+
+---
+
+## 📝 More Examples
+
+### Example 1: Batch Decompile
+
+Create a text file named `decompile.bat` with this content:
+
+```batch
+@echo off
+cd /d "%~dp0NCSDecompCLI"
+NCSDecompCLI.exe -i "C:\KotOR\scripts" -r --k2 -O "C:\KotOR\decompiled"
+pause
+```
+
+This batch file changes to the NCSDecompCLI directory first, then runs the executable. Double-click the `.bat` file to run it.
+
+### Example 2: Process Multiple Files
+
+```powershell
+.\NCSDecompCLI.exe -i file1.ncs -i file2.ncs -i file3.ncs --k2 -O output
+```
+
+### Example 3: Add Custom Suffix
+
+```powershell
+.\NCSDecompCLI.exe -i script.ncs --suffix "_decompiled" --k2
+```
+
+This creates `script_decompiled.nss` instead of `script.nss`.
+
+---
+
+## ❓ Troubleshooting
+
+### "Error: nwscript file not found"
+
+**Problem**: Missing `nwscript.nss` file
+
+**Solution**:
+- For `NCSDecompCLI.exe`: The files should be automatically in the `app` subdirectory. If you get this error, ensure the executable folder structure is intact.
+- For JAR version: Make sure `k1_nwscript.nss` or `tsl_nwscript.nss` is in your current working directory.
+- You can also use `--nwscript <path>` to specify the exact location of the nwscript file.
+
+### "No .ncs files found"
+
+**Problem**: No `.ncs` files in the specified location
+
+**Solution**: Check that your input path is correct and contains `.ncs` files
+
+### Program won't start
+
+**Problem**: Windows security might be blocking it
+
+**Solution**: Right-click `NCSDecompCLI.exe` → Properties → Check "Unblock" → Apply
+
+---
+
+## 📚 Getting Help
+
+- Run `.\NCSDecompCLI.exe --help` for a full list of options (from within the NCSDecompCLI folder)
+- Run `.\NCSDecompCLI.exe --version` for version information
+- Visit [https://bolabaden.org](https://bolabaden.org) for more resources
+
+---
+
+## 🎯 Advanced Usage
+
+For detailed technical documentation, see `README-TECHNICAL.md` included in this package.
+
+---
+
+## 🙏 Credits
+
+**Original Developers:**
+- JdNoa - Script Decompiler
+- Dashus - GUI
+
+**Current Maintainer:**
+- th3w1zard1
+
+**Website:** [https://bolabaden.org](https://bolabaden.org)
+
+**Source Code:** [https://github.com/bolabaden](https://github.com/bolabaden)
+
+---
+
+## 📄 License
+
+This software is provided "as is" with no warranty. See the original NCSDecomp documentation for license details.
+
+---
+
+**Enjoy decompiling!** 🎮✨

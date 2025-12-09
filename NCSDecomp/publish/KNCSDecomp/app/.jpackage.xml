@@ -1,0 +1,5 @@
+<?xml version="1.0" ?>
+<jpackage-state version="25.0.1" platform="windows">
+  <app-version>2.0</app-version>
+  <main-launcher>DeNCS</main-launcher>
+  <main-class>com.knights2end.nwscript.decomp.DeNCSCLI</main-class></jpackage-state>

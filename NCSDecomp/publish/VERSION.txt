@@ -1,0 +1,5 @@
+NCSDecomp CLI Distribution Package
+Version: 2.0
+Build Date: 2025-12-09 05:36:01
+
+For more information, visit: https://bolabaden.org

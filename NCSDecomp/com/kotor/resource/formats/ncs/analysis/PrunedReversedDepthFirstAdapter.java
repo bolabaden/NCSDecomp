@@ -1,0 +1,789 @@
+// Copyright 2021-2025 NCSDecomp
+// Licensed under the Business Source License 1.1 (BSL 1.1).
+// See LICENSE.txt file in the project root for full license information.
+
+package com.kotor.resource.formats.ncs.analysis;
+
+import com.kotor.resource.formats.ncs.node.AActionCmd;
+import com.kotor.resource.formats.ncs.node.AActionCommand;
+import com.kotor.resource.formats.ncs.node.AActionJumpCmd;
+import com.kotor.resource.formats.ncs.node.AAddVarCmd;
+import com.kotor.resource.formats.ncs.node.ABinaryCmd;
+import com.kotor.resource.formats.ncs.node.ABinaryCommand;
+import com.kotor.resource.formats.ncs.node.ABpCmd;
+import com.kotor.resource.formats.ncs.node.ABpCommand;
+import com.kotor.resource.formats.ncs.node.ACommandBlock;
+import com.kotor.resource.formats.ncs.node.ACondJumpCmd;
+import com.kotor.resource.formats.ncs.node.AConditionalJumpCommand;
+import com.kotor.resource.formats.ncs.node.AConstCmd;
+import com.kotor.resource.formats.ncs.node.AConstCommand;
+import com.kotor.resource.formats.ncs.node.ACopyDownBpCommand;
+import com.kotor.resource.formats.ncs.node.ACopyDownSpCommand;
+import com.kotor.resource.formats.ncs.node.ACopyTopBpCommand;
+import com.kotor.resource.formats.ncs.node.ACopyTopSpCommand;
+import com.kotor.resource.formats.ncs.node.ACopydownbpCmd;
+import com.kotor.resource.formats.ncs.node.ACopydownspCmd;
+import com.kotor.resource.formats.ncs.node.ACopytopbpCmd;
+import com.kotor.resource.formats.ncs.node.ACopytopspCmd;
+import com.kotor.resource.formats.ncs.node.ADestructCmd;
+import com.kotor.resource.formats.ncs.node.ADestructCommand;
+import com.kotor.resource.formats.ncs.node.AJumpCmd;
+import com.kotor.resource.formats.ncs.node.AJumpCommand;
+import com.kotor.resource.formats.ncs.node.AJumpSubCmd;
+import com.kotor.resource.formats.ncs.node.AJumpToSubroutine;
+import com.kotor.resource.formats.ncs.node.ALogiiCmd;
+import com.kotor.resource.formats.ncs.node.ALogiiCommand;
+import com.kotor.resource.formats.ncs.node.AMoveSpCommand;
+import com.kotor.resource.formats.ncs.node.AMovespCmd;
+import com.kotor.resource.formats.ncs.node.AProgram;
+import com.kotor.resource.formats.ncs.node.AReturn;
+import com.kotor.resource.formats.ncs.node.AReturnCmd;
+import com.kotor.resource.formats.ncs.node.ARsaddCommand;
+import com.kotor.resource.formats.ncs.node.AStackCommand;
+import com.kotor.resource.formats.ncs.node.AStackOpCmd;
+import com.kotor.resource.formats.ncs.node.AStoreStateCmd;
+import com.kotor.resource.formats.ncs.node.AStoreStateCommand;
+import com.kotor.resource.formats.ncs.node.ASubroutine;
+import com.kotor.resource.formats.ncs.node.AUnaryCmd;
+import com.kotor.resource.formats.ncs.node.AUnaryCommand;
+import com.kotor.resource.formats.ncs.node.Node;
+import com.kotor.resource.formats.ncs.node.PCmd;
+import com.kotor.resource.formats.ncs.node.PSubroutine;
+import com.kotor.resource.formats.ncs.node.Start;
+
+/**
+ * Depth-first visitor that iterates child lists in reverse order.
+ * <p>
+ * Useful when later passes need to simulate stack effects from the bottom up.
+ */
+public class PrunedReversedDepthFirstAdapter extends AnalysisAdapter {
+   public void inStart(Start node) {
+      this.defaultIn(node);
+   }
+
+   public void outStart(Start node) {
+      this.defaultOut(node);
+   }
+
+   public void defaultIn(Node node) {
+   }
+
+   public void defaultOut(Node node) {
+   }
+
+   @Override
+   public void caseStart(Start node) {
+      this.inStart(node);
+      node.getPProgram().apply(this);
+      this.outStart(node);
+   }
+
+   public void inAProgram(AProgram node) {
+      this.defaultIn(node);
+   }
+
+   public void outAProgram(AProgram node) {
+      this.defaultOut(node);
+   }
+
+   @Override
+   public void caseAProgram(AProgram node) {
+      this.inAProgram(node);
+      Object[] temp = node.getSubroutine().toArray();
+
+      for (int i = temp.length - 1; i >= 0; i--) {
+         ((PSubroutine)temp[i]).apply(this);
+      }
+
+      if (node.getReturn() != null) {
+         node.getReturn().apply(this);
+      }
+
+      if (node.getJumpToSubroutine() != null) {
+         node.getJumpToSubroutine().apply(this);
+      }
+
+      this.outAProgram(node);
+   }
+
+   public void inASubroutine(ASubroutine node) {
+      this.defaultIn(node);
+   }
+
+   public void outASubroutine(ASubroutine node) {
+      this.defaultOut(node);
+   }
+
+   @Override
+   public void caseASubroutine(ASubroutine node) {
+      this.inASubroutine(node);
+      if (node.getReturn() != null) {
+         node.getReturn().apply(this);
+      }
+
+      if (node.getCommandBlock() != null) {
+         node.getCommandBlock().apply(this);
+      }
+
+      this.outASubroutine(node);
+   }
+
+   public void inACommandBlock(ACommandBlock node) {
+      this.defaultIn(node);
+   }
+
+   public void outACommandBlock(ACommandBlock node) {
+      this.defaultOut(node);
+   }
+
+   @Override
+   public void caseACommandBlock(ACommandBlock node) {
+      this.inACommandBlock(node);
+      Object[] temp = node.getCmd().toArray();
+
+      for (int i = temp.length - 1; i >= 0; i--) {
+         ((PCmd)temp[i]).apply(this);
+      }
+
+      this.outACommandBlock(node);
+   }
+
+   public void inAAddVarCmd(AAddVarCmd node) {
+      this.defaultIn(node);
+   }
+
+   public void outAAddVarCmd(AAddVarCmd node) {
+      this.defaultOut(node);
+   }
+
+   @Override
+   public void caseAAddVarCmd(AAddVarCmd node) {
+      this.inAAddVarCmd(node);
+      if (node.getRsaddCommand() != null) {
+         node.getRsaddCommand().apply(this);
+      }
+
+      this.outAAddVarCmd(node);
+   }
+
+   public void inAActionJumpCmd(AActionJumpCmd node) {
+      this.defaultIn(node);
+   }
+
+   public void outAActionJumpCmd(AActionJumpCmd node) {
+      this.defaultOut(node);
+   }
+
+   @Override
+   public void caseAActionJumpCmd(AActionJumpCmd node) {
+      this.inAActionJumpCmd(node);
+      if (node.getReturn() != null) {
+         node.getReturn().apply(this);
+      }
+
+      if (node.getCommandBlock() != null) {
+         node.getCommandBlock().apply(this);
+      }
+
+      if (node.getJumpCommand() != null) {
+         node.getJumpCommand().apply(this);
+      }
+
+      if (node.getStoreStateCommand() != null) {
+         node.getStoreStateCommand().apply(this);
+      }
+
+      this.outAActionJumpCmd(node);
+   }
+
+   public void inAConstCmd(AConstCmd node) {
+      this.defaultIn(node);
+   }
+
+   public void outAConstCmd(AConstCmd node) {
+      this.defaultOut(node);
+   }
+
+   @Override
+   public void caseAConstCmd(AConstCmd node) {
+      this.inAConstCmd(node);
+      if (node.getConstCommand() != null) {
+         node.getConstCommand().apply(this);
+      }
+
+      this.outAConstCmd(node);
+   }
+
+   public void inACopydownspCmd(ACopydownspCmd node) {
+      this.defaultIn(node);
+   }
+
+   public void outACopydownspCmd(ACopydownspCmd node) {
+      this.defaultOut(node);
+   }
+
+   @Override
+   public void caseACopydownspCmd(ACopydownspCmd node) {
+      this.inACopydownspCmd(node);
+      if (node.getCopyDownSpCommand() != null) {
+         node.getCopyDownSpCommand().apply(this);
+      }
+
+      this.outACopydownspCmd(node);
+   }
+
+   public void inACopytopspCmd(ACopytopspCmd node) {
+      this.defaultIn(node);
+   }
+
+   public void outACopytopspCmd(ACopytopspCmd node) {
+      this.defaultOut(node);
+   }
+
+   @Override
+   public void caseACopytopspCmd(ACopytopspCmd node) {
+      this.inACopytopspCmd(node);
+      if (node.getCopyTopSpCommand() != null) {
+         node.getCopyTopSpCommand().apply(this);
+      }
+
+      this.outACopytopspCmd(node);
+   }
+
+   public void inACopydownbpCmd(ACopydownbpCmd node) {
+      this.defaultIn(node);
+   }
+
+   public void outACopydownbpCmd(ACopydownbpCmd node) {
+      this.defaultOut(node);
+   }
+
+   @Override
+   public void caseACopydownbpCmd(ACopydownbpCmd node) {
+      this.inACopydownbpCmd(node);
+      if (node.getCopyDownBpCommand() != null) {
+         node.getCopyDownBpCommand().apply(this);
+      }
+
+      this.outACopydownbpCmd(node);
+   }
+
+   public void inACopytopbpCmd(ACopytopbpCmd node) {
+      this.defaultIn(node);
+   }
+
+   public void outACopytopbpCmd(ACopytopbpCmd node) {
+      this.defaultOut(node);
+   }
+
+   @Override
+   public void caseACopytopbpCmd(ACopytopbpCmd node) {
+      this.inACopytopbpCmd(node);
+      if (node.getCopyTopBpCommand() != null) {
+         node.getCopyTopBpCommand().apply(this);
+      }
+
+      this.outACopytopbpCmd(node);
+   }
+
+   public void inACondJumpCmd(ACondJumpCmd node) {
+      this.defaultIn(node);
+   }
+
+   public void outACondJumpCmd(ACondJumpCmd node) {
+      this.defaultOut(node);
+   }
+
+   @Override
+   public void caseACondJumpCmd(ACondJumpCmd node) {
+      this.inACondJumpCmd(node);
+      if (node.getConditionalJumpCommand() != null) {
+         node.getConditionalJumpCommand().apply(this);
+      }
+
+      this.outACondJumpCmd(node);
+   }
+
+   public void inAJumpCmd(AJumpCmd node) {
+      this.defaultIn(node);
+   }
+
+   public void outAJumpCmd(AJumpCmd node) {
+      this.defaultOut(node);
+   }
+
+   @Override
+   public void caseAJumpCmd(AJumpCmd node) {
+      this.inAJumpCmd(node);
+      if (node.getJumpCommand() != null) {
+         node.getJumpCommand().apply(this);
+      }
+
+      this.outAJumpCmd(node);
+   }
+
+   public void inAJumpSubCmd(AJumpSubCmd node) {
+      this.defaultIn(node);
+   }
+
+   public void outAJumpSubCmd(AJumpSubCmd node) {
+      this.defaultOut(node);
+   }
+
+   @Override
+   public void caseAJumpSubCmd(AJumpSubCmd node) {
+      this.inAJumpSubCmd(node);
+      if (node.getJumpToSubroutine() != null) {
+         node.getJumpToSubroutine().apply(this);
+      }
+
+      this.outAJumpSubCmd(node);
+   }
+
+   public void inAMovespCmd(AMovespCmd node) {
+      this.defaultIn(node);
+   }
+
+   public void outAMovespCmd(AMovespCmd node) {
+      this.defaultOut(node);
+   }
+
+   @Override
+   public void caseAMovespCmd(AMovespCmd node) {
+      this.inAMovespCmd(node);
+      if (node.getMoveSpCommand() != null) {
+         node.getMoveSpCommand().apply(this);
+      }
+
+      this.outAMovespCmd(node);
+   }
+
+   public void inALogiiCmd(ALogiiCmd node) {
+      this.defaultIn(node);
+   }
+
+   public void outALogiiCmd(ALogiiCmd node) {
+      this.defaultOut(node);
+   }
+
+   @Override
+   public void caseALogiiCmd(ALogiiCmd node) {
+      this.inALogiiCmd(node);
+      if (node.getLogiiCommand() != null) {
+         node.getLogiiCommand().apply(this);
+      }
+
+      this.outALogiiCmd(node);
+   }
+
+   public void inAUnaryCmd(AUnaryCmd node) {
+      this.defaultIn(node);
+   }
+
+   public void outAUnaryCmd(AUnaryCmd node) {
+      this.defaultOut(node);
+   }
+
+   @Override
+   public void caseAUnaryCmd(AUnaryCmd node) {
+      this.inAUnaryCmd(node);
+      if (node.getUnaryCommand() != null) {
+         node.getUnaryCommand().apply(this);
+      }
+
+      this.outAUnaryCmd(node);
+   }
+
+   public void inABinaryCmd(ABinaryCmd node) {
+      this.defaultIn(node);
+   }
+
+   public void outABinaryCmd(ABinaryCmd node) {
+      this.defaultOut(node);
+   }
+
+   @Override
+   public void caseABinaryCmd(ABinaryCmd node) {
+      this.inABinaryCmd(node);
+      if (node.getBinaryCommand() != null) {
+         node.getBinaryCommand().apply(this);
+      }
+
+      this.outABinaryCmd(node);
+   }
+
+   public void inADestructCmd(ADestructCmd node) {
+      this.defaultIn(node);
+   }
+
+   public void outADestructCmd(ADestructCmd node) {
+      this.defaultOut(node);
+   }
+
+   @Override
+   public void caseADestructCmd(ADestructCmd node) {
+      this.inADestructCmd(node);
+      if (node.getDestructCommand() != null) {
+         node.getDestructCommand().apply(this);
+      }
+
+      this.outADestructCmd(node);
+   }
+
+   public void inABpCmd(ABpCmd node) {
+      this.defaultIn(node);
+   }
+
+   public void outABpCmd(ABpCmd node) {
+      this.defaultOut(node);
+   }
+
+   @Override
+   public void caseABpCmd(ABpCmd node) {
+      this.inABpCmd(node);
+      if (node.getBpCommand() != null) {
+         node.getBpCommand().apply(this);
+      }
+
+      this.outABpCmd(node);
+   }
+
+   public void inAActionCmd(AActionCmd node) {
+      this.defaultIn(node);
+   }
+
+   public void outAActionCmd(AActionCmd node) {
+      this.defaultOut(node);
+   }
+
+   @Override
+   public void caseAActionCmd(AActionCmd node) {
+      this.inAActionCmd(node);
+      if (node.getActionCommand() != null) {
+         node.getActionCommand().apply(this);
+      }
+
+      this.outAActionCmd(node);
+   }
+
+   public void inAStackOpCmd(AStackOpCmd node) {
+      this.defaultIn(node);
+   }
+
+   public void outAStackOpCmd(AStackOpCmd node) {
+      this.defaultOut(node);
+   }
+
+   @Override
+   public void caseAStackOpCmd(AStackOpCmd node) {
+      this.inAStackOpCmd(node);
+      if (node.getStackCommand() != null) {
+         node.getStackCommand().apply(this);
+      }
+
+      this.outAStackOpCmd(node);
+   }
+
+   public void inAReturnCmd(AReturnCmd node) {
+      this.defaultIn(node);
+   }
+
+   public void outAReturnCmd(AReturnCmd node) {
+      this.defaultOut(node);
+   }
+
+   @Override
+   public void caseAReturnCmd(AReturnCmd node) {
+      this.inAReturnCmd(node);
+      if (node.getReturn() != null) {
+         node.getReturn().apply(this);
+      }
+
+      this.outAReturnCmd(node);
+   }
+
+   public void inAStoreStateCmd(AStoreStateCmd node) {
+      this.defaultIn(node);
+   }
+
+   public void outAStoreStateCmd(AStoreStateCmd node) {
+      this.defaultOut(node);
+   }
+
+   @Override
+   public void caseAStoreStateCmd(AStoreStateCmd node) {
+      this.inAStoreStateCmd(node);
+      if (node.getStoreStateCommand() != null) {
+         node.getStoreStateCommand().apply(this);
+      }
+
+      this.outAStoreStateCmd(node);
+   }
+
+   public void inAConditionalJumpCommand(AConditionalJumpCommand node) {
+      this.defaultIn(node);
+   }
+
+   public void outAConditionalJumpCommand(AConditionalJumpCommand node) {
+      this.defaultOut(node);
+   }
+
+   @Override
+   public void caseAConditionalJumpCommand(AConditionalJumpCommand node) {
+      this.inAConditionalJumpCommand(node);
+      this.outAConditionalJumpCommand(node);
+   }
+
+   public void inAJumpCommand(AJumpCommand node) {
+      this.defaultIn(node);
+   }
+
+   public void outAJumpCommand(AJumpCommand node) {
+      this.defaultOut(node);
+   }
+
+   @Override
+   public void caseAJumpCommand(AJumpCommand node) {
+      this.inAJumpCommand(node);
+      this.outAJumpCommand(node);
+   }
+
+   public void inAJumpToSubroutine(AJumpToSubroutine node) {
+      this.defaultIn(node);
+   }
+
+   public void outAJumpToSubroutine(AJumpToSubroutine node) {
+      this.defaultOut(node);
+   }
+
+   @Override
+   public void caseAJumpToSubroutine(AJumpToSubroutine node) {
+      this.inAJumpToSubroutine(node);
+      this.outAJumpToSubroutine(node);
+   }
+
+   public void inAReturn(AReturn node) {
+      this.defaultIn(node);
+   }
+
+   public void outAReturn(AReturn node) {
+      this.defaultOut(node);
+   }
+
+   @Override
+   public void caseAReturn(AReturn node) {
+      this.inAReturn(node);
+      this.outAReturn(node);
+   }
+
+   public void inACopyDownSpCommand(ACopyDownSpCommand node) {
+      this.defaultIn(node);
+   }
+
+   public void outACopyDownSpCommand(ACopyDownSpCommand node) {
+      this.defaultOut(node);
+   }
+
+   @Override
+   public void caseACopyDownSpCommand(ACopyDownSpCommand node) {
+      this.inACopyDownSpCommand(node);
+      this.outACopyDownSpCommand(node);
+   }
+
+   public void inACopyTopSpCommand(ACopyTopSpCommand node) {
+      this.defaultIn(node);
+   }
+
+   public void outACopyTopSpCommand(ACopyTopSpCommand node) {
+      this.defaultOut(node);
+   }
+
+   @Override
+   public void caseACopyTopSpCommand(ACopyTopSpCommand node) {
+      this.inACopyTopSpCommand(node);
+      this.outACopyTopSpCommand(node);
+   }
+
+   public void inACopyDownBpCommand(ACopyDownBpCommand node) {
+      this.defaultIn(node);
+   }
+
+   public void outACopyDownBpCommand(ACopyDownBpCommand node) {
+      this.defaultOut(node);
+   }
+
+   @Override
+   public void caseACopyDownBpCommand(ACopyDownBpCommand node) {
+      this.inACopyDownBpCommand(node);
+      this.outACopyDownBpCommand(node);
+   }
+
+   public void inACopyTopBpCommand(ACopyTopBpCommand node) {
+      this.defaultIn(node);
+   }
+
+   public void outACopyTopBpCommand(ACopyTopBpCommand node) {
+      this.defaultOut(node);
+   }
+
+   @Override
+   public void caseACopyTopBpCommand(ACopyTopBpCommand node) {
+      this.inACopyTopBpCommand(node);
+      this.outACopyTopBpCommand(node);
+   }
+
+   public void inAMoveSpCommand(AMoveSpCommand node) {
+      this.defaultIn(node);
+   }
+
+   public void outAMoveSpCommand(AMoveSpCommand node) {
+      this.defaultOut(node);
+   }
+
+   @Override
+   public void caseAMoveSpCommand(AMoveSpCommand node) {
+      this.inAMoveSpCommand(node);
+      this.outAMoveSpCommand(node);
+   }
+
+   public void inARsaddCommand(ARsaddCommand node) {
+      this.defaultIn(node);
+   }
+
+   public void outARsaddCommand(ARsaddCommand node) {
+      this.defaultOut(node);
+   }
+
+   @Override
+   public void caseARsaddCommand(ARsaddCommand node) {
+      this.inARsaddCommand(node);
+      this.outARsaddCommand(node);
+   }
+
+   public void inAConstCommand(AConstCommand node) {
+      this.defaultIn(node);
+   }
+
+   public void outAConstCommand(AConstCommand node) {
+      this.defaultOut(node);
+   }
+
+   @Override
+   public void caseAConstCommand(AConstCommand node) {
+      this.inAConstCommand(node);
+      this.outAConstCommand(node);
+   }
+
+   public void inAActionCommand(AActionCommand node) {
+      this.defaultIn(node);
+   }
+
+   public void outAActionCommand(AActionCommand node) {
+      this.defaultOut(node);
+   }
+
+   @Override
+   public void caseAActionCommand(AActionCommand node) {
+      this.inAActionCommand(node);
+      this.outAActionCommand(node);
+   }
+
+   public void inALogiiCommand(ALogiiCommand node) {
+      this.defaultIn(node);
+   }
+
+   public void outALogiiCommand(ALogiiCommand node) {
+      this.defaultOut(node);
+   }
+
+   @Override
+   public void caseALogiiCommand(ALogiiCommand node) {
+      this.inALogiiCommand(node);
+      this.outALogiiCommand(node);
+   }
+
+   public void inABinaryCommand(ABinaryCommand node) {
+      this.defaultIn(node);
+   }
+
+   public void outABinaryCommand(ABinaryCommand node) {
+      this.defaultOut(node);
+   }
+
+   @Override
+   public void caseABinaryCommand(ABinaryCommand node) {
+      this.inABinaryCommand(node);
+      this.outABinaryCommand(node);
+   }
+
+   public void inAUnaryCommand(AUnaryCommand node) {
+      this.defaultIn(node);
+   }
+
+   public void outAUnaryCommand(AUnaryCommand node) {
+      this.defaultOut(node);
+   }
+
+   @Override
+   public void caseAUnaryCommand(AUnaryCommand node) {
+      this.inAUnaryCommand(node);
+      this.outAUnaryCommand(node);
+   }
+
+   public void inAStackCommand(AStackCommand node) {
+      this.defaultIn(node);
+   }
+
+   public void outAStackCommand(AStackCommand node) {
+      this.defaultOut(node);
+   }
+
+   @Override
+   public void caseAStackCommand(AStackCommand node) {
+      this.inAStackCommand(node);
+      this.outAStackCommand(node);
+   }
+
+   public void inADestructCommand(ADestructCommand node) {
+      this.defaultIn(node);
+   }
+
+   public void outADestructCommand(ADestructCommand node) {
+      this.defaultOut(node);
+   }
+
+   @Override
+   public void caseADestructCommand(ADestructCommand node) {
+      this.inADestructCommand(node);
+      this.outADestructCommand(node);
+   }
+
+   public void inABpCommand(ABpCommand node) {
+      this.defaultIn(node);
+   }
+
+   public void outABpCommand(ABpCommand node) {
+      this.defaultOut(node);
+   }
+
+   @Override
+   public void caseABpCommand(ABpCommand node) {
+      this.inABpCommand(node);
+      this.outABpCommand(node);
+   }
+
+   public void inAStoreStateCommand(AStoreStateCommand node) {
+      this.defaultIn(node);
+   }
+
+   public void outAStoreStateCommand(AStoreStateCommand node) {
+      this.defaultOut(node);
+   }
+
+   @Override
+   public void caseAStoreStateCommand(AStoreStateCommand node) {
+      this.inAStoreStateCommand(node);
+      this.outAStoreStateCommand(node);
+   }
+}
+
