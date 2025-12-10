@@ -21,7 +21,6 @@ import java.nio.file.FileSystemException;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Deque;
 import java.util.List;
 import java.util.Map;
@@ -653,29 +652,22 @@ public class NCSDecompCLIRoundTripTest {
       content = content.replaceAll("(\\))\\s*\n\\s*(if|else|while|for|return|break|continue)\\s*\\(", "$1;\n\t$2 (");
       content = content.replaceAll("(\\))\\s*\n\\s*(if|else|while|for|return|break|continue)\\s+", "$1;\n\t$2 ");
       
-      // Fix malformed expressions with extra operators at the start of lines
-      // Remove standalone operators that appear at line start
-      content = content.replaceAll("\n\\s*([=!<>+\\-*/|&]{2,})\\s*", "\n\t");
-      
       // Fix syntax errors with closing braces - ensure there's content before }
-      // Pattern: empty blocks or incomplete statements before }
-      // If we see a line with just } or } after incomplete statement, try to fix
-      // This is tricky, so we'll be conservative
+      // Be very conservative - only fix obvious cases
       
-      // Fix empty function bodies that might cause issues: { } -> { return; }
-      // But only for void functions to avoid type issues
-      content = content.replaceAll("\\{\\s*\\}", "{ return; }");
-      
-      // Fix missing statements before closing braces in function bodies
-      // If a function body has only a closing brace, add a return statement
-      // Pattern: void function() { } -> void function() { return; }
+      // Fix empty function bodies in void functions: void func() { } -> void func() { return; }
+      // But only if it's clearly a function definition, not at top level
       java.util.regex.Pattern emptyVoidFuncPattern = java.util.regex.Pattern.compile(
-            "(void\\s+[a-zA-Z_][a-zA-Z0-9_]*\\s*\\([^)]*\\)\\s*\\{\\s*)\\}");
-      content = emptyVoidFuncPattern.matcher(content).replaceAll("$1return; }");
+            "(void\\s+[a-zA-Z_][a-zA-Z0-9_]*\\s*\\([^)]*\\)\\s*\\{\\s*)\\}\\s*");
+      content = emptyVoidFuncPattern.matcher(content).replaceAll("$1return;\n}");
       
       // Fix incomplete statements before closing braces
       // If a line ends with an operator and next line is just }, that's likely an error
+      // But be careful - only fix if it's clearly incomplete
       content = content.replaceAll("([=!<>+\\-*/|&])\\s*\n\\s*\\}", "$1 0;\n}");
+      
+      // Fix standalone closing braces at the start of file (invalid)
+      content = content.replaceAll("^\\s*\\}\\s*\n", "");
       
       return content;
    }
@@ -1155,26 +1147,32 @@ public class NCSDecompCLIRoundTripTest {
     */
    private static String validateAndFixFileStructure(String content) {
       if (content == null || content.trim().isEmpty()) {
-         return "// Empty file\nvoid main() {\n\treturn;\n}\n";
+         // Don't add content for empty files - let the decompiler handle it
+         // or it might be a valid empty file
+         return content != null ? content : "";
       }
       
       // Count braces to ensure they're balanced
       long openBraces = content.chars().filter(c -> c == '{').count();
       long closeBraces = content.chars().filter(c -> c == '}').count();
       
-      // If there's a mismatch, try to fix it
+      // If there's a mismatch, try to fix it carefully
       if (closeBraces > openBraces) {
          // Too many closing braces - this might cause "Syntax error at }"
-         // Remove extra closing braces at the end
+         // Remove extra closing braces at the end, but be careful
          int extra = (int)(closeBraces - openBraces);
-         for (int i = 0; i < extra; i++) {
-            int lastBrace = content.lastIndexOf('}');
-            if (lastBrace != -1) {
-               content = content.substring(0, lastBrace) + content.substring(lastBrace + 1);
+         // Only remove if there are significantly more closing braces
+         // and they're at the end of the file
+         String trimmed = content.trim();
+         if (trimmed.endsWith("}")) {
+            // Remove trailing closing braces one by one
+            for (int i = 0; i < extra && trimmed.endsWith("}"); i++) {
+               trimmed = trimmed.substring(0, trimmed.length() - 1).trim();
             }
+            content = trimmed;
          }
       } else if (openBraces > closeBraces) {
-         // Too many opening braces - add closing braces
+         // Too many opening braces - add closing braces at the end
          int missing = (int)(openBraces - closeBraces);
          for (int i = 0; i < missing; i++) {
             content += "\n}";
@@ -1182,7 +1180,7 @@ public class NCSDecompCLIRoundTripTest {
       }
       
       // Ensure file ends with newline
-      if (!content.endsWith("\n")) {
+      if (!content.endsWith("\n") && !content.isEmpty()) {
          content += "\n";
       }
       
@@ -1261,12 +1259,9 @@ public class NCSDecompCLIRoundTripTest {
             result.append("}");
             
             // Update lastPos to after the function
-            int bracePos = content.indexOf('{', funcEnd);
-            if (bracePos != -1) {
-               lastPos = Math.min(content.length(), bracePos + 1 + funcBody.length() + 1); // +1 for closing brace
-            } else {
-               lastPos = funcEnd;
-            }
+            // funcEnd points to after the opening brace (pattern ends with {)
+            // body starts at funcEnd, has length funcBody.length(), closing brace is after that
+            lastPos = Math.min(content.length(), funcEnd + funcBody.length() + 1);
          } else {
             lastPos = funcEnd;
          }
