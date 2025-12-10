@@ -17,12 +17,12 @@ import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.Hashtable;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
-import java.util.TreeSet;
 
 public class SubroutineAnalysisData {
    private NodeAnalysisData nodedata;
-   private Hashtable<Integer, ASubroutine> subroutines;
+   private LinkedHashMap<Integer, ASubroutine> subroutines;
    private Hashtable<Node, SubroutineState> substates;
    private ASubroutine mainsub;
    private ASubroutine globalsub;
@@ -32,7 +32,7 @@ public class SubroutineAnalysisData {
 
    public SubroutineAnalysisData(NodeAnalysisData nodedata) {
       this.nodedata = nodedata;
-      this.subroutines = new Hashtable<>(1);
+      this.subroutines = new LinkedHashMap<>(1);
       this.substates = new Hashtable<>(1);
       this.globalsub = null;
       this.globalstack = null;
@@ -286,16 +286,7 @@ public class SubroutineAnalysisData {
    }
 
    public Iterator<ASubroutine> getSubroutines() {
-      ArrayList<ASubroutine> subs = new ArrayList<>();
-      TreeSet<Integer> keys = new TreeSet<>();
-      keys.addAll(this.subroutines.keySet());
-      Iterator<Integer> it = keys.iterator();
-
-      while (it.hasNext()) {
-         subs.add(this.subroutines.get(it.next()));
-      }
-
-      return subs.iterator();
+      return new ArrayList<>(this.subroutines.values()).iterator();
    }
 
    public void splitOffSubroutines(Start ast) {

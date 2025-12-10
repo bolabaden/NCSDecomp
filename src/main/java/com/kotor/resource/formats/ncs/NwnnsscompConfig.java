@@ -72,6 +72,34 @@ public class NwnnsscompConfig {
    }
 
    /**
+    * Gets the formatted compile command-line arguments and appends include paths.
+    *
+    * @param executable Path to the nwnnsscomp executable
+    * @param includeDirs Optional include directories to append via {@code -i}
+    * @return Array of command-line arguments
+    */
+   public String[] getCompileArgs(String executable, java.util.List<File> includeDirs) {
+      String[] base = getCompileArgs(executable);
+      if (includeDirs == null || includeDirs.isEmpty()) {
+         return base;
+      }
+
+      java.util.List<String> args = new java.util.ArrayList<>();
+      for (String s : base) {
+         args.add(s);
+      }
+
+      for (File dir : includeDirs) {
+         if (dir != null && dir.exists()) {
+            args.add("-i");
+            args.add(dir.getAbsolutePath());
+         }
+      }
+
+      return args.toArray(new String[0]);
+   }
+
+   /**
     * Gets the formatted decompile command-line arguments.
     *
     * @param executable Path to the nwnnsscomp executable

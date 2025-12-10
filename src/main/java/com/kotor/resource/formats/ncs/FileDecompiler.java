@@ -787,8 +787,8 @@ public class FileDecompiler {
          }
 
          dotypes.done();
-         alldone = subdata.countSubsDone() == subdata.numSubs();
-         onedone = true;
+         boolean alldone = subdata.countSubsDone() == subdata.numSubs();
+         boolean onedone = true;
          int donecount = subdata.countSubsDone();
 
          for (int loopcount = 0; !alldone && onedone && loopcount < 1000; ++loopcount) {

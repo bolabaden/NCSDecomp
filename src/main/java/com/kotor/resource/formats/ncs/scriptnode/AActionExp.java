@@ -65,18 +65,22 @@ public class AActionExp extends ScriptNode implements AExpression {
             int lastNonDefault = paramCount;
             for (int i = paramCount - 1; i >= 0 && i < defaults.size(); i--) {
                String defaultValue = defaults.get(i);
-               if (defaultValue != null) {
-                  String paramStr = this.params.get(i).toString();
-                  // Normalize comparison: handle TRUE/FALSE, 1.0f vs 1.0, etc.
-                  String normalizedParam = normalizeValue(paramStr);
-                  String normalizedDefault = normalizeValue(defaultValue);
-                  if (normalizedParam.equals(normalizedDefault)) {
-                     lastNonDefault = i;
-                  } else {
-                     break;
-                  }
+               if (defaultValue == null) {
+                  break;
+               }
+
+               // Only consider trimming defaults that are commonly compiler-inserted sentinels.
+               if (!isLikelyCompilerInsertedDefault(defaultValue)) {
+                  break;
+               }
+
+               String paramStr = this.params.get(i).toString();
+               // Normalize comparison: handle TRUE/FALSE, 1.0f vs 1.0, etc.
+               String normalizedParam = normalizeValue(paramStr);
+               String normalizedDefault = normalizeValue(defaultValue);
+               if (normalizedParam.equals(normalizedDefault)) {
+                  lastNonDefault = i;
                } else {
-                  // No default for this parameter, so we must include it and all before it
                   break;
                }
             }
@@ -94,6 +98,14 @@ public class AActionExp extends ScriptNode implements AExpression {
 
       buff.append(")");
       return buff.toString();
+   }
+
+   private boolean isLikelyCompilerInsertedDefault(String defaultValue) {
+      if (defaultValue == null) {
+         return false;
+      }
+      String v = defaultValue.trim();
+      return v.equalsIgnoreCase("FALSE") || v.equals("-1") || v.equals("0xFFFFFFFF") || v.equals("0xFFFFFFFFFFFFFFFF");
    }
 
    private String normalizeValue(String value) {
