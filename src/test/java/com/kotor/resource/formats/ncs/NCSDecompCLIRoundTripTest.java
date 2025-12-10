@@ -558,12 +558,42 @@ public class NCSDecompCLIRoundTripTest {
       content = content.replaceAll("__unknown_param_\\d+\\s*\\|\\|\\s*", "");
       content = content.replaceAll("\\|\\|\\s*__unknown_param_\\d+", "");
       
+      // Fix invalid if conditions - if the condition is not an integer, convert it
+      // Use StringBuffer for replacement
+      StringBuffer sb = new StringBuffer();
+      java.util.regex.Pattern ifPattern = java.util.regex.Pattern.compile(
+            "if\\s*\\(\\s*([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\)");
+      java.util.regex.Matcher ifMatcher = ifPattern.matcher(content);
+      while (ifMatcher.find()) {
+         String varName = ifMatcher.group(1);
+         String replacement;
+         // Check if it looks like a string variable
+         if (varName.startsWith("string") || varName.matches("^string\\d+$")) {
+            replacement = "if (" + varName + " != \"\")";
+         }
+         // Check if it looks like an object variable
+         else if (varName.startsWith("object") || varName.matches("^object\\d+$") || varName.startsWith("o")) {
+            replacement = "if (GetIsObjectValid(" + varName + "))";
+         }
+         // Check if it looks like a float variable
+         else if (varName.startsWith("float") || varName.matches("^float\\d+$")) {
+            replacement = "if (" + varName + " != 0.0)";
+         }
+         else {
+            replacement = ifMatcher.group(0); // No change
+         }
+         ifMatcher.appendReplacement(sb, java.util.regex.Matcher.quoteReplacement(replacement));
+      }
+      ifMatcher.appendTail(sb);
+      content = sb.toString();
+      
       return content;
    }
    
    /**
     * Declares all missing variables found in the code, including __unknown_param_*.
     */
+   @SuppressWarnings("unused")
    private static String declareMissingVariables(String content) {
       // Find all __unknown_param_* usages
       java.util.regex.Pattern unknownParamPattern = java.util.regex.Pattern.compile(
@@ -984,102 +1014,20 @@ public class NCSDecompCLIRoundTripTest {
    private static void fixDecompiledCodeForRecompilation(Path decompiledPath, String gameFlag) throws IOException {
       String content = new String(Files.readAllBytes(decompiledPath), StandardCharsets.UTF_8);
       
-      // Step 1: Fix function signatures by analyzing call sites and nwscript signatures
+      // Step 1: Fix invalid expressions (remove ! from function calls, fix invalid operators)
+      content = fixInvalidExpressions(content);
+      
+      // Step 2: Fix function signatures by analyzing call sites and nwscript signatures
       content = fixFunctionSignaturesFromCallSites(content, gameFlag);
       
-      // Step 2: Declare all missing variables (including __unknown_param_*)
-      StringBuilder fixed = new StringBuilder();
+      // Step 3: Declare all missing variables (including __unknown_param_*)
+      content = declareMissingVariables(content);
       
-      // Find all __unknown_param_* usages
-      java.util.regex.Pattern unknownParamPattern = java.util.regex.Pattern.compile(
-            "__unknown_param_(\\d+)");
-      java.util.Set<String> unknownParams = new java.util.HashSet<>();
-      java.util.regex.Matcher matcher = unknownParamPattern.matcher(content);
-      while (matcher.find()) {
-         unknownParams.add(matcher.group(0));
-      }
-      
-      // Find undeclared variables that are used (simple heuristic: word boundaries)
-      java.util.regex.Pattern varUsagePattern = java.util.regex.Pattern.compile(
-            "\\b(int|float|string|object|vector|location|effect|itemproperty|talent|action|event)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*[=;]");
-      java.util.Set<String> declaredVars = new java.util.HashSet<>();
-      java.util.regex.Matcher declMatcher = varUsagePattern.matcher(content);
-      while (declMatcher.find()) {
-         declaredVars.add(declMatcher.group(2));
-      }
-      
-      // Find variable usages that aren't declared
-      java.util.regex.Pattern usagePattern = java.util.regex.Pattern.compile(
-            "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*[=(),;\\[\\]]");
-      java.util.Set<String> usedVars = new java.util.HashSet<>();
-      java.util.regex.Matcher usageMatcher = usagePattern.matcher(content);
-      while (usageMatcher.find()) {
-         String varName = usageMatcher.group(1);
-         // Skip keywords and known functions
-         if (!isReservedName(varName) && !declaredVars.contains(varName) && 
-             varName.matches("^(int|float|string|object|vector|location|effect|itemproperty|talent|action|event)\\d+$")) {
-            usedVars.add(varName);
-         }
-      }
-      
-      // If we found unknown params or undeclared vars, add declarations
-      if (!unknownParams.isEmpty() || !usedVars.isEmpty()) {
-         // Find the insertion point (after globals, before first function)
-         String[] lines = content.split("\n", -1);
-         int insertLine = -1;
-         for (int i = 0; i < lines.length; i++) {
-            String line = lines[i].trim();
-            // Check if we've left the globals section (found a function)
-            if (line.matches("^(void|int|float|string|object|vector|location|effect|itemproperty|talent|action|event)\\s+[a-zA-Z_][a-zA-Z0-9_]*\\s*\\(")) {
-               insertLine = i;
-               break;
-            }
-         }
-         
-         if (insertLine == -1) {
-            insertLine = lines.length;
-         }
-         
-         // Build the fixed content
-         for (int i = 0; i < insertLine; i++) {
-            fixed.append(lines[i]).append("\n");
-         }
-         
-         // Add declarations for unknown params (as int, default to 0)
-         for (String param : unknownParams) {
-            fixed.append("\tint ").append(param).append(" = 0;\n");
-         }
-         
-         // Add declarations for undeclared variables (try to infer type from name)
-         for (String var : usedVars) {
-            if (var.startsWith("int") || var.matches("^int\\d+$")) {
-               fixed.append("\tint ").append(var).append(" = 0;\n");
-            } else if (var.startsWith("string") || var.matches("^string\\d+$")) {
-               fixed.append("\tstring ").append(var).append(" = \"\";\n");
-            } else if (var.startsWith("object") || var.matches("^object\\d+$")) {
-               fixed.append("\tobject ").append(var).append(";\n");
-            } else if (var.startsWith("float") || var.matches("^float\\d+$")) {
-               fixed.append("\tfloat ").append(var).append(" = 0.0;\n");
-            } else {
-               // Default to int for unknown types
-               fixed.append("\tint ").append(var).append(" = 0;\n");
-            }
-         }
-         
-         // Add rest of content
-         for (int i = insertLine; i < lines.length; i++) {
-            fixed.append(lines[i]);
-            if (i < lines.length - 1) {
-               fixed.append("\n");
-            }
-         }
-         
-         Files.write(decompiledPath, fixed.toString().getBytes(StandardCharsets.UTF_8));
-      } else {
-         // Even if no unknown params, write the signature-fixed content
-         Files.write(decompiledPath, content.getBytes(StandardCharsets.UTF_8));
-      }
+      // Write the fixed content
+      Files.write(decompiledPath, content.getBytes(StandardCharsets.UTF_8));
    }
+   
+   // Old implementation removed - using new functions above
 
    /**
     * Detects if a script file needs the ASC nwscript (for ActionStartConversation
@@ -1220,13 +1168,13 @@ public class NCSDecompCLIRoundTripTest {
       java.util.regex.Matcher matcher = funcPattern.matcher(code);
       while (matcher.find()) {
          String funcName = matcher.group(3);
-         String params = matcher.group(0).substring(matcher.start(), matcher.end());
+         String fullMatch = matcher.group(0);
          // Count parameters by counting commas + 1 (if not empty)
          int paramCount = 0;
-         int paramStart = params.indexOf('(');
-         int paramEnd = params.indexOf(')', paramStart);
+         int paramStart = fullMatch.indexOf('(');
+         int paramEnd = fullMatch.indexOf(')', paramStart);
          if (paramStart >= 0 && paramEnd > paramStart) {
-            String paramList = params.substring(paramStart + 1, paramEnd).trim();
+            String paramList = fullMatch.substring(paramStart + 1, paramEnd).trim();
             if (!paramList.isEmpty()) {
                paramCount = paramList.split(",").length;
             }
@@ -1261,12 +1209,12 @@ public class NCSDecompCLIRoundTripTest {
          if (!inFunction && isFunctionStart) {
             // Starting a new function
             String funcName = matcher.group(3);
-            String params = matcher.group(0).substring(matcher.start(), matcher.end());
+            String fullMatch = matcher.group(0);
             int paramCount = 0;
-            int paramStart = params.indexOf('(');
-            int paramEnd = params.indexOf(')', paramStart);
+            int paramStart = fullMatch.indexOf('(');
+            int paramEnd = fullMatch.indexOf(')', paramStart);
             if (paramStart >= 0 && paramEnd > paramStart) {
-               String paramList = params.substring(paramStart + 1, paramEnd).trim();
+               String paramList = fullMatch.substring(paramStart + 1, paramEnd).trim();
                if (!paramList.isEmpty()) {
                   paramCount = paramList.split(",").length;
                }
@@ -1304,12 +1252,12 @@ public class NCSDecompCLIRoundTripTest {
                java.util.regex.Matcher protoMatcher = protoPattern.matcher(line);
                if (protoMatcher.find()) {
                   String funcName = protoMatcher.group(3);
-                  String params = protoMatcher.group(0).substring(protoMatcher.start(), protoMatcher.end());
+                  String fullMatch = protoMatcher.group(0);
                   int paramCount = 0;
-                  int paramStart = params.indexOf('(');
-                  int paramEnd = params.indexOf(')', paramStart);
+                  int paramStart = fullMatch.indexOf('(');
+                  int paramEnd = fullMatch.indexOf(')', paramStart);
                   if (paramStart >= 0 && paramEnd > paramStart) {
-                     String paramList = params.substring(paramStart + 1, paramEnd).trim();
+                     String paramList = fullMatch.substring(paramStart + 1, paramEnd).trim();
                      if (!paramList.isEmpty()) {
                         paramCount = paramList.split(",").length;
                      }
