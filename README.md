@@ -153,6 +153,9 @@ Dependencies are managed through Maven. Add new dependencies to `pom.xml` in the
 ### Running Tests
 
 ```bash
+# Install maven via chocolatey
+choco install maven -y
+
 # Run all tests
 mvn test
 
