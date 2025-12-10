@@ -2325,22 +2325,19 @@ public class NCSDecompCLIRoundTripTest {
       // then match the closing brace before return and remove it
       
       // First, remove opening brace of extra block: function() { { -> function() {
+      // Be careful to preserve newlines and content
       java.util.regex.Pattern extraBlockOpenPattern = java.util.regex.Pattern.compile(
-            "(\\w+\\s+\\w+\\s*\\([^)]*\\)\\s*\\{\\s*)\\{\\s*",
+            "(\\w+\\s+\\w+\\s*\\([^)]*\\)\\s*\\{\\s*\\n?\\s*)\\{\\s*",
             java.util.regex.Pattern.MULTILINE);
       result = extraBlockOpenPattern.matcher(result).replaceAll("$1");
       
       // Then, remove closing brace of extra block before return: } return; } -> return; }
-      // But only if it's followed by return and then another closing brace
+      // Match: closing brace of inner block, optional whitespace/newlines, return statement, 
+      // optional whitespace/newlines, closing brace of function
       java.util.regex.Pattern extraBlockClosePattern = java.util.regex.Pattern.compile(
-            "\\}\\s*\\n\\s*return\\s*;\\s*\\n\\s*\\}",
+            "\\}\\s*\\n?\\s*return\\s*;\\s*\\n?\\s*\\}",
             java.util.regex.Pattern.MULTILINE);
-      result = extraBlockClosePattern.matcher(result).replaceAll("\nreturn; }");
-      
-      // Also handle single-line case: } return; } -> return; }
-      java.util.regex.Pattern extraBlockCloseSinglePattern = java.util.regex.Pattern.compile(
-            "\\}\\s+return\\s*;\\s*\\}");
-      result = extraBlockCloseSinglePattern.matcher(result).replaceAll("return; }");
+      result = extraBlockClosePattern.matcher(result).replaceAll("return; }");
       
       return result;
    }
