@@ -241,7 +241,7 @@ public class SubroutineState {
    /** Ensure params list matches paramsize using placeholder types. */
    public void ensureParamPlaceholders() {
       while (this.params.size() < this.paramsize) {
-         this.params.add(new Type(Type.VT_STRING));
+         this.params.add(new Type(Type.VT_INTEGER));
       }
       while (this.params.size() > this.paramsize) {
          this.params.remove(this.params.size() - 1);

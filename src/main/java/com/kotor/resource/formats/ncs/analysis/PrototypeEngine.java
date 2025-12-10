@@ -117,15 +117,15 @@ public class PrototypeEngine {
             int inferredParams = callsiteParams.getOrDefault(pos, 0);
             int movespParams = this.estimateParamsFromMovesp(sub);
             inferredParams = Math.max(inferredParams, movespParams);
-            // If we still have no signal, choose a minimal safe fallback to avoid stack underflows.
-            if (inferredParams == 0) {
-               inferredParams = 2;
+            if (inferredParams < 0) {
+               inferredParams = 0;
             }
             state.startPrototyping();
             state.setParamCount(inferredParams);
-            // Default to string return unless already set to a non-void type to avoid "invalid"
+            // Default to void return when unknown; avoid inventing non-void types that can
+            // distort call sites (e.g., dropping AssignCommand bodies).
             if (!state.type().isTyped() || state.type().byteValue() == Type.VT_NONE) {
-               state.setReturnType(new Type(Type.VT_STRING), 0);
+               state.setReturnType(new Type(Type.VT_NONE), 0);
             }
             state.ensureParamPlaceholders();
             state.stopPrototyping(true);

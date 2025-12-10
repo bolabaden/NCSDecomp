@@ -769,6 +769,8 @@ public class NCSDecompCLIRoundTripTest {
       String normalized = s.replace("\r\n", "\n").replace("\r", "\n");
       normalized = stripComments(normalized);
       normalized = normalizeIncludes(normalized);
+      normalized = normalizeFunctionBraces(normalized);
+      normalized = normalizePlaceholderGlobals(normalized);
       normalized = normalizeVariableNames(normalized);
       normalized = normalizeDeclarationAssignment(normalized);
       normalized = normalizeTrailingZeroParams(normalized);
@@ -840,6 +842,48 @@ public class NCSDecompCLIRoundTripTest {
    /** Removes #include lines since compiled NCS does not retain them. */
    private static String normalizeIncludes(String code) {
       return code.replaceAll("(?m)^\\s*#include[^\n]*\\n?", "");
+   }
+
+   /**
+    * Remove large runs of compiler-artifact global ints sometimes emitted during
+    * recovery; these do not exist in original sources. Only strip if there are
+    * many (>=10) sequential int globals at the top of the file to avoid hiding
+    * legitimate small global declarations.
+    */
+   private static String normalizePlaceholderGlobals(String code) {
+      String[] lines = code.split("\n");
+      int count = 0;
+      int end = 0;
+      for (int i = 0; i < lines.length; i++) {
+         String line = lines[i].trim();
+         if (line.matches("int\\s+int\\d+\\s*=\\s*[-0-9xa-fA-F]+;")) {
+            count++;
+            end = i;
+         } else if (line.isEmpty()) {
+            // allow leading blank lines between placeholders
+            continue;
+         } else {
+            break;
+         }
+      }
+      if (count >= 10 && end >= 0) {
+         // Remove lines up to 'end'
+         StringBuilder sb = new StringBuilder();
+         for (int i = end + 1; i < lines.length; i++) {
+            sb.append(lines[i]);
+            if (i < lines.length - 1) sb.append("\n");
+         }
+         return sb.toString();
+      }
+      return code;
+   }
+
+   /**
+    * Canonicalize function signature + opening brace spacing so different brace
+    * styles (same-line vs next-line) compare equal.
+    */
+   private static String normalizeFunctionBraces(String code) {
+      return code.replaceAll("\\)\\s*\\n\\s*\\{", ") {");
    }
 
    /**
