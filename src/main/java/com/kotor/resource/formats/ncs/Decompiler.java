@@ -21,6 +21,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.AdjustmentEvent;
 import java.awt.event.AdjustmentListener;
+import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.event.MouseEvent;
@@ -38,6 +39,7 @@ import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
 import java.util.Vector;
+import javax.swing.JButton;
 import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JComponent;
 import javax.swing.JFileChooser;
@@ -52,6 +54,8 @@ import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JTabbedPane;
+import javax.swing.JTextField;
+import javax.swing.JToolBar;
 import javax.swing.JTextArea;
 import javax.swing.JTree;
 import javax.swing.KeyStroke;
@@ -61,6 +65,8 @@ import javax.swing.event.CaretEvent;
 import javax.swing.event.CaretListener;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import javax.swing.event.TreeSelectionEvent;
 import javax.swing.event.TreeSelectionListener;
 import javax.swing.filechooser.FileFilter;
@@ -120,6 +126,9 @@ public class Decompiler
    private transient Map<JComponent, TreeModel> hash_TabComponent2TreeModel;
    protected static List<File> unsavedFiles;
    private transient FileDecompiler fileDecompiler = new FileDecompiler();
+   private JToolBar commandBar;
+   private JTextField treeFilterField;
+   private JLabel statusBarLabel;
 
    static {
       settings.load();
@@ -131,84 +140,94 @@ public class Decompiler
 
    public Decompiler() throws HeadlessException, DecompilerException {
       super("NCSDecomp");
-      JMenuBar menuBar = new JMenuBar();
-      JMenu menu = new JMenu("File");
-      menu.setMnemonic(70);
-      menuBar.add(menu);
-      JMenuItem menuItem = new JMenuItem("Open", 79);
-      menuItem.addActionListener(this);
-      menuItem.setAccelerator(KeyStroke.getKeyStroke(79, 2));
-      menu.add(menuItem);
-      menuItem = new JMenuItem("Close", 87);
-      menuItem.addActionListener(this);
-      menuItem.setAccelerator(KeyStroke.getKeyStroke(87, 2));
-      menuItem.setEnabled(false);
-      menu.add(menuItem);
-      menuItem = new JMenuItem("Close All", 69);
-      menuItem.addActionListener(this);
-      menuItem.setAccelerator(KeyStroke.getKeyStroke(69, 2));
-      menuItem.setEnabled(false);
-      menu.add(menuItem);
-      menuItem = new JMenuItem("Save", 83);
-      menuItem.addActionListener(this);
-      menuItem.setAccelerator(KeyStroke.getKeyStroke(83, 2));
-      menuItem.setEnabled(false);
-      menu.add(menuItem);
-      menuItem = new JMenuItem("Save All", 65);
-      menuItem.addActionListener(this);
-      menuItem.setAccelerator(KeyStroke.getKeyStroke(65, 2));
-      menuItem.setEnabled(false);
-      menu.add(menuItem);
-      menu.insertSeparator(5);
-      menuItem = new JMenuItem("Exit", 88);
-      menuItem.addActionListener(this);
-      menu.add(menuItem);
-      menuBar.add(menu);
-      menu = new JMenu("Options");
-      menu.setMnemonic(79);
-      menuItem = new JMenuItem("Settings", 80);
-      menuItem.addActionListener(this);
-      menu.add(menuItem);
-      menuBar.add(menu);
-      this.setJMenuBar(menuBar);
+      this.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+      this.setJMenuBar(this.buildMenuBar());
+
       this.hash_TabComponent2Func2VarVec = new HashMap<>();
       this.hash_TabComponent2File = new HashMap<>();
       this.hash_TabComponent2TreeModel = new HashMap<>();
       unsavedFiles = new ArrayList<>();
-      this.jTree = new JTree(new Hashtable<>());
+
+      // Navigation tree with inline search
+      this.jTree = new JTree(TreeModelFactory.getEmptyModel());
       this.jTree.setEditable(true);
       this.jTree.addKeyListener(this);
       this.jTree.addTreeSelectionListener(this);
       this.jTreeScrollPane = new JScrollPane(this.jTree);
+
+      this.treeFilterField = new JTextField();
+      this.treeFilterField.putClientProperty("JTextField.placeholderText", "Search functions/variables");
+      this.treeFilterField.getDocument().addDocumentListener(new DocumentListener() {
+         @Override
+         public void insertUpdate(DocumentEvent e) {
+            Decompiler.this.applyTreeFilter(treeFilterField.getText());
+         }
+
+         @Override
+         public void removeUpdate(DocumentEvent e) {
+            Decompiler.this.applyTreeFilter(treeFilterField.getText());
+         }
+
+         @Override
+         public void changedUpdate(DocumentEvent e) {
+            Decompiler.this.applyTreeFilter(treeFilterField.getText());
+         }
+      });
+
+      JPanel navHeader = new JPanel(new BorderLayout());
+      navHeader.add(new JLabel("Scripts"), BorderLayout.WEST);
+      navHeader.add(this.treeFilterField, BorderLayout.CENTER);
+
       this.leftPanel = new JPanel(new BorderLayout());
-      this.leftPanel.add(new JLabel("Subroutines & Variables"), "North");
-      this.leftPanel.add(this.jTreeScrollPane, "Center");
+      this.leftPanel.add(navHeader, BorderLayout.NORTH);
+      this.leftPanel.add(this.jTreeScrollPane, BorderLayout.CENTER);
+
+      // Workspace tabs
       this.jTB = new JTabbedPane();
       this.jTB.addChangeListener(this);
-      this.jTB.setPreferredSize(new Dimension(640, 480));
+      this.jTB.setPreferredSize(new Dimension(900, 720));
       this.dropTarget = new DropTarget(this.jTB, this);
-      this.upperJSplitPane = new JSplitPane(1);
-      this.upperJSplitPane.setLeftComponent(this.leftPanel);
-      this.upperJSplitPane.setRightComponent(this.jTB);
-      this.upperJSplitPane.setDividerLocation(140);
-      this.upperJSplitPane.setDividerSize(5);
-      this.status = new JTextArea(10, 50);
+
+      this.upperJSplitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, this.leftPanel, this.jTB);
+      this.upperJSplitPane.setDividerLocation(260);
+      this.upperJSplitPane.setResizeWeight(0.2);
+      this.upperJSplitPane.setDividerSize(6);
+
+      // Status/logging area
+      this.status = new JTextArea(8, 80);
+      this.status.setEditable(false);
       this.statusScrollPane = new JScrollPane(this.status);
       this.statusScrollPane.setVerticalScrollBarPolicy(22);
       this.statusScrollPane.setHorizontalScrollBarPolicy(32);
-      this.status.setEditable(false);
-      this.setContentPane(this.mainJSplitPane = new JSplitPane(0));
-      this.mainJSplitPane.setTopComponent(this.upperJSplitPane);
-      this.mainJSplitPane.setBottomComponent(this.statusScrollPane);
-      this.mainJSplitPane.setDividerSize(5);
       JPopupMenu statusPopupMenu = new JPopupMenu();
-      menuItem = new JMenuItem("Clear");
-      menuItem.addActionListener(this);
-      statusPopupMenu.add(menuItem);
+      JMenuItem clearItem = new JMenuItem("Clear");
+      clearItem.addActionListener(this);
+      statusPopupMenu.add(clearItem);
       this.status.setComponentPopupMenu(statusPopupMenu);
-      this.setDefaultCloseOperation(3);
-      this.pack();
-      this.setLocation((int)screenWidth / 2 - 320, (int)screenHeight / 2 - 240);
+
+      JPanel statusBar = new JPanel(new BorderLayout());
+      this.statusBarLabel = new JLabel("Ready");
+      statusBar.add(this.statusBarLabel, BorderLayout.WEST);
+
+      JPanel statusWrapper = new JPanel(new BorderLayout());
+      statusWrapper.add(statusBar, BorderLayout.NORTH);
+      statusWrapper.add(this.statusScrollPane, BorderLayout.CENTER);
+
+      this.mainJSplitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT, this.upperJSplitPane, statusWrapper);
+      this.mainJSplitPane.setDividerLocation(0.72);
+      this.mainJSplitPane.setResizeWeight(0.8);
+      this.mainJSplitPane.setDividerSize(6);
+
+      // Toolbar
+      this.commandBar = this.buildToolBar();
+      this.commandBar.setFloatable(false);
+
+      this.setLayout(new BorderLayout());
+      this.add(this.commandBar, BorderLayout.NORTH);
+      this.add(this.mainJSplitPane, BorderLayout.CENTER);
+
+      this.setSize(new Dimension(1200, 820));
+      this.setLocationRelativeTo(null);
       this.addWindowListener(this);
       this.setVisible(true);
    }
@@ -220,6 +239,115 @@ public class Decompiler
          JOptionPane.showMessageDialog(null, var2.getMessage());
       } catch (Exception var3) {
          JOptionPane.showMessageDialog(null, var3.getStackTrace());
+      }
+   }
+
+   private JMenuBar buildMenuBar() {
+      JMenuBar menuBar = new JMenuBar();
+
+      JMenu fileMenu = new JMenu("File");
+      fileMenu.setMnemonic(KeyEvent.VK_F);
+      fileMenu.add(this.menuItem("Open", KeyEvent.VK_O, true));
+      JMenuItem closeItem = this.menuItem("Close", KeyEvent.VK_W, true);
+      closeItem.setEnabled(false);
+      fileMenu.add(closeItem);
+      JMenuItem closeAllItem = this.menuItem("Close All", KeyEvent.VK_E, true);
+      closeAllItem.setEnabled(false);
+      fileMenu.add(closeAllItem);
+      JMenuItem saveItem = this.menuItem("Save", KeyEvent.VK_S, true);
+      saveItem.setEnabled(false);
+      fileMenu.add(saveItem);
+      JMenuItem saveAllItem = this.menuItem("Save All", KeyEvent.VK_A, true);
+      saveAllItem.setEnabled(false);
+      fileMenu.add(saveAllItem);
+      fileMenu.addSeparator();
+      fileMenu.add(this.menuItem("Exit", KeyEvent.VK_Q, true));
+      menuBar.add(fileMenu);
+
+      JMenu viewMenu = new JMenu("View");
+      viewMenu.setMnemonic(KeyEvent.VK_V);
+      viewMenu.add(this.menuItem("View Decompiled Code", KeyEvent.VK_D, false));
+      viewMenu.add(this.menuItem("View Byte Code", KeyEvent.VK_B, false));
+      JCheckBoxMenuItem linkScrollBars = new JCheckBoxMenuItem("Link Scroll Bars");
+      linkScrollBars.setSelected(Boolean.parseBoolean(settings.getProperty("Link Scroll Bars")));
+      linkScrollBars.addActionListener(this);
+      viewMenu.add(linkScrollBars);
+      menuBar.add(viewMenu);
+
+      JMenu optionsMenu = new JMenu("Options");
+      optionsMenu.setMnemonic(KeyEvent.VK_O);
+      optionsMenu.add(this.menuItem("Settings", KeyEvent.VK_P, true));
+      menuBar.add(optionsMenu);
+
+      return menuBar;
+   }
+
+   private JMenuItem menuItem(String text, int key, boolean withCtrl) {
+      JMenuItem item = new JMenuItem(text);
+      item.addActionListener(this);
+      if (key > 0) {
+         item.setAccelerator(
+            withCtrl ? KeyStroke.getKeyStroke(key, InputEvent.CTRL_DOWN_MASK) : KeyStroke.getKeyStroke(key, 0));
+         item.setMnemonic(key);
+      }
+      return item;
+   }
+
+   private JToolBar buildToolBar() {
+      JToolBar bar = new JToolBar();
+      bar.add(this.createToolbarButton("Open"));
+      bar.add(this.createToolbarButton("Save"));
+      bar.add(this.createToolbarButton("Save All"));
+      bar.addSeparator();
+      bar.add(this.createToolbarButton("View Decompiled Code"));
+      bar.add(this.createToolbarButton("View Byte Code"));
+      bar.add(this.createToolbarButton("Link Scroll Bars"));
+      bar.addSeparator();
+      bar.add(this.createToolbarButton("Settings"));
+      bar.add(this.createToolbarButton("Exit"));
+      return bar;
+   }
+
+   private JButton createToolbarButton(String action) {
+      JButton button = new JButton(action);
+      button.setFocusable(false);
+      button.addActionListener(this);
+      button.putClientProperty("action", action);
+      return button;
+   }
+
+   private void applyTreeFilter(String query) {
+      if (query == null) {
+         return;
+      }
+      String normalized = query.trim().toLowerCase();
+      TreeModel model = this.jTree.getModel();
+      if (model == null || model.getRoot() == null) {
+         return;
+      }
+      if (normalized.isEmpty()) {
+         this.jTree.clearSelection();
+         return;
+      }
+
+      List<TreePath> matches = new ArrayList<>();
+      this.collectMatchingPaths(model, new TreePath(model.getRoot()), normalized, matches);
+      if (!matches.isEmpty()) {
+         TreePath first = matches.get(0);
+         this.jTree.setSelectionPath(first);
+         this.jTree.scrollPathToVisible(first);
+      }
+   }
+
+   private void collectMatchingPaths(TreeModel model, TreePath path, String query, List<TreePath> matches) {
+      Object node = path.getLastPathComponent();
+      if (node != null && node.toString().toLowerCase().contains(query)) {
+         matches.add(path);
+      }
+      int childCount = model.getChildCount(node);
+      for (int i = 0; i < childCount; i++) {
+         Object child = model.getChild(node, i);
+         collectMatchingPaths(model, path.pathByAddingChild(child), query, matches);
       }
    }
 
@@ -337,31 +465,33 @@ public class Decompiler
 
    @Override
    public void actionPerformed(ActionEvent arg0) {
-      if (arg0.getSource() instanceof JMenuItem) {
-         String cmd = ((JMenuItem)arg0.getSource()).getText();
-         if (cmd.equals("Open")) {
-            this.open();
-         } else if (cmd.equals("Close")) {
-            this.close(this.jTB.getSelectedIndex());
-         } else if (cmd.equals("Close All")) {
-            this.closeAll();
-         } else if (cmd.equals("Save")) {
-            this.save(this.jTB.getSelectedIndex());
-         } else if (cmd.equals("Save All")) {
-            this.saveAll();
-         } else if (cmd.equals("Exit")) {
-            exit();
-         } else if (cmd.equals("Settings")) {
-            settings.show();
-         } else if (cmd.equals("Clear")) {
-            this.status.setText("");
-         } else if (cmd.equals("View Byte Code")) {
-            this.setTabComponentPanel(1);
-         } else if (cmd.equals("View Decompiled Code")) {
-            this.setTabComponentPanel(0);
-         } else if (cmd.equals("Link Scroll Bars")) {
-            this.toggleLinkScrollBars();
-         }
+      String cmd = arg0.getActionCommand();
+      if (cmd == null) {
+         return;
+      }
+
+      if (cmd.equals("Open")) {
+         this.open();
+      } else if (cmd.equals("Close")) {
+         this.close(this.jTB.getSelectedIndex());
+      } else if (cmd.equals("Close All")) {
+         this.closeAll();
+      } else if (cmd.equals("Save")) {
+         this.save(this.jTB.getSelectedIndex());
+      } else if (cmd.equals("Save All")) {
+         this.saveAll();
+      } else if (cmd.equals("Exit")) {
+         exit();
+      } else if (cmd.equals("Settings")) {
+         settings.show();
+      } else if (cmd.equals("Clear")) {
+         this.status.setText("");
+      } else if (cmd.equals("View Byte Code")) {
+         this.setTabComponentPanel(1);
+      } else if (cmd.equals("View Decompiled Code")) {
+         this.setTabComponentPanel(0);
+      } else if (cmd.equals("Link Scroll Bars")) {
+         this.toggleLinkScrollBars();
       }
    }
 

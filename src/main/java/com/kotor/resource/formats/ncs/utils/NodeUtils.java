@@ -395,10 +395,10 @@ public final class NodeUtils {
 
          return stackSizeToPos(remove);
       } catch (RuntimeException e) {
-         // Action metadata missing or invalid - estimate based on arg count
-         // Assume all params are int (size 1) as a safe default
-         int paramcount = getActionParamCount(node);
-         return paramcount;
+         // Action metadata missing or invalid - fall back to raw arg bytes.
+         // ArgCount is stored in bytes; convert to stack slots for consistency.
+         int argBytes = getActionParamCount(node);
+         return stackSizeToPos(argBytes);
       }
    }
 
