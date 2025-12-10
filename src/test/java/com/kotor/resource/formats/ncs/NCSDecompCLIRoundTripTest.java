@@ -2346,11 +2346,16 @@ public class NCSDecompCLIRoundTripTest {
       
       // Normalize output-parameter pattern: param = value; return; -> return value;
       // This handles cases where decompiler treats return value as output parameter
-      // Pattern: identifier = expression; followed by return;
+      // Pattern: identifier = expression; followed by return; (may be on separate lines)
       java.util.regex.Pattern outputParamPattern = java.util.regex.Pattern.compile(
-            "([a-zA-Z_][a-zA-Z0-9_]*)\\s*=\\s*([^;]+);\\s*return\\s*;",
+            "([a-zA-Z_][a-zA-Z0-9_]*)\\s*=\\s*([^;\\n]+);\\s*\\n\\s*return\\s*;",
             java.util.regex.Pattern.MULTILINE);
       result = outputParamPattern.matcher(result).replaceAll("return $2;");
+      
+      // Also handle single-line case: param = value; return;
+      java.util.regex.Pattern outputParamPatternSingle = java.util.regex.Pattern.compile(
+            "([a-zA-Z_][a-zA-Z0-9_]*)\\s*=\\s*([^;]+);\\s+return\\s*;");
+      result = outputParamPatternSingle.matcher(result).replaceAll("return $2;");
 
       return result;
    }
