@@ -58,13 +58,30 @@ public class NCSDecompCLIRoundTripTest {
 
    private static String displayPath(Path path) {
       Path abs = path.toAbsolutePath().normalize();
-      Path repo = REPO_ROOT.toAbsolutePath().normalize();
+      String absStr = abs.toString().replace('\\', '/');
+
+      List<String> candidates = new ArrayList<>();
+      candidates.add(absStr);
+
+      addRelIfPossible(candidates, REPO_ROOT, abs);
+      addRelIfPossible(candidates, TEST_WORK_DIR, abs);
+      addRelIfPossible(candidates, VANILLA_REPO_DIR, abs);
+
+      String best = candidates.stream()
+            .filter(s -> s != null && !s.isEmpty())
+            .min(java.util.Comparator.comparingInt(String::length))
+            .orElse(absStr);
+
+      return ".".equals(best) ? best : best.replace('\\', '/');
+   }
+
+   private static void addRelIfPossible(List<String> candidates, Path base, Path target) {
       try {
-         Path rel = repo.relativize(abs);
+         Path rel = base.toAbsolutePath().normalize().relativize(target);
          String relStr = rel.toString().replace('\\', '/');
-         return relStr.isEmpty() ? "." : relStr;
-      } catch (IllegalArgumentException ex) {
-         return abs.toString();
+         candidates.add(relStr.isEmpty() ? "." : relStr);
+      } catch (IllegalArgumentException ignored) {
+         // Ignore paths on different roots
       }
    }
 
