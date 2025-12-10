@@ -5,6 +5,9 @@
 
 package com.kotor.resource.formats.ncs;
 
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -307,8 +310,8 @@ public class NCSDecompCLIRoundTripTest {
       // Compare
       long compareStart = System.nanoTime();
       try {
-         String original = normalizeNewlines(Files.readString(nssPath, StandardCharsets.UTF_8));
-         String roundtrip = normalizeNewlines(Files.readString(decompiled, StandardCharsets.UTF_8));
+         String original = normalizeNewlines(new String(Files.readAllBytes(nssPath), StandardCharsets.UTF_8));
+         String roundtrip = normalizeNewlines(new String(Files.readAllBytes(decompiled), StandardCharsets.UTF_8));
          long compareTime = System.nanoTime() - compareStart;
          operationTimes.merge("compare", compareTime, Long::sum);
 
@@ -338,7 +341,7 @@ public class NCSDecompCLIRoundTripTest {
     * by counting commas in the parameter list. A call with 10 commas indicates 11 parameters.
     */
    private static boolean needsAscNwscript(Path nssPath) throws Exception {
-      String content = Files.readString(nssPath, StandardCharsets.UTF_8);
+      String content = new String(Files.readAllBytes(nssPath), StandardCharsets.UTF_8);
       // Look for ActionStartConversation calls with 11 parameters (10 commas)
       // Pattern matches ActionStartConversation( ... ) where the content between parens
       // contains exactly 10 commas (indicating 11 parameters)
@@ -355,7 +358,7 @@ public class NCSDecompCLIRoundTripTest {
     * Parses #include statements and returns the include file names (without quotes).
     */
    private static List<String> extractIncludes(Path nssPath) throws Exception {
-      String content = Files.readString(nssPath, StandardCharsets.UTF_8);
+      String content = new String(Files.readAllBytes(nssPath), StandardCharsets.UTF_8);
       List<String> includes = new ArrayList<>();
       java.util.regex.Pattern includePattern = java.util.regex.Pattern.compile(
          "#include\\s+[\"<]([^\">]+)[\">]",
@@ -1190,6 +1193,16 @@ public class NCSDecompCLIRoundTripTest {
       if (exitCode != 0) {
          System.exit(exitCode);
       }
+   }
+
+   /**
+    * JUnit test method that runs the round-trip test suite.
+    * This allows Maven to discover and run the test during the test phase.
+    */
+   @Test
+   public void testRoundTripSuite() {
+      int exitCode = runRoundTripSuite();
+      assertEquals(0, exitCode, "Round-trip test suite should pass with exit code 0");
    }
 
    private int runRoundTripSuite() {
