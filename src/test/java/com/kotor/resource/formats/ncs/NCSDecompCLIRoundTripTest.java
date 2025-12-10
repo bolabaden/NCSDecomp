@@ -5,6 +5,9 @@
 
 package com.kotor.resource.formats.ncs;
 
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -1190,6 +1193,16 @@ public class NCSDecompCLIRoundTripTest {
       if (exitCode != 0) {
          System.exit(exitCode);
       }
+   }
+
+   /**
+    * JUnit test method that runs the round-trip test suite.
+    * This allows Maven to discover and run the test during the test phase.
+    */
+   @Test
+   public void testRoundTripSuite() {
+      int exitCode = runRoundTripSuite();
+      assertEquals(0, exitCode, "Round-trip test suite should pass with exit code 0");
    }
 
    private int runRoundTripSuite() {
