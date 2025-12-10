@@ -314,10 +314,7 @@ public class Decompiler
       bar.add(this.createToolbarButton("View Decompiled Code"));
       bar.add(this.createToolbarButton("View Byte Code"));
       bar.addSeparator();
-      bar.add(this.createToolbarButton("Link Scroll Bars"));
-      bar.addSeparator();
       bar.add(this.createToolbarButton("Settings"));
-      bar.add(this.createToolbarButton("Exit"));
       return bar;
    }
 
