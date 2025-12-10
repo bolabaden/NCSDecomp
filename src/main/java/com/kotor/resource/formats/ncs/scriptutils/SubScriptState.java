@@ -1246,6 +1246,7 @@ public class SubScriptState {
          try {
             exp = this.removeLastExp(false);
          } catch (RuntimeException e) {
+            e.printStackTrace();
             exp = this.buildPlaceholderParam(i + 1);
          }
 
