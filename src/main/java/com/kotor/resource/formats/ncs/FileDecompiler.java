@@ -132,12 +132,12 @@ public class FileDecompiler {
    private static ActionsData loadActionsDataInternal(boolean isK2Selected) throws DecompilerException {
       try {
          File actionfile = null;
-         
+
          // Check settings first (GUI mode) - only if Decompiler class is loaded
          try {
             // Access Decompiler.settings directly (same package)
             // This will throw NoClassDefFoundError in pure CLI mode, which we catch
-            String settingsPath = isK2Selected 
+            String settingsPath = isK2Selected
                ? Decompiler.settings.getProperty("K2 nwscript Path")
                : Decompiler.settings.getProperty("K1 nwscript Path");
             if (settingsPath != null && !settingsPath.isEmpty()) {
@@ -149,7 +149,7 @@ public class FileDecompiler {
          } catch (NoClassDefFoundError | Exception e) {
             // Settings not available (CLI mode) or invalid path, fall through to default
          }
-         
+
          // Fall back to default location in tools/ directory
          File dir = new File(System.getProperty("user.dir"), "tools");
          actionfile = isK2Selected ? new File(dir, "tsl_nwscript.nss") : new File(dir, "k1_nwscript.nss");
@@ -291,14 +291,14 @@ public class FileDecompiler {
          if (code == null || code.trim().isEmpty()) {
             // If code generation failed, provide comprehensive fallback stub
             System.out.println("Warning: Generated code is empty, creating fallback stub.");
-            String fallback = this.generateComprehensiveFallbackStub(file, "Code generation - empty output", null, 
+            String fallback = this.generateComprehensiveFallbackStub(file, "Code generation - empty output", null,
                "The decompilation process completed but generated no source code. This may indicate the file contains no executable code or all code was marked as dead/unreachable.");
             data.setCode(fallback);
             return PARTIAL_COMPILE;
          }
       } catch (Exception e) {
          System.out.println("Error during code generation (creating fallback stub): " + e.getMessage());
-         String fallback = this.generateComprehensiveFallbackStub(file, "Code generation", e, 
+         String fallback = this.generateComprehensiveFallbackStub(file, "Code generation", e,
             "An exception occurred while generating NSS source code from the decompiled parse tree.");
          data.setCode(fallback);
          return PARTIAL_COMPILE;
@@ -724,22 +724,123 @@ public class FileDecompiler {
     * Returns the expected nwnnsscomp executable location.
     * Checks configured path first, then tools/ directory, then current working directory.
     */
+   /**
+    * Gets the NCSDecomp installation directory (where the jar/exe is located).
+    * @return File representing the installation directory, or null if cannot be determined
+    */
+   private File getNCSDecompDirectory() {
+      try {
+         // Try to get the location of the jar/exe file
+         java.net.URL location = FileDecompiler.class.getProtectionDomain().getCodeSource().getLocation();
+         if (location != null) {
+            String path = location.getPath();
+            if (path != null) {
+               // Handle URL-encoded paths
+               if (path.startsWith("file:")) {
+                  path = path.substring(5);
+               }
+               // Decode URL encoding
+               try {
+                  path = java.net.URLDecoder.decode(path, "UTF-8");
+               } catch (java.io.UnsupportedEncodingException e) {
+                  // Fall through with original path
+               }
+               File jarFile = new File(path);
+               if (jarFile.exists()) {
+                  File parent = jarFile.getParentFile();
+                  if (parent != null) {
+                     return parent;
+                  }
+               }
+            }
+         }
+      } catch (Exception e) {
+         // Fall through to user.dir
+      }
+      // Fallback to user.dir if we can't determine jar location
+      return new File(System.getProperty("user.dir"));
+   }
+
+   /**
+    * Finds the compiler executable by trying multiple filenames in multiple locations.
+    * Tries in order:
+    * 1. Configured path (if set) - all 3 filenames
+    * 2. tools/ directory - all 3 filenames
+    * 3. Current working directory - all 3 filenames
+    * 4. NCSDecomp installation directory - all 3 filenames
+    * 
+    * Filenames tried in order: nwnnsscomp.exe, nwnnsscomp_kscript.exe, nwnnsscomp_tslpatcher.exe
+    */
    private File getCompilerFile() {
-      // Use configured path if set
+      String[] compilerNames = {"nwnnsscomp.exe", "nwnnsscomp_kscript.exe", "nwnnsscomp_tslpatcher.exe"};
+      
+      // 1. Try configured path (if set) - all 3 filenames
       if (nwnnsscompPath != null && !nwnnsscompPath.trim().isEmpty()) {
-         File configured = new File(nwnnsscompPath);
-         if (configured.exists()) {
-            return configured;
+         File configuredDir = new File(nwnnsscompPath);
+         if (configuredDir.isDirectory()) {
+            // If it's a directory, try all filenames in it
+            for (String name : compilerNames) {
+               File candidate = new File(configuredDir, name);
+               if (candidate.exists()) {
+                  return candidate;
+               }
+            }
+         } else {
+            // If it's a file, check if it exists
+            if (configuredDir.exists()) {
+               return configuredDir;
+            }
+            // Also try other filenames in the same directory
+            File parent = configuredDir.getParentFile();
+            if (parent != null) {
+               for (String name : compilerNames) {
+                  File candidate = new File(parent, name);
+                  if (candidate.exists()) {
+                     return candidate;
+                  }
+               }
+            }
          }
       }
-      
-      // Try tools/ directory (default location)
-      File toolsPath = new File(new File(System.getProperty("user.dir"), "tools"), "nwnnsscomp.exe");
-      if (toolsPath.exists()) {
-         return toolsPath;
+
+      // 2. Try tools/ directory - all 3 filenames
+      File toolsDir = new File(System.getProperty("user.dir"), "tools");
+      for (String name : compilerNames) {
+         File candidate = new File(toolsDir, name);
+         if (candidate.exists()) {
+            return candidate;
+         }
       }
-      
-      // Fall back to current working directory (legacy support)
+
+      // 3. Try current working directory - all 3 filenames
+      File cwd = new File(System.getProperty("user.dir"));
+      for (String name : compilerNames) {
+         File candidate = new File(cwd, name);
+         if (candidate.exists()) {
+            return candidate;
+         }
+      }
+
+      // 4. Try NCSDecomp installation directory - all 3 filenames
+      File ncsDecompDir = getNCSDecompDirectory();
+      if (ncsDecompDir != null && !ncsDecompDir.equals(cwd)) {
+         for (String name : compilerNames) {
+            File candidate = new File(ncsDecompDir, name);
+            if (candidate.exists()) {
+               return candidate;
+            }
+         }
+         // Also try tools/ subdirectory of NCSDecomp directory
+         File ncsToolsDir = new File(ncsDecompDir, "tools");
+         for (String name : compilerNames) {
+            File candidate = new File(ncsToolsDir, name);
+            if (candidate.exists()) {
+               return candidate;
+            }
+         }
+      }
+
+      // Final fallback: return nwnnsscomp.exe in current directory (may not exist)
       return new File("nwnnsscomp.exe");
    }
 
@@ -788,14 +889,14 @@ public class FileDecompiler {
          System.out.println("[NCSDecomp] Expected output: " + result.getAbsolutePath());
 
          new FileDecompiler.WindowsExec().callExec(args);
-         
+
          if (!result.exists()) {
             System.out.println("[NCSDecomp] ERROR: Expected output file does not exist: " + result.getAbsolutePath());
             System.out.println("[NCSDecomp]   This usually means nwnnsscomp.exe failed or produced no output.");
             System.out.println("[NCSDecomp]   Check the nwnnsscomp output above for error messages.");
             return null;
          }
-         
+
          return result;
       } catch (Exception e) {
          System.out.println("[NCSDecomp] EXCEPTION during external decompile:");
@@ -862,14 +963,14 @@ public class FileDecompiler {
          }
 
          new FileDecompiler.WindowsExec().callExec(args);
-         
+
          if (!result.exists()) {
             System.out.println("[NCSDecomp] ERROR: Expected output file does not exist: " + result.getAbsolutePath());
             System.out.println("[NCSDecomp]   This usually means nwnnsscomp.exe compilation failed.");
             System.out.println("[NCSDecomp]   Check the nwnnsscomp output above for compilation errors.");
             return null;
          }
-         
+
          return result;
       } catch (Exception e) {
          System.out.println("[NCSDecomp] EXCEPTION during external compile:");
@@ -939,13 +1040,13 @@ public class FileDecompiler {
    private String generateComprehensiveFallbackStub(File file, String errorStage, Exception exception, String additionalInfo) {
       StringBuilder stub = new StringBuilder();
       String newline = System.getProperty("line.separator");
-      
+
       // Header with error type
       stub.append("// ========================================").append(newline);
       stub.append("// DECOMPILATION ERROR - FALLBACK STUB").append(newline);
       stub.append("// ========================================").append(newline);
       stub.append(newline);
-      
+
       // File information
       stub.append("// File Information:").append(newline);
       if (file != null) {
@@ -962,24 +1063,24 @@ public class FileDecompiler {
          stub.append("//   Status: FILE IS NULL").append(newline);
       }
       stub.append(newline);
-      
+
       // Error stage information
       stub.append("// Error Stage: ").append(errorStage != null ? errorStage : "Unknown").append(newline);
       stub.append(newline);
-      
+
       // Exception information
       if (exception != null) {
          stub.append("// Exception Details:").append(newline);
          stub.append("//   Type: ").append(exception.getClass().getName()).append(newline);
          stub.append("//   Message: ").append(exception.getMessage() != null ? exception.getMessage() : "(no message)").append(newline);
-         
+
          // Include cause if available
          Throwable cause = exception.getCause();
          if (cause != null) {
             stub.append("//   Caused by: ").append(cause.getClass().getName()).append(newline);
             stub.append("//   Cause Message: ").append(cause.getMessage() != null ? cause.getMessage() : "(no message)").append(newline);
          }
-         
+
          // Include stack trace summary (first few frames)
          StackTraceElement[] stack = exception.getStackTrace();
          if (stack != null && stack.length > 0) {
@@ -994,7 +1095,7 @@ public class FileDecompiler {
          }
          stub.append(newline);
       }
-      
+
       // Additional context information
       if (additionalInfo != null && !additionalInfo.trim().isEmpty()) {
          stub.append("// Additional Context:").append(newline);
@@ -1005,7 +1106,7 @@ public class FileDecompiler {
          }
          stub.append(newline);
       }
-      
+
       // Decompiler configuration
       stub.append("// Decompiler Configuration:").append(newline);
       stub.append("//   Game Mode: ").append(isK2Selected ? "KotOR 2 (TSL)" : "KotOR 1").append(newline);
@@ -1013,18 +1114,18 @@ public class FileDecompiler {
       stub.append("//   Strict Signatures: ").append(strictSignatures).append(newline);
       stub.append("//   Actions Data Loaded: ").append(this.actions != null).append(newline);
       stub.append(newline);
-      
+
       // System information
       stub.append("// System Information:").append(newline);
       stub.append("//   Java Version: ").append(System.getProperty("java.version")).append(newline);
       stub.append("//   OS: ").append(System.getProperty("os.name")).append(" ").append(System.getProperty("os.version")).append(newline);
       stub.append("//   Working Directory: ").append(System.getProperty("user.dir")).append(newline);
       stub.append(newline);
-      
+
       // Timestamp
       stub.append("// Error Timestamp: ").append(new java.util.Date()).append(newline);
       stub.append(newline);
-      
+
       // Recommendations
       stub.append("// Recommendations:").append(newline);
       if (file != null && file.exists() && file.length() == 0) {
@@ -1040,7 +1141,7 @@ public class FileDecompiler {
       stub.append("//   - Check the exception details above for specific error information.").append(newline);
       stub.append("//   - Verify the file is a valid KotOR/TSL NCS bytecode file.").append(newline);
       stub.append(newline);
-      
+
       // Minimal valid NSS stub
       stub.append("// Minimal fallback function:").append(newline);
       stub.append("void main() {").append(newline);
@@ -1049,7 +1150,7 @@ public class FileDecompiler {
          stub.append("    // Error: ").append(exception.getMessage().replace("\n", " ").replace("\r", "")).append(newline);
       }
       stub.append("}").append(newline);
-      
+
       return stub.toString();
    }
 
@@ -1095,7 +1196,7 @@ public class FileDecompiler {
 
       try {
          data = new FileDecompiler.FileScriptData();
-         
+
          // Decode bytecode - wrap in try-catch to handle corrupted files
          try {
             commands = new Decoder(new BufferedInputStream(new FileInputStream(file)), this.actions).decode();
@@ -1117,14 +1218,14 @@ public class FileDecompiler {
             data.setCode(stub);
             return data;
          }
-         
+
          // Parse commands - wrap in try-catch to handle parse errors, but try to recover
          try {
             ast = new Parser(new Lexer(new PushbackReader(new StringReader(commands), 1024))).parse();
          } catch (Exception parseEx) {
             System.out.println("Error during parsing: " + parseEx.getMessage());
             System.out.println("Attempting to recover by trying partial parsing strategies...");
-            
+
             // Try to recover: attempt to parse in chunks or with relaxed rules
             ast = null;
             try {
@@ -1148,7 +1249,7 @@ public class FileDecompiler {
                            subCount++;
                         }
                      }
-                     
+
                      // If we found some structure, try to continue with minimal setup
                      if (subCount > 0) {
                         System.out.println("Detected " + subCount + " potential subroutines in decoded commands, but full parse failed.");
@@ -1159,7 +1260,7 @@ public class FileDecompiler {
                   }
                }
             }
-            
+
             // If we still don't have an AST, create comprehensive stub but preserve commands for potential manual recovery
             if (ast == null) {
                String commandsPreview = "none";
@@ -1182,17 +1283,17 @@ public class FileDecompiler {
             // If we recovered an AST, continue with decompilation
             System.out.println("Continuing decompilation with recovered parse tree.");
          }
-         
+
          // Analysis passes - wrap in try-catch to allow partial recovery
          nodedata = new NodeAnalysisData();
          subdata = new SubroutineAnalysisData(nodedata);
-         
+
          try {
          ast.apply(new SetPositions(nodedata));
          } catch (Exception e) {
             System.out.println("Error in SetPositions, continuing with partial positions: " + e.getMessage());
          }
-         
+
          try {
          setdest = new SetDestinations(ast, nodedata, subdata);
          ast.apply(setdest);
@@ -1200,7 +1301,7 @@ public class FileDecompiler {
             System.out.println("Error in SetDestinations, continuing without destination resolution: " + e.getMessage());
             setdest = null;
          }
-         
+
          try {
             if (setdest != null) {
          ast.apply(new SetDeadCode(nodedata, subdata, setdest.getOrigins()));
@@ -1211,7 +1312,7 @@ public class FileDecompiler {
          } catch (Exception e) {
             System.out.println("Error in SetDeadCode, continuing without dead code analysis: " + e.getMessage());
          }
-         
+
          if (setdest != null) {
             try {
          setdest.done();
@@ -1220,7 +1321,7 @@ public class FileDecompiler {
             }
          setdest = null;
          }
-         
+
          try {
          subdata.splitOffSubroutines(ast);
          } catch (Exception e) {
@@ -1240,7 +1341,7 @@ public class FileDecompiler {
             System.out.println("Error getting main subroutine: " + e.getMessage());
             mainsub = null;
          }
-         
+
          if (mainsub != null) {
             try {
          flatten = new FlattenSub(mainsub, nodedata);
@@ -1249,7 +1350,7 @@ public class FileDecompiler {
                System.out.println("Error flattening main subroutine: " + e.getMessage());
                flatten = null;
             }
-            
+
             if (flatten != null) {
                try {
          for (ASubroutine iterSub : this.subIterable(subdata)) {
@@ -1332,7 +1433,7 @@ public class FileDecompiler {
          boolean alldone = false;
          boolean onedone = true;
          int donecount = 0;
-         
+
          try {
             alldone = subdata.countSubsDone() == subdata.numSubs();
             onedone = true;
@@ -1355,7 +1456,7 @@ public class FileDecompiler {
                   try {
             sub = subs.next();
                      if (sub == null) continue;
-                     
+
                dotypes = new DoTypes(subdata.getState(sub), nodedata, subdata, this.actions, false);
                sub.apply(dotypes);
                dotypes.done();
@@ -1375,7 +1476,7 @@ public class FileDecompiler {
                   System.out.println("Error re-typing main subroutine: " + e.getMessage());
                }
             }
-            
+
             try {
             alldone = subdata.countSubsDone() == subdata.numSubs();
                int newDoneCount = subdata.countSubsDone();
@@ -1475,7 +1576,7 @@ public class FileDecompiler {
          } catch (Exception e) {
             System.out.println("Error storing subroutine analysis data: " + e.getMessage());
          }
-         
+
          if (doglobs != null) {
             try {
             cleanpass = new CleanupPass(doglobs.getScriptRoot(), nodedata, subdata, doglobs.getState());
@@ -1519,21 +1620,21 @@ public class FileDecompiler {
             System.out.println("Error during parse tree cleanup: " + e.getMessage());
             // Continue anyway - cleanup is not critical
          }
-         
+
          return data;
       } catch (Exception e) {
          // Try to salvage partial results before giving up
          System.out.println("Error during decompilation: " + e.getMessage());
          e.printStackTrace(System.out);
-         
+
          // Always return a FileScriptData, even if it's just a minimal stub
          if (data == null) {
             data = new FileDecompiler.FileScriptData();
          }
-         
+
          // Aggressive recovery: try to salvage whatever state we have
          System.out.println("Attempting aggressive state recovery...");
-         
+
          // Try to add any subroutines that were partially processed
          if (subdata != null && mainsub != null) {
             try {
@@ -1562,7 +1663,7 @@ public class FileDecompiler {
             } catch (Exception e2) {
                System.out.println("Error recovering main subroutine: " + e2.getMessage());
             }
-            
+
             // Try to recover other subroutines
             try {
                for (ASubroutine iterSub : this.subIterable(subdata)) {
@@ -1593,7 +1694,7 @@ public class FileDecompiler {
             } catch (Exception e2) {
                System.out.println("Error iterating subroutines during recovery: " + e2.getMessage());
             }
-            
+
             // Try to store subdata
             try {
                data.subdata(subdata);
@@ -1601,7 +1702,7 @@ public class FileDecompiler {
                System.out.println("Error storing subdata: " + e2.getMessage());
             }
          }
-         
+
          // Try to recover globals if available
          if (doglobs != null) {
             try {
@@ -1614,13 +1715,13 @@ public class FileDecompiler {
                System.out.println("Error recovering globals: " + e2.getMessage());
             }
          }
-         
+
          try {
             // Try to generate code from whatever we have
             data.generateCode();
             String partialCode = data.getCode();
             if (partialCode != null && !partialCode.trim().isEmpty()) {
-               System.out.println("Successfully recovered partial decompilation with " + 
+               System.out.println("Successfully recovered partial decompilation with " +
                                  (data.getVars() != null ? data.getVars().size() : 0) + " subroutines.");
                // Add recovery note to the code
                String recoveryNote = "// ========================================\n" +
@@ -1628,7 +1729,7 @@ public class FileDecompiler {
                                     "// ========================================\n" +
                                     "// This decompilation encountered errors but recovered partial results.\n" +
                                     "// Some subroutines or code sections may be incomplete or missing.\n" +
-                                    "// Original error: " + e.getClass().getSimpleName() + ": " + 
+                                    "// Original error: " + e.getClass().getSimpleName() + ": " +
                                     (e.getMessage() != null ? e.getMessage() : "(no message)") + "\n" +
                                     "// ========================================\n\n";
                data.setCode(recoveryNote + partialCode);
@@ -1637,7 +1738,7 @@ public class FileDecompiler {
          } catch (Exception genEx) {
             System.out.println("Could not generate partial code: " + genEx.getMessage());
          }
-         
+
          // Last resort: create comprehensive stub with any available partial information
          String partialInfo = "Partial decompilation state:\n";
          try {
@@ -1892,7 +1993,7 @@ public class FileDecompiler {
        */
       public void generateCode() {
          String newline = System.getProperty("line.separator");
-         
+
          // If we have no subs, generate comprehensive stub so we always show something
          if (this.subs.size() == 0) {
             // Note: We don't have direct file access here, but we can still provide useful info
@@ -1972,7 +2073,7 @@ public class FileDecompiler {
          }
 
          String generated = structDecls + globs + protohdr + protobuff.toString() + fcnbuff.toString();
-         
+
          // Ensure we always have at least something
          if (generated == null || generated.trim().isEmpty()) {
             String stub = "// ========================================" + newline +
@@ -1997,7 +2098,7 @@ public class FileDecompiler {
                    "}" + newline;
             generated = stub;
          }
-         
+
          this.code = generated;
       }
    }
@@ -2061,7 +2162,7 @@ public class FileDecompiler {
             errorGobbler.start();
             outputGobbler.start();
             int exitCode = proc.waitFor();
-            
+
             System.out.println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
             System.out.println("[NCSDecomp] nwnnsscomp.exe exited with code: " + exitCode);
             System.out.println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");

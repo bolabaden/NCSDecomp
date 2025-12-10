@@ -80,7 +80,92 @@ public class NCSDecompCLIRoundTripTest {
 
    // Paths relative to DeNCS directory
   private static final Path REPO_ROOT = Paths.get(".").toAbsolutePath().normalize();
-  private static final Path NWN_COMPILER = REPO_ROOT.resolve("tools").resolve("nwnnsscomp.exe");
+  
+  /**
+   * Finds the compiler executable by trying multiple filenames in multiple locations.
+   * Tries in order:
+   * 1. tools/ directory - all 3 filenames
+   * 2. Current working directory - all 3 filenames
+   * 3. NCSDecomp installation directory - all 3 filenames
+   * 
+   * Filenames tried in order: nwnnsscomp.exe, nwnnsscomp_kscript.exe, nwnnsscomp_tslpatcher.exe
+   * 
+   * @return Path to the found compiler, or default path if not found
+   */
+  private static Path findCompiler() {
+     String[] compilerNames = {"nwnnsscomp.exe", "nwnnsscomp_kscript.exe", "nwnnsscomp_tslpatcher.exe"};
+     
+     // 1. Try tools/ directory - all 3 filenames
+     Path toolsDir = REPO_ROOT.resolve("tools");
+     for (String name : compilerNames) {
+        Path candidate = toolsDir.resolve(name);
+        if (Files.exists(candidate) && Files.isRegularFile(candidate)) {
+           return candidate;
+        }
+     }
+     
+     // 2. Try current working directory - all 3 filenames
+     Path cwd = Paths.get(System.getProperty("user.dir"));
+     for (String name : compilerNames) {
+        Path candidate = cwd.resolve(name);
+        if (Files.exists(candidate) && Files.isRegularFile(candidate)) {
+           return candidate;
+        }
+     }
+     
+     // 3. Try NCSDecomp installation directory - all 3 filenames
+     try {
+        // Get the location of the test class (jar/exe location)
+        java.net.URL location = NCSDecompCLIRoundTripTest.class.getProtectionDomain().getCodeSource().getLocation();
+        if (location != null) {
+           String path = location.getPath();
+           if (path != null) {
+              // Handle URL-encoded paths
+              if (path.startsWith("file:")) {
+                 path = path.substring(5);
+              }
+              // Decode URL encoding
+              try {
+                 path = java.net.URLDecoder.decode(path, "UTF-8");
+              } catch (java.io.UnsupportedEncodingException e) {
+                 // Fall through with original path
+              }
+              Path jarFile = Paths.get(path);
+              if (Files.exists(jarFile)) {
+                 Path ncsDecompDir = jarFile.getParent();
+                 if (ncsDecompDir != null && !ncsDecompDir.equals(cwd)) {
+                    // Try directly in NCSDecomp directory
+                    for (String name : compilerNames) {
+                       Path candidate = ncsDecompDir.resolve(name);
+                       if (Files.exists(candidate) && Files.isRegularFile(candidate)) {
+                          return candidate;
+                       }
+                    }
+                    // Also try tools/ subdirectory of NCSDecomp directory
+                    Path ncsToolsDir = ncsDecompDir.resolve("tools");
+                    for (String name : compilerNames) {
+                       Path candidate = ncsToolsDir.resolve(name);
+                       if (Files.exists(candidate) && Files.isRegularFile(candidate)) {
+                          return candidate;
+                       }
+                    }
+                 }
+              }
+           }
+        }
+     } catch (Exception e) {
+        // Fall through - couldn't determine jar location
+     }
+     
+     // Default fallback
+     return REPO_ROOT.resolve("tools").resolve("nwnnsscomp.exe");
+  }
+  
+  private static final Path NWN_COMPILER;
+  
+  static {
+     NWN_COMPILER = findCompiler();
+  }
   private static final Path K1_NWSCRIPT = REPO_ROOT.resolve("src").resolve("main").resolve("resources")
         .resolve("k1_nwscript.nss");
   private static final Path K1_ASC_NWSCRIPT = REPO_ROOT.resolve("tools").resolve("k1_asc_nwscript.nss");
