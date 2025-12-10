@@ -86,8 +86,13 @@ public final class NCSDecompCLI {
             // Game flag was explicitly set, try game-specific files
             String nssName = cfg.isK2 ? "tsl_nwscript.nss" : "k1_nwscript.nss";
 
-            // Try current working directory first
-            nwscriptFile = new File(cwd, nssName);
+            // Try tools/ directory first
+            nwscriptFile = new File(new File(cwd, "tools"), nssName);
+            
+            // Fall back to current working directory (legacy support)
+            if (!nwscriptFile.isFile()) {
+               nwscriptFile = new File(cwd, nssName);
+            }
 
             if (!nwscriptFile.isFile()) {
                // Try executable directory (jpackage puts nss files in app directory)

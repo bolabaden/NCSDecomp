@@ -148,9 +148,14 @@ public class FileDecompiler {
             // Settings not available (CLI mode) or invalid path, fall through to default
          }
          
-         // Fall back to default location in current working directory
-         File dir = new File(System.getProperty("user.dir"));
+         // Fall back to default location in tools/ directory
+         File dir = new File(System.getProperty("user.dir"), "tools");
          actionfile = isK2Selected ? new File(dir, "tsl_nwscript.nss") : new File(dir, "k1_nwscript.nss");
+         // If not in tools/, try current directory (legacy support)
+         if (!actionfile.isFile()) {
+            dir = new File(System.getProperty("user.dir"));
+            actionfile = isK2Selected ? new File(dir, "tsl_nwscript.nss") : new File(dir, "k1_nwscript.nss");
+         }
          if (actionfile.isFile()) {
             return new ActionsData(new BufferedReader(new FileReader(actionfile)));
          } else {

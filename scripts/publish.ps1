@@ -122,18 +122,19 @@ if (Test-Path $guiJarSource) {
     Write-Host "  Warning: NCSDecomp.jar not found at $guiJarSource" -ForegroundColor Yellow
 }
 
-# Copy required nwscript files from src/main/resources
+# Copy required nwscript files from tools/ or src/main/resources
 $nwscriptSource = Join-Path "." (Join-Path "src" (Join-Path "main" "resources"))
+$toolsDir = Join-Path "." "tools"
 $k1Source = Join-Path $nwscriptSource "k1_nwscript.nss"
 $tslSource = Join-Path $nwscriptSource "tsl_nwscript.nss"
-$k1Root = Join-Path "." "k1_nwscript.nss"
-$tslRoot = Join-Path "." "tsl_nwscript.nss"
+$k1Tools = Join-Path $toolsDir "k1_nwscript.nss"
+$tslTools = Join-Path $toolsDir "tsl_nwscript.nss"
 
 if (Test-Path $k1Source) {
     Copy-Item $k1Source $publishDir
     Write-Host "  - Copied k1_nwscript.nss" -ForegroundColor Cyan
-} elseif (Test-Path $k1Root) {
-    Copy-Item $k1Root $publishDir
+} elseif (Test-Path $k1Tools) {
+    Copy-Item $k1Tools $publishDir
     Write-Host "  - Copied k1_nwscript.nss" -ForegroundColor Cyan
 } else {
     Write-Host "  Warning: k1_nwscript.nss not found" -ForegroundColor Yellow
@@ -142,8 +143,8 @@ if (Test-Path $k1Source) {
 if (Test-Path $tslSource) {
     Copy-Item $tslSource $publishDir
     Write-Host "  - Copied tsl_nwscript.nss" -ForegroundColor Cyan
-} elseif (Test-Path $tslRoot) {
-    Copy-Item $tslRoot $publishDir
+} elseif (Test-Path $tslTools) {
+    Copy-Item $tslTools $publishDir
     Write-Host "  - Copied tsl_nwscript.nss" -ForegroundColor Cyan
 } else {
     Write-Host "  Warning: tsl_nwscript.nss not found" -ForegroundColor Yellow

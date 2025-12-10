@@ -192,9 +192,9 @@ public class Settings extends Properties implements ActionListener {
       this.outputDirectoryField.setText(this.getProperty("Output Directory", defaultOutputDir));
       this.openDirectoryField.setText(this.getProperty("Open Directory", System.getProperty("user.dir")));
       
-      // Default nwscript paths: current directory + filename
-      String defaultK1Path = new File(System.getProperty("user.dir"), "k1_nwscript.nss").getAbsolutePath();
-      String defaultK2Path = new File(System.getProperty("user.dir"), "tsl_nwscript.nss").getAbsolutePath();
+      // Default nwscript paths: tools/ directory + filename
+      String defaultK1Path = new File(new File(System.getProperty("user.dir"), "tools"), "k1_nwscript.nss").getAbsolutePath();
+      String defaultK2Path = new File(new File(System.getProperty("user.dir"), "tools"), "tsl_nwscript.nss").getAbsolutePath();
       this.k1NwscriptPathField.setText(this.getProperty("K1 nwscript Path", defaultK1Path));
       this.k2NwscriptPathField.setText(this.getProperty("K2 nwscript Path", defaultK2Path));
       
@@ -286,8 +286,8 @@ public class Settings extends Properties implements ActionListener {
       String defaultOutputDir = new File(System.getProperty("user.dir"), "ncsdecomp_converted").getAbsolutePath();
       this.setProperty("Output Directory", defaultOutputDir);
       this.setProperty("Open Directory", System.getProperty("user.dir"));
-      String defaultK1Path = new File(System.getProperty("user.dir"), "k1_nwscript.nss").getAbsolutePath();
-      String defaultK2Path = new File(System.getProperty("user.dir"), "tsl_nwscript.nss").getAbsolutePath();
+      String defaultK1Path = new File(new File(System.getProperty("user.dir"), "tools"), "k1_nwscript.nss").getAbsolutePath();
+      String defaultK2Path = new File(new File(System.getProperty("user.dir"), "tools"), "tsl_nwscript.nss").getAbsolutePath();
       this.setProperty("K1 nwscript Path", defaultK1Path);
       this.setProperty("K2 nwscript Path", defaultK2Path);
       this.setProperty("Game Variant", "k1");

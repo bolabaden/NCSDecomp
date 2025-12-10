@@ -410,11 +410,11 @@ if ($BuildExecutable) {
     Copy-Item $cliJarFile $jarDest
 
     # Copy nwscript files as resources (they'll be in the app directory)
-    # Try multiple locations: root, src/main/resources, and target/assembly (publish equivalent)
+    # Try multiple locations: tools/, src/main/resources, and target/assembly (publish equivalent)
     $assemblyDir = Join-Path $targetDir "assembly"
     $nwscriptLocations = @(
-        (Join-Path "." "k1_nwscript.nss"),
-        (Join-Path "." "tsl_nwscript.nss"),
+        (Join-Path "." (Join-Path "tools" "k1_nwscript.nss")),
+        (Join-Path "." (Join-Path "tools" "tsl_nwscript.nss")),
         (Join-Path "." (Join-Path "src" (Join-Path "main" (Join-Path "resources" "k1_nwscript.nss")))),
         (Join-Path "." (Join-Path "src" (Join-Path "main" (Join-Path "resources" "tsl_nwscript.nss")))),
         (Join-Path $assemblyDir "k1_nwscript.nss"),
@@ -533,8 +533,8 @@ if ($BuildExecutable) {
             foreach ($nssFile in $nssFiles) {
                 # Try multiple source locations
                 $sourcePaths = @(
-                    (Join-Path "." $nssFile),
-                    (Join-Path ".." $nssFile),
+                    (Join-Path "." (Join-Path "tools" $nssFile)),
+                    (Join-Path ".." (Join-Path "tools" $nssFile)),
                     (Join-Path "." (Join-Path "src" (Join-Path "main" (Join-Path "resources" $nssFile)))),
                     (Join-Path $assemblyDir $nssFile)
                 )

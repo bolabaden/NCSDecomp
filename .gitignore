@@ -28,6 +28,8 @@
 *.zip
 *.tar.gz
 *.rar
+*.exe
+*.app
 !.mvn/extensions/guice-hiddenclass-patch.jar
 !build-support/guice-hiddenclass-patch/**
 
@@ -81,3 +83,7 @@ vendor/
 .DS_Store
 Thumbs.db
 jpackage-input/
+
+# Other files/folders
+ncsdecomp_converted/
+misc/

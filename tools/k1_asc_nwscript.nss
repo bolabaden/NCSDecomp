@@ -2707,9 +2707,9 @@ void SetAreaTransitionBMP(int nPredefinedAreaTransition, string sCustomAreaTrans
 //                                                                      Setting this to TRUE will cause creatures to start a conversation without requiring to close
 //                                                                      the distance between the two object in dialog.
 // - sNameObjectToIgnore1-6 - Normally objects in the animation list of the dialog editor have to be available for animations on that node to work
-//                                        these 6 strings are to indicate 6 objects that dont need to be available for things to proceed.  The string should be EXACTLY
+//                                        these 6 strings are to indicate 6 objects that don’t need to be available for things to proceed.  The string should be EXACTLY
 //                                        the same as the string that it represents in the dialog editor.
-void ActionStartConversation(object oObjectToConverse, string sDialogResRef = "", int bPrivateConversation = FALSE, int nConversationType = CONVERSATION_TYPE_CINEMATIC, int bIgnoreStartRange = FALSE, string sNameObjectToIgnore1 = "", string sNameObjectToIgnore2 = "", string sNameObjectToIgnore3 = "", string sNameObjectToIgnore4 = "", string sNameObjectToIgnore5 = "", string sNameObjectToIgnore6 = "", int bUseLeader = FALSE);
+void ActionStartConversation(object oObjectToConverse, string sDialogResRef = "", int bPrivateConversation = FALSE, int nConversationType = CONVERSATION_TYPE_CINEMATIC, int bIgnoreStartRange = FALSE, string sNameObjectToIgnore1 = "", string sNameObjectToIgnore2 = "", string sNameObjectToIgnore3 = "", string sNameObjectToIgnore4 = "", string sNameObjectToIgnore5 = "", string sNameObjectToIgnore6 = "");
 
 // 205: Pause the current conversation.
 void ActionPauseConversation();
