@@ -120,16 +120,37 @@ public class FileDecompiler {
    }
 
    /**
-    * Attempts to load the action table from the working directory.
+    * Attempts to load the action table from settings or the working directory.
     * <p>
-    * The lookup matches legacy behavior: {@code tsl_nwscript.nss} for TSL,
-    * otherwise {@code k1_nwscript.nss}. This method isolates the IO and error
+    * First checks for a configured path in Settings (GUI mode), then falls back
+    * to legacy behavior: {@code tsl_nwscript.nss} for TSL, otherwise {@code k1_nwscript.nss}
+    * in the current working directory. This method isolates the IO and error
     * handling so callers receive a single {@link DecompilerException}.
     */
    private static ActionsData loadActionsDataInternal(boolean isK2Selected) throws DecompilerException {
       try {
+         File actionfile = null;
+         
+         // Check settings first (GUI mode) - only if Decompiler class is loaded
+         try {
+            // Access Decompiler.settings directly (same package)
+            // This will throw NoClassDefFoundError in pure CLI mode, which we catch
+            String settingsPath = isK2Selected 
+               ? Decompiler.settings.getProperty("K2 nwscript Path")
+               : Decompiler.settings.getProperty("K1 nwscript Path");
+            if (settingsPath != null && !settingsPath.isEmpty()) {
+               actionfile = new File(settingsPath);
+               if (actionfile.isFile()) {
+                  return new ActionsData(new BufferedReader(new FileReader(actionfile)));
+               }
+            }
+         } catch (NoClassDefFoundError | Exception e) {
+            // Settings not available (CLI mode) or invalid path, fall through to default
+         }
+         
+         // Fall back to default location in current working directory
          File dir = new File(System.getProperty("user.dir"));
-         File actionfile = isK2Selected ? new File(dir, "tsl_nwscript.nss") : new File(dir, "k1_nwscript.nss");
+         actionfile = isK2Selected ? new File(dir, "tsl_nwscript.nss") : new File(dir, "k1_nwscript.nss");
          if (actionfile.isFile()) {
             return new ActionsData(new BufferedReader(new FileReader(actionfile)));
          } else {
@@ -215,12 +236,14 @@ public class FileDecompiler {
     * <p>
     * This is the full round-trip validation used by the GUI: decode, emit
     * source, compile externally, and diff bytecode to detect regressions.
+    * <p>
+    * All exceptions are caught internally and converted to fallback stubs,
+    * so this method never throws exceptions and always returns a result code.
     *
     * @param file NCS file to decompile
     * @return One of {@link #SUCCESS}, {@link #PARTIAL_COMPILE}, {@link #PARTIAL_COMPARE}, or {@link #FAILURE}
-    * @throws DecompilerException when parsing or external compilation fails
     */
-   public int decompile(File file) throws DecompilerException {
+   public int decompile(File file) {
       this.ensureActionsLoaded();
       FileDecompiler.FileScriptData data = this.filedata.get(file);
       if (data == null) {

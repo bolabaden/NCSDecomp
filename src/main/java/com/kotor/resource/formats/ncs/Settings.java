@@ -55,8 +55,10 @@ public class Settings extends Properties implements ActionListener {
    private JButton browseOutputDirButton;
    private JTextField openDirectoryField;
    private JButton browseOpenDirButton;
-   private JTextField nwscriptPathField;
-   private JButton browseNwscriptButton;
+   private JTextField k1NwscriptPathField;
+   private JButton browseK1NwscriptButton;
+   private JTextField k2NwscriptPathField;
+   private JButton browseK2NwscriptButton;
    
    // Game Settings
    private JRadioButton gameK1Radio;
@@ -101,10 +103,10 @@ public class Settings extends Properties implements ActionListener {
          if (chooser.showOpenDialog(this.frame) == JFileChooser.APPROVE_OPTION) {
             this.openDirectoryField.setText(chooser.getSelectedFile().getAbsolutePath());
          }
-      } else if (src == this.browseNwscriptButton) {
+      } else if (src == this.browseK1NwscriptButton) {
          JFileChooser chooser = new JFileChooser();
          chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
-         chooser.setDialogTitle("Select nwscript.nss File");
+         chooser.setDialogTitle("Select k1_nwscript.nss File");
          chooser.setFileFilter(new javax.swing.filechooser.FileFilter() {
             @Override
             public boolean accept(File f) {
@@ -117,7 +119,25 @@ public class Settings extends Properties implements ActionListener {
             }
          });
          if (chooser.showOpenDialog(this.frame) == JFileChooser.APPROVE_OPTION) {
-            this.nwscriptPathField.setText(chooser.getSelectedFile().getAbsolutePath());
+            this.k1NwscriptPathField.setText(chooser.getSelectedFile().getAbsolutePath());
+         }
+      } else if (src == this.browseK2NwscriptButton) {
+         JFileChooser chooser = new JFileChooser();
+         chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
+         chooser.setDialogTitle("Select tsl_nwscript.nss File");
+         chooser.setFileFilter(new javax.swing.filechooser.FileFilter() {
+            @Override
+            public boolean accept(File f) {
+               return f.isDirectory() || f.getName().toLowerCase().endsWith(".nss");
+            }
+            
+            @Override
+            public String getDescription() {
+               return "NSS Files (*.nss)";
+            }
+         });
+         if (chooser.showOpenDialog(this.frame) == JFileChooser.APPROVE_OPTION) {
+            this.k2NwscriptPathField.setText(chooser.getSelectedFile().getAbsolutePath());
          }
       }
    }
@@ -126,11 +146,17 @@ public class Settings extends Properties implements ActionListener {
       // File/Directory Settings
       this.setProperty("Output Directory", this.outputDirectoryField.getText());
       this.setProperty("Open Directory", this.openDirectoryField.getText());
-      String nwscriptPath = this.nwscriptPathField.getText().trim();
-      if (nwscriptPath.isEmpty()) {
-         this.remove("nwscript Path");
+      String k1NwscriptPath = this.k1NwscriptPathField.getText().trim();
+      if (k1NwscriptPath.isEmpty()) {
+         this.remove("K1 nwscript Path");
       } else {
-         this.setProperty("nwscript Path", nwscriptPath);
+         this.setProperty("K1 nwscript Path", k1NwscriptPath);
+      }
+      String k2NwscriptPath = this.k2NwscriptPathField.getText().trim();
+      if (k2NwscriptPath.isEmpty()) {
+         this.remove("K2 nwscript Path");
+      } else {
+         this.setProperty("K2 nwscript Path", k2NwscriptPath);
       }
       
       // Game Settings
@@ -163,7 +189,12 @@ public class Settings extends Properties implements ActionListener {
       // File/Directory Settings
       this.outputDirectoryField.setText(this.getProperty("Output Directory", System.getProperty("user.dir")));
       this.openDirectoryField.setText(this.getProperty("Open Directory", System.getProperty("user.dir")));
-      this.nwscriptPathField.setText(this.getProperty("nwscript Path", ""));
+      
+      // Default nwscript paths: current directory + filename
+      String defaultK1Path = new File(System.getProperty("user.dir"), "k1_nwscript.nss").getAbsolutePath();
+      String defaultK2Path = new File(System.getProperty("user.dir"), "tsl_nwscript.nss").getAbsolutePath();
+      this.k1NwscriptPathField.setText(this.getProperty("K1 nwscript Path", defaultK1Path));
+      this.k2NwscriptPathField.setText(this.getProperty("K2 nwscript Path", defaultK2Path));
       
       // Game Settings
       String gameVariant = this.getProperty("Game Variant", "k1").toLowerCase();
@@ -250,7 +281,10 @@ public class Settings extends Properties implements ActionListener {
    public void reset() {
       this.setProperty("Output Directory", System.getProperty("user.dir"));
       this.setProperty("Open Directory", System.getProperty("user.dir"));
-      this.remove("nwscript Path");
+      String defaultK1Path = new File(System.getProperty("user.dir"), "k1_nwscript.nss").getAbsolutePath();
+      String defaultK2Path = new File(System.getProperty("user.dir"), "tsl_nwscript.nss").getAbsolutePath();
+      this.setProperty("K1 nwscript Path", defaultK1Path);
+      this.setProperty("K2 nwscript Path", defaultK2Path);
       this.setProperty("Game Variant", "k1");
       this.setProperty("Prefer Switches", "false");
       this.setProperty("Strict Signatures", "false");
@@ -353,25 +387,41 @@ public class Settings extends Properties implements ActionListener {
       this.browseOpenDirButton.addActionListener(this);
       panel.add(this.browseOpenDirButton, gbc);
       
-      // nwscript Path
+      // K1 nwscript Path
       gbc.gridx = 0;
       gbc.gridy = 2;
       gbc.weightx = 0.0;
-      panel.add(new JLabel("nwscript.nss Path:"), gbc);
+      panel.add(new JLabel("KotOR 1 nwscript.nss:"), gbc);
       gbc.gridx = 1;
       gbc.weightx = 1.0;
-      this.nwscriptPathField = new JTextField(30);
-      this.nwscriptPathField.setToolTipText("Override default nwscript.nss location (leave empty to use game-specific defaults)");
-      panel.add(this.nwscriptPathField, gbc);
+      this.k1NwscriptPathField = new JTextField(30);
+      this.k1NwscriptPathField.setToolTipText("Path to k1_nwscript.nss file for KotOR 1 decompilation");
+      panel.add(this.k1NwscriptPathField, gbc);
       gbc.gridx = 2;
       gbc.weightx = 0.0;
-      this.browseNwscriptButton = new JButton("Browse...");
-      this.browseNwscriptButton.addActionListener(this);
-      panel.add(this.browseNwscriptButton, gbc);
+      this.browseK1NwscriptButton = new JButton("Browse...");
+      this.browseK1NwscriptButton.addActionListener(this);
+      panel.add(this.browseK1NwscriptButton, gbc);
+      
+      // K2 nwscript Path
+      gbc.gridx = 0;
+      gbc.gridy = 3;
+      gbc.weightx = 0.0;
+      panel.add(new JLabel("KotOR 2 nwscript.nss:"), gbc);
+      gbc.gridx = 1;
+      gbc.weightx = 1.0;
+      this.k2NwscriptPathField = new JTextField(30);
+      this.k2NwscriptPathField.setToolTipText("Path to tsl_nwscript.nss file for KotOR 2/TSL decompilation");
+      panel.add(this.k2NwscriptPathField, gbc);
+      gbc.gridx = 2;
+      gbc.weightx = 0.0;
+      this.browseK2NwscriptButton = new JButton("Browse...");
+      this.browseK2NwscriptButton.addActionListener(this);
+      panel.add(this.browseK2NwscriptButton, gbc);
       
       // Spacer
       gbc.gridx = 0;
-      gbc.gridy = 3;
+      gbc.gridy = 4;
       gbc.weighty = 1.0;
       panel.add(new JLabel(), gbc);
       
@@ -418,7 +468,7 @@ public class Settings extends Properties implements ActionListener {
       gbc.gridy = 1;
       gbc.gridwidth = 2;
       JLabel infoLabel = new JLabel("<html><i>Note: Game variant determines which nwscript.nss file is used.<br>" +
-                                    "If nwscript path is specified above, it overrides this setting.</i></html>");
+                                    "Configure nwscript paths in the \"Files & Directories\" tab.</i></html>");
       infoLabel.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
       panel.add(infoLabel, gbc);
       

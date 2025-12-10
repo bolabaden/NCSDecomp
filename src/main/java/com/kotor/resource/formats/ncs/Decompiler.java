@@ -944,38 +944,6 @@ public class Decompiler
          // Always try to get generated code, even if result indicates failure
          generatedCode = this.fileDecompiler.getGeneratedCode(file);
          vars = this.fileDecompiler.getVariableData(file);
-      } catch (DecompilerException var4) {
-         // Even if decompile() throws, try to get any partial results
-         this.status.append("error: " + var4.getMessage() + "\n");
-         try {
-            generatedCode = this.fileDecompiler.getGeneratedCode(file);
-            vars = this.fileDecompiler.getVariableData(file);
-            if (generatedCode != null && !generatedCode.trim().isEmpty()) {
-               // We have partial code, show it
-               result = 2; // PARTIAL_COMPILE
-               this.status.append("showing partial decompilation\n");
-            } else {
-               // No code available - create a fallback stub so we always show something
-               generatedCode = "// Decompilation Error\n" +
-                              "// " + var4.getMessage() + "\n" +
-                              "// File: " + file.getName() + "\n" +
-                              "// \n" +
-                              "// The decompiler encountered an error but attempted to show partial results.\n" +
-                              "// This may indicate a corrupted or invalid NCS file.\n" +
-                              "void main() {\n    // Error: " + var4.getMessage() + "\n}\n";
-               result = 2; // PARTIAL_COMPILE - we're showing something
-               this.status.append("showing error stub\n");
-            }
-         } catch (Exception e) {
-            // Last resort - create minimal stub so we always show something
-            generatedCode = "// Critical Decompilation Error\n" +
-                           "// File: " + file.getName() + "\n" +
-                           "// Original error: " + var4.getMessage() + "\n" +
-                           "// Secondary error: " + e.getMessage() + "\n" +
-                           "void main() {\n    // Decompilation failed\n}\n";
-            result = 2; // PARTIAL_COMPILE - we're showing something
-            this.status.append("showing minimal error stub\n");
-         }
       } catch (Exception unexpected) {
          // Catch any other unexpected exceptions
          this.status.append("unexpected error: " + unexpected.getMessage() + "\n");
