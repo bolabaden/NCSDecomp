@@ -222,6 +222,13 @@ public class SubroutineState {
          }
       }
 
+      // Ensure this.params has enough elements when redo is true
+      if (redo && this.params.size() < types.size()) {
+         while (this.params.size() < types.size()) {
+            this.params.add(new Type((byte)-1));
+         }
+      }
+
       for (int i = 0; i < types.size(); i++) {
          Type newtype = types.get(i);
 
