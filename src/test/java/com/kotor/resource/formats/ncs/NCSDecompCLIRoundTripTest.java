@@ -2332,8 +2332,11 @@ public class NCSDecompCLIRoundTripTest {
       // The pattern must match: function() { followed by newline, tabs/spaces, then extra {
       // And replace with: function() { followed by newline, tabs/spaces (preserving everything after)
       // Use a very explicit pattern that captures the whitespace between braces
+      // CRITICAL: Must preserve tabs and newlines to keep the declaration line intact
+      // Pattern: function() { followed by newline, then tabs/spaces, then extra {
+      // Replace with: function() { followed by newline and tabs/spaces (preserving declaration)
       java.util.regex.Pattern funcWithExtraBlock = java.util.regex.Pattern.compile(
-            "(\\w+\\s+\\w+\\s*\\([^)]*\\)\\s*\\{\\s*\\n\\s*)\\{\\s*",
+            "(\\w+\\s+\\w+\\s*\\([^)]*\\)\\s*\\{\\s*\\n[\\t ]*)\\{\\s*",
             java.util.regex.Pattern.MULTILINE);
       result = funcWithExtraBlock.matcher(result).replaceAll("$1");
 
