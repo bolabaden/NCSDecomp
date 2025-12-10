@@ -61,7 +61,6 @@ public class Settings extends Properties implements ActionListener {
    // Game Settings
    private JRadioButton gameK1Radio;
    private JRadioButton gameK2Radio;
-   private JRadioButton gameTSLRadio;
    
    // Decompilation Options
    private JCheckBox preferSwitchesCheckBox;
@@ -138,7 +137,7 @@ public class Settings extends Properties implements ActionListener {
       if (this.gameK1Radio.isSelected()) {
          this.setProperty("Game Variant", "k1");
          FileDecompiler.isK2Selected = false;
-      } else if (this.gameK2Radio.isSelected() || this.gameTSLRadio.isSelected()) {
+      } else if (this.gameK2Radio.isSelected()) {
          this.setProperty("Game Variant", "k2");
          FileDecompiler.isK2Selected = true;
       }
@@ -395,13 +394,10 @@ public class Settings extends Properties implements ActionListener {
       this.gameK1Radio = new JRadioButton("KotOR 1");
       this.gameK1Radio.setToolTipText("Use KotOR 1 (Knights of the Old Republic) action definitions");
       this.gameK2Radio = new JRadioButton("KotOR 2");
-      this.gameK2Radio.setToolTipText("Use KotOR 2 action definitions");
-      this.gameTSLRadio = new JRadioButton("TSL (The Sith Lords)");
-      this.gameTSLRadio.setToolTipText("Alias for KotOR 2");
+      this.gameK2Radio.setToolTipText("Use KotOR 2 (The Sith Lords) action definitions");
       
       gameGroup.add(this.gameK1Radio);
       gameGroup.add(this.gameK2Radio);
-      gameGroup.add(this.gameTSLRadio);
       
       JPanel radioPanel = new JPanel(new GridBagLayout());
       GridBagConstraints radioGbc = new GridBagConstraints();
@@ -412,8 +408,6 @@ public class Settings extends Properties implements ActionListener {
       radioPanel.add(this.gameK1Radio, radioGbc);
       radioGbc.gridy = 1;
       radioPanel.add(this.gameK2Radio, radioGbc);
-      radioGbc.gridy = 2;
-      radioPanel.add(this.gameTSLRadio, radioGbc);
       
       gbc.gridx = 1;
       gbc.gridy = 0;
