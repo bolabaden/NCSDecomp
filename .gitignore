@@ -67,3 +67,4 @@ vendor/
 # OS files
 .DS_Store
 Thumbs.db
+jpackage-input/
