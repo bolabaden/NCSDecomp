@@ -37,7 +37,7 @@ try {
         Write-Host "WiX installation completed successfully!" -ForegroundColor Green
         Write-Host ""
         Write-Host "Please restart your PowerShell terminal for PATH changes to take effect." -ForegroundColor Yellow
-        Write-Host "Then run: .\build-exe.ps1" -ForegroundColor Cyan
+        Write-Host "Then run: .\scripts\build.ps1 -BuildExe" -ForegroundColor Cyan
     } else {
         Write-Host ""
         Write-Host "WiX installation failed or was cancelled (exit code: $($process.ExitCode))" -ForegroundColor Red

@@ -36,8 +36,8 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host ""
 $exeType = if ($IsWindows) { ".exe" } elseif ($IsMacOS) { ".app" } else { "executable" }
 Write-Host "Step 2: Building self-contained $exeType..." -ForegroundColor Yellow
-$buildExeScript = Join-Path $PSScriptRoot "build-exe.ps1"
-& $buildExeScript
+$buildScript = Join-Path $PSScriptRoot "build.ps1"
+& $buildScript -BuildExe
 if ($LASTEXITCODE -ne 0) {
     Write-Host "EXE build failed!" -ForegroundColor Red
     exit 1
