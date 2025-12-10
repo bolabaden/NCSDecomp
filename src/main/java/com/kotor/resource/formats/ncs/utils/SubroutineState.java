@@ -172,12 +172,13 @@ public class SubroutineState {
    }
 
    public boolean getSkipEnd(int pos) {
-      if (this.decisionqueue.getFirst().destination == pos) {
-         this.decisionqueue.removeFirst();
-         return true;
-      } else {
-         return false;
+      if (this.decisionqueue != null && !this.decisionqueue.isEmpty()) {
+         if (this.decisionqueue.getFirst().destination == pos) {
+            this.decisionqueue.removeFirst();
+            return true;
+         }
       }
+      return false;
    }
 
    public void setParamCount(int params) {
@@ -307,12 +308,11 @@ public class SubroutineState {
    }
 
    public int getCurrentDestination() {
-      SubroutineState.DecisionData data = this.decisionqueue.getLast();
-      if (data == null) {
+      if (this.decisionqueue == null || this.decisionqueue.isEmpty()) {
          throw new RuntimeException("Attempted to get a destination but no decision nodes found.");
-      } else {
-         return data.destination;
       }
+      SubroutineState.DecisionData data = this.decisionqueue.getLast();
+      return data.destination;
    }
 
    public int switchDecision() {
