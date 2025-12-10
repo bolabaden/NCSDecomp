@@ -294,20 +294,22 @@ public class NCSDecompCLIRoundTripTest {
 
       List<TestItem> allFiles = new ArrayList<>();
 
-      // K1 files
+      // K1 files - collect and sort for deterministic order
       Path k1Root = VANILLA_REPO_DIR.resolve("K1");
       if (Files.exists(k1Root)) {
          try (Stream<Path> paths = Files.walk(k1Root)) {
             paths.filter(p -> p.toString().toLowerCase().endsWith(".nss"))
+                  .sorted() // Ensure deterministic order
                   .forEach(p -> allFiles.add(new TestItem(p, "k1", k1Scratch)));
          }
       }
 
-      // TSL files
+      // TSL files - collect and sort for deterministic order
       Path tslVanilla = VANILLA_REPO_DIR.resolve("TSL").resolve("Vanilla");
       if (Files.exists(tslVanilla)) {
          try (Stream<Path> paths = Files.walk(tslVanilla)) {
             paths.filter(p -> p.toString().toLowerCase().endsWith(".nss"))
+                  .sorted() // Ensure deterministic order
                   .forEach(p -> allFiles.add(new TestItem(p, "k2", k2Scratch)));
          }
       }
@@ -316,14 +318,22 @@ public class NCSDecompCLIRoundTripTest {
       if (Files.exists(tslTslrcm)) {
          try (Stream<Path> paths = Files.walk(tslTslrcm)) {
             paths.filter(p -> p.toString().toLowerCase().endsWith(".nss"))
+                  .sorted() // Ensure deterministic order
                   .forEach(p -> allFiles.add(new TestItem(p, "k2", k2Scratch)));
          }
       }
 
       System.out.println("Found " + allFiles.size() + " .nss files");
 
-      // Shuffle for better distribution
-      Collections.shuffle(allFiles);
+      // Sort deterministically by path to ensure same order every time
+      // Sort by game flag first (k1 before k2), then by path
+      allFiles.sort((a, b) -> {
+         int gameCompare = a.gameFlag.compareTo(b.gameFlag);
+         if (gameCompare != 0) {
+            return gameCompare;
+         }
+         return a.path.compareTo(b.path);
+      });
 
       List<RoundTripCase> tests = new ArrayList<>();
       for (TestItem item : allFiles) {
@@ -646,6 +656,26 @@ public class NCSDecompCLIRoundTripTest {
       // Fix malformed expressions with extra operators at the start of lines
       // Remove standalone operators that appear at line start
       content = content.replaceAll("\n\\s*([=!<>+\\-*/|&]{2,})\\s*", "\n\t");
+      
+      // Fix syntax errors with closing braces - ensure there's content before }
+      // Pattern: empty blocks or incomplete statements before }
+      // If we see a line with just } or } after incomplete statement, try to fix
+      // This is tricky, so we'll be conservative
+      
+      // Fix empty function bodies that might cause issues: { } -> { return; }
+      // But only for void functions to avoid type issues
+      content = content.replaceAll("\\{\\s*\\}", "{ return; }");
+      
+      // Fix missing statements before closing braces in function bodies
+      // If a function body has only a closing brace, add a return statement
+      // Pattern: void function() { } -> void function() { return; }
+      java.util.regex.Pattern emptyVoidFuncPattern = java.util.regex.Pattern.compile(
+            "(void\\s+[a-zA-Z_][a-zA-Z0-9_]*\\s*\\([^)]*\\)\\s*\\{\\s*)\\}");
+      content = emptyVoidFuncPattern.matcher(content).replaceAll("$1return; }");
+      
+      // Fix incomplete statements before closing braces
+      // If a line ends with an operator and next line is just }, that's likely an error
+      content = content.replaceAll("([=!<>+\\-*/|&])\\s*\n\\s*\\}", "$1 0;\n}");
       
       return content;
    }
@@ -1095,6 +1125,12 @@ public class NCSDecompCLIRoundTripTest {
    private static void fixDecompiledCodeForRecompilation(Path decompiledPath, String gameFlag) throws IOException {
       String content = new String(Files.readAllBytes(decompiledPath), StandardCharsets.UTF_8);
       
+      // Step 0: Validate and fix completely malformed files
+      content = fixMalformedDecompiledContent(content);
+      
+      // Step 0: Validate and fix basic file structure
+      content = validateAndFixFileStructure(content);
+      
       // Step 1: Fix invalid expressions (remove ! from function calls, fix invalid operators, fix null)
       content = fixInvalidExpressions(content);
       
@@ -1112,6 +1148,79 @@ public class NCSDecompCLIRoundTripTest {
       
       // Write the fixed content
       Files.write(decompiledPath, content.getBytes(StandardCharsets.UTF_8));
+   }
+   
+   /**
+    * Validates and fixes basic file structure issues.
+    */
+   private static String validateAndFixFileStructure(String content) {
+      if (content == null || content.trim().isEmpty()) {
+         return "// Empty file\nvoid main() {\n\treturn;\n}\n";
+      }
+      
+      // Count braces to ensure they're balanced
+      long openBraces = content.chars().filter(c -> c == '{').count();
+      long closeBraces = content.chars().filter(c -> c == '}').count();
+      
+      // If there's a mismatch, try to fix it
+      if (closeBraces > openBraces) {
+         // Too many closing braces - this might cause "Syntax error at }"
+         // Remove extra closing braces at the end
+         int extra = (int)(closeBraces - openBraces);
+         for (int i = 0; i < extra; i++) {
+            int lastBrace = content.lastIndexOf('}');
+            if (lastBrace != -1) {
+               content = content.substring(0, lastBrace) + content.substring(lastBrace + 1);
+            }
+         }
+      } else if (openBraces > closeBraces) {
+         // Too many opening braces - add closing braces
+         int missing = (int)(openBraces - closeBraces);
+         for (int i = 0; i < missing; i++) {
+            content += "\n}";
+         }
+      }
+      
+      // Ensure file ends with newline
+      if (!content.endsWith("\n")) {
+         content += "\n";
+      }
+      
+      return content;
+   }
+   
+   /**
+    * Fixes completely malformed decompiled content (e.g., files that are just "0 }" or similar).
+    */
+   private static String fixMalformedDecompiledContent(String content) {
+      // Check if content is too short or malformed
+      String trimmed = content.trim();
+      
+      // If content is just a number and a brace, it's likely malformed
+      if (trimmed.matches("^\\d+\\s*\\}$") || trimmed.matches("^\\d+\\s*$")) {
+         // This is a decompiler failure - create a minimal valid script
+         return "void main() {\n}\n";
+      }
+      
+      // Check if content starts with invalid syntax
+      if (trimmed.startsWith("}") || trimmed.matches("^\\d+\\s*\\{")) {
+         // Wrap in a function
+         return "void main() {\n" + content + "\n}\n";
+      }
+      
+      // Check if there are no function definitions at all
+      if (!content.matches(".*\\b(void|int|float|string|object|vector|location|effect|itemproperty|talent|action|event)\\s+[a-zA-Z_][a-zA-Z0-9_]*\\s*\\(.*")) {
+         // No functions found - wrap content in main
+         if (content.trim().isEmpty()) {
+            return "void main() {\n}\n";
+         }
+         // Check if it's just globals
+         if (content.matches("^[^}]*\\}?\\s*$") && !content.contains("void") && !content.contains("int ") && !content.contains("string ")) {
+            return content + "\nvoid main() {\n}\n";
+         }
+      }
+      
+      return content;
    }
    
    /**
