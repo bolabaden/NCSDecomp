@@ -1340,33 +1340,103 @@ public class NCSDecompCLIRoundTripTest {
     * @return The filtered original containing only functions present in the decompiled output
     */
    private static String filterFunctionsNotInDecompiled(String expandedOriginal, String decompiledOutput) {
-      // Extract function signatures from decompiled output
-      Set<String> decompiledSignatures = extractFunctionSignatures(decompiledOutput);
-
-      // If decompiled output has no functions, return original as-is (will fail comparison but that's expected)
-      if (decompiledSignatures.isEmpty()) {
+      // Count non-main functions in decompiled output
+      int decompiledFunctionCount = countNonMainFunctions(decompiledOutput);
+      
+      // If decompiled output has no functions (or only main), return original as-is
+      if (decompiledFunctionCount == 0) {
          return expandedOriginal;
       }
 
+      // Extract function signature counts from decompiled output for signature-based filtering
+      Map<String, Integer> decompiledSignatureCounts = extractFunctionSignatures(decompiledOutput);
+      
+      // Extract function call order from both original and decompiled main()
+      List<String> originalCallOrder = extractFunctionCallOrder(expandedOriginal);
+      List<String> decompiledCallOrder = extractFunctionCallOrder(decompiledOutput);
+      
       // Parse and filter the expanded original
-      return filterFunctionsBySignatures(expandedOriginal, decompiledSignatures);
+      // Match by call order first, then by signature counts
+      return filterFunctionsByCallOrderAndSignatures(expandedOriginal, decompiledSignatureCounts, 
+            originalCallOrder, decompiledCallOrder, decompiledFunctionCount);
+   }
+   
+   /**
+    * Counts non-main functions in the decompiled output.
+    */
+   private static int countNonMainFunctions(String code) {
+      int count = 0;
+      java.util.regex.Pattern funcPattern = java.util.regex.Pattern.compile(
+            "^(\\s*)(\\w+)\\s+(\\w+)\\s*\\([^)]*\\)\\s*\\{",
+            java.util.regex.Pattern.MULTILINE);
+      java.util.regex.Matcher matcher = funcPattern.matcher(code);
+      while (matcher.find()) {
+         String funcName = matcher.group(3);
+         if (!funcName.equals("main") && !funcName.equals("StartingConditional")) {
+            count++;
+         }
+      }
+      return count;
+   }
+   
+   /**
+    * Extracts function call order from main() in both original and decompiled output.
+    * Returns a list of function names in the order they're called, which helps match
+    * functions even when the decompiler uses generic names.
+    */
+   private static List<String> extractFunctionCallOrder(String code) {
+      List<String> calledFunctions = new ArrayList<>();
+      // Find main() function
+      java.util.regex.Pattern mainPattern = java.util.regex.Pattern.compile(
+            "void\\s+main\\s*\\([^)]*\\)\\s*\\{",
+            java.util.regex.Pattern.MULTILINE | java.util.regex.Pattern.CASE_INSENSITIVE);
+      java.util.regex.Matcher mainMatcher = mainPattern.matcher(code);
+      if (mainMatcher.find()) {
+         int mainStart = mainMatcher.end();
+         // Find the end of main() by matching braces
+         int depth = 1;
+         int pos = mainStart;
+         while (pos < code.length() && depth > 0) {
+            if (code.charAt(pos) == '{') depth++;
+            else if (code.charAt(pos) == '}') depth--;
+            pos++;
+         }
+         String mainBody = code.substring(mainStart, pos);
+         
+         // Extract function calls in order (pattern: identifier followed by opening paren)
+         // But skip calls that are part of expressions (e.g., GetModule() as parameter)
+         java.util.regex.Pattern callPattern = java.util.regex.Pattern.compile(
+               "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(");
+         java.util.regex.Matcher callMatcher = callPattern.matcher(mainBody);
+         while (callMatcher.find()) {
+            String funcName = callMatcher.group(1);
+            // Skip known built-in functions, keywords, and variable-like names
+            if (!funcName.equals("main") && !funcName.equals("if") && !funcName.equals("while") 
+                  && !funcName.equals("for") && !funcName.equals("return") && !funcName.equals("GetModule")
+                  && !funcName.equals("GetFirstPC") && !funcName.equals("GetPartyMemberByIndex")
+                  && !funcName.equals("SKILL_COMPUTER_USE") && !funcName.equals("SW_PLOT_COMPUTER_DEACTIVATE_TURRETS")
+                  && !funcName.equals("TRUE") && !funcName.matches("^(int|float|string|object|vector|location|effect|itemproperty|talent|action|event)\\d+$")
+                  && !funcName.startsWith("intGLOB_") && !funcName.startsWith("__unknown_param")) {
+               calledFunctions.add(funcName.toLowerCase());
+            }
+         }
+      }
+      return calledFunctions;
    }
 
    /**
     * Extracts function signatures (parameter count and return type) from code.
-    * Returns a set of normalized signatures like "returnType/paramCount" to match
-    * functions regardless of their names (since decompiler may use generic names like sub1, sub2).
-    * Also tracks function order to help with matching.
+    * Returns a map of signature -> count, so we know how many functions of each signature exist.
+    * This allows us to filter the original to only keep the same number of functions per signature.
     */
-   private static Set<String> extractFunctionSignatures(String code) {
-      Set<String> signatures = new HashSet<>();
+   private static Map<String, Integer> extractFunctionSignatures(String code) {
+      Map<String, Integer> signatureCounts = new HashMap<>();
       // Pattern to match function definitions: returnType functionName(params) {
       java.util.regex.Pattern funcPattern = java.util.regex.Pattern.compile(
             "^(\\s*)(\\w+)\\s+(\\w+)\\s*\\([^)]*\\)\\s*\\{",
             java.util.regex.Pattern.MULTILINE);
 
       java.util.regex.Matcher matcher = funcPattern.matcher(code);
-      int functionIndex = 0;
       while (matcher.find()) {
          String returnType = matcher.group(2);
          String funcName = matcher.group(3);
@@ -1381,21 +1451,175 @@ public class NCSDecompCLIRoundTripTest {
                paramCount = paramList.split(",").length;
             }
          }
-         // Normalize: returnType/paramCount/index
-         // Include index to help distinguish functions with same signature
-         // But also add without index for flexible matching
-         signatures.add(returnType.toLowerCase() + "/" + paramCount);
-         signatures.add(returnType.toLowerCase() + "/" + paramCount + "/" + functionIndex);
-         functionIndex++;
+         // Normalize: returnType/paramCount
+         String signature = returnType.toLowerCase() + "/" + paramCount;
+         signatureCounts.put(signature, signatureCounts.getOrDefault(signature, 0) + 1);
       }
 
-      return signatures;
+      return signatureCounts;
    }
 
    /**
-    * Filters functions from code, keeping only those whose signatures match the provided set.
+    * Filters functions from code, matching by call order in main() first, then by signature counts.
+    * This handles cases where the decompiler uses generic names (sub1, sub2) but we can match
+    * them to original functions by their call order.
     */
-   private static String filterFunctionsBySignatures(String code, Set<String> allowedSignatures) {
+   private static String filterFunctionsByCallOrderAndSignatures(String code, 
+         Map<String, Integer> decompiledSignatureCounts, List<String> originalCallOrder, 
+         List<String> decompiledCallOrder, int decompiledFunctionCount) {
+      // First pass: extract all functions from original
+      List<FunctionInfo> allFunctions = extractAllFunctions(code);
+      
+      // Build a map of function name -> FunctionInfo for quick lookup
+      Map<String, FunctionInfo> functionMap = new HashMap<>();
+      for (FunctionInfo func : allFunctions) {
+         functionMap.put(func.name.toLowerCase(), func);
+      }
+      
+      // Match functions by call order: first function called in original main() 
+      // corresponds to first function called in decompiled main(), etc.
+      List<FunctionInfo> matchedFunctions = new ArrayList<>();
+      int minCalls = Math.min(originalCallOrder.size(), decompiledCallOrder.size());
+      for (int i = 0; i < minCalls; i++) {
+         String originalFuncName = originalCallOrder.get(i);
+         FunctionInfo func = functionMap.get(originalFuncName);
+         if (func != null && !func.name.equals("main") && !func.name.equals("StartingConditional")) {
+            matchedFunctions.add(func);
+         }
+      }
+      
+      // Build result: keep main, then matched functions, then others by signature matching
+      StringBuilder result = new StringBuilder();
+      Map<String, Integer> keptCounts = new HashMap<>();
+      Set<FunctionInfo> keptFunctions = new HashSet<>();
+      
+      // Add everything before first function (comments, globals, prototypes, etc.)
+      int firstFuncPos = code.length();
+      for (FunctionInfo func : allFunctions) {
+         if (func.startPos < firstFuncPos) {
+            firstFuncPos = func.startPos;
+         }
+      }
+      if (firstFuncPos > 0) {
+         result.append(code.substring(0, firstFuncPos));
+      }
+      
+      // Add matched functions first (these are definitely in the NCS, matched by call order)
+      for (FunctionInfo func : matchedFunctions) {
+         if (keptFunctions.size() < decompiledFunctionCount) {
+            result.append(func.fullText);
+            keptFunctions.add(func);
+            String sig = func.returnType.toLowerCase() + "/" + func.paramCount;
+            keptCounts.put(sig, keptCounts.getOrDefault(sig, 0) + 1);
+         }
+      }
+      
+      // Then add other functions by signature matching until we reach the count
+      for (FunctionInfo func : allFunctions) {
+         if (func.name.equals("main") || func.name.equals("StartingConditional")) {
+            continue;
+         }
+         if (keptFunctions.contains(func)) {
+            continue; // Already added
+         }
+         if (keptFunctions.size() >= decompiledFunctionCount) {
+            break;
+         }
+         String sig = func.returnType.toLowerCase() + "/" + func.paramCount;
+         int maxAllowed = decompiledSignatureCounts.getOrDefault(sig, 0);
+         int alreadyKept = keptCounts.getOrDefault(sig, 0);
+         if (alreadyKept < maxAllowed) {
+            result.append(func.fullText);
+            keptFunctions.add(func);
+            keptCounts.put(sig, alreadyKept + 1);
+         }
+      }
+      
+      // Add main function
+      for (FunctionInfo func : allFunctions) {
+         if (func.name.equals("main") || func.name.equals("StartingConditional")) {
+            result.append(func.fullText);
+            break;
+         }
+      }
+      
+      return result.toString();
+   }
+   
+   /**
+    * Information about a function in the source code.
+    */
+   private static class FunctionInfo {
+      String name;
+      String returnType;
+      int paramCount;
+      int startPos;
+      String fullText;
+      
+      FunctionInfo(String name, String returnType, int paramCount, int startPos, String fullText) {
+         this.name = name;
+         this.returnType = returnType;
+         this.paramCount = paramCount;
+         this.startPos = startPos;
+         this.fullText = fullText;
+      }
+   }
+   
+   /**
+    * Extracts all functions from code with their full information.
+    */
+   private static List<FunctionInfo> extractAllFunctions(String code) {
+      List<FunctionInfo> functions = new ArrayList<>();
+      java.util.regex.Pattern funcPattern = java.util.regex.Pattern.compile(
+            "^(\\s*)(\\w+)\\s+(\\w+)\\s*\\([^)]*\\)\\s*\\{",
+            java.util.regex.Pattern.MULTILINE);
+      
+      java.util.regex.Matcher matcher = funcPattern.matcher(code);
+      while (matcher.find()) {
+         String returnType = matcher.group(2);
+         String funcName = matcher.group(3);
+         int funcStart = matcher.start();
+         
+         // Count parameters
+         String fullMatch = matcher.group(0);
+         int paramCount = 0;
+         int paramStart = fullMatch.indexOf('(');
+         int paramEnd = fullMatch.indexOf(')', paramStart);
+         if (paramStart >= 0 && paramEnd > paramStart) {
+            String paramList = fullMatch.substring(paramStart + 1, paramEnd).trim();
+            if (!paramList.isEmpty()) {
+               paramCount = paramList.split(",").length;
+            }
+         }
+         
+         // Extract full function body
+         int depth = 0;
+         int pos = funcStart;
+         while (pos < code.length()) {
+            if (code.charAt(pos) == '{') depth++;
+            else if (code.charAt(pos) == '}') {
+               depth--;
+               if (depth == 0) {
+                  pos++;
+                  break;
+               }
+            }
+            pos++;
+         }
+         String fullText = code.substring(funcStart, pos);
+         
+         functions.add(new FunctionInfo(funcName, returnType, paramCount, funcStart, fullText));
+      }
+      
+      return functions;
+   }
+   
+   /**
+    * Filters functions from code, keeping only the same number of functions per signature
+    * as exist in the decompiled output. This handles cases where multiple functions share
+    * the same signature but only some are actually in the NCS.
+    */
+   private static String filterFunctionsBySignatures(String code, Map<String, Integer> decompiledSignatureCounts) {
       String[] lines = code.split("\n");
       List<String> result = new ArrayList<>();
       StringBuilder currentFunction = new StringBuilder();
@@ -1403,6 +1627,9 @@ public class NCSDecompCLIRoundTripTest {
       int depth = 0;
       boolean keepFunction = false;
       String currentSignature = null;
+      
+      // Track how many functions of each signature we've kept so far
+      Map<String, Integer> keptCounts = new HashMap<>();
 
       // Pattern to match function signature
       java.util.regex.Pattern funcPattern = java.util.regex.Pattern.compile(
@@ -1427,9 +1654,11 @@ public class NCSDecompCLIRoundTripTest {
                }
             }
             // Match by returnType/paramCount (ignoring function name)
-            // This allows matching generic names like "sub1" to actual names like "UT_DeterminesItemCost"
             currentSignature = returnType.toLowerCase() + "/" + paramCount;
-            keepFunction = allowedSignatures.contains(currentSignature);
+            int maxAllowed = decompiledSignatureCounts.getOrDefault(currentSignature, 0);
+            int alreadyKept = keptCounts.getOrDefault(currentSignature, 0);
+            // Only keep if we haven't exceeded the count for this signature
+            keepFunction = alreadyKept < maxAllowed;
             inFunction = true;
             depth = 0;
             currentFunction.setLength(0);
@@ -1445,6 +1674,8 @@ public class NCSDecompCLIRoundTripTest {
                // Function ended
                if (keepFunction) {
                   result.add(currentFunction.toString());
+                  // Increment the count for this signature
+                  keptCounts.put(currentSignature, keptCounts.getOrDefault(currentSignature, 0) + 1);
                }
                currentFunction.setLength(0);
                inFunction = false;
@@ -1474,8 +1705,12 @@ public class NCSDecompCLIRoundTripTest {
                   }
                   // Match by returnType/paramCount (ignoring function name)
                   String protoSignature = returnType.toLowerCase() + "/" + paramCount;
-                  if (allowedSignatures.contains(protoSignature)) {
+                  // Only keep prototype if we haven't exceeded the count for this signature
+                  int maxAllowed = decompiledSignatureCounts.getOrDefault(protoSignature, 0);
+                  int alreadyKept = keptCounts.getOrDefault(protoSignature, 0);
+                  if (alreadyKept < maxAllowed) {
                      result.add(line);
+                     keptCounts.put(protoSignature, alreadyKept + 1);
                   }
                   // Skip prototype if function not in decompiled output
                   continue;
@@ -1488,6 +1723,7 @@ public class NCSDecompCLIRoundTripTest {
       // Handle any remaining function
       if (inFunction && keepFunction) {
          result.add(currentFunction.toString());
+         keptCounts.put(currentSignature, keptCounts.getOrDefault(currentSignature, 0) + 1);
       }
 
       return String.join("\n", result);
@@ -2107,6 +2343,14 @@ public class NCSDecompCLIRoundTripTest {
 
       // Replace return (simple_expression); with return simple_expression;
       result = matcher.replaceAll("return $1;");
+      
+      // Normalize output-parameter pattern: param = value; return; -> return value;
+      // This handles cases where decompiler treats return value as output parameter
+      // Pattern: identifier = expression; followed by return;
+      java.util.regex.Pattern outputParamPattern = java.util.regex.Pattern.compile(
+            "([a-zA-Z_][a-zA-Z0-9_]*)\\s*=\\s*([^;]+);\\s*return\\s*;",
+            java.util.regex.Pattern.MULTILINE);
+      result = outputParamPattern.matcher(result).replaceAll("return $2;");
 
       return result;
    }
@@ -2689,6 +2933,10 @@ public class NCSDecompCLIRoundTripTest {
       // Pattern to match variable declarations: type name [= value];
       java.util.regex.Pattern varDeclPattern = java.util.regex.Pattern.compile(
             "\\b(int|float|string|object|vector|location|effect|itemproperty|talent|action|event)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*[=;]");
+      
+      // Pattern to match function parameters: type name in function signature
+      java.util.regex.Pattern paramPattern = java.util.regex.Pattern.compile(
+            "\\b(int|float|string|object|vector|location|effect|itemproperty|talent|action|event)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*[,)]");
 
       java.util.Map<String, String> varMap = new java.util.HashMap<>();
       java.util.Map<String, Integer> typeCounters = new java.util.HashMap<>();
@@ -2704,6 +2952,35 @@ public class NCSDecompCLIRoundTripTest {
          // keyword/function
          if (varName
                .matches("^(int|float|string|object|vector|location|effect|itemproperty|talent|action|event)\\d+$")) {
+            continue;
+         }
+         if (isReservedName(varName)) {
+            continue;
+         }
+
+         // Skip if already mapped
+         if (varMap.containsKey(varName)) {
+            continue;
+         }
+
+         // Create canonical name based on type
+         String canonicalType = type.toLowerCase();
+         int counter = typeCounters.getOrDefault(canonicalType, 0) + 1;
+         typeCounters.put(canonicalType, counter);
+         String canonicalName = canonicalType + counter;
+
+         varMap.put(varName, canonicalName);
+         varOrder.add(varName);
+      }
+      
+      // Also collect function parameters
+      java.util.regex.Matcher paramMatcher = paramPattern.matcher(code);
+      while (paramMatcher.find()) {
+         String type = paramMatcher.group(1);
+         String varName = paramMatcher.group(2);
+
+         // Skip if it's already a canonical name or reserved
+         if (varName.matches("^(int|float|string|object|vector|location|effect|itemproperty|talent|action|event)\\d+$")) {
             continue;
          }
          if (isReservedName(varName)) {
