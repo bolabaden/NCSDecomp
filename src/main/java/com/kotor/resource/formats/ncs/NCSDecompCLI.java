@@ -505,10 +505,12 @@ public final class NCSDecompCLI {
       String extension = ".nss";
       // Default to Windows-1252 (standard for KotOR/TSL), fallback to UTF-8 if unavailable
       Charset encoding;
-      try {
-         encoding = Charset.forName("Windows-1252");
-      } catch (Exception e) {
-         encoding = StandardCharsets.UTF_8;
+      {
+         try {
+            encoding = Charset.forName("Windows-1252");
+         } catch (Exception e) {
+            encoding = StandardCharsets.UTF_8;
+         }
       }
       boolean stdout = false;
       boolean overwrite = false;
