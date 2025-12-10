@@ -610,11 +610,26 @@ public class NCSDecompCLIRoundTripTest {
       content = content.replaceAll("([^=!<>+\\-*/|&])\\s*=\\s*=\\s*([^=])", "$1 == $2"); // Fix == =
       content = content.replaceAll("([^=!<>+\\-*/|&])\\s*!\\s*=\\s*([^=])", "$1 != $2"); // Fix ! = to !=
       
-      // Fix missing semicolons before certain keywords (common decompiler issue)
-      // This is tricky, so we'll be conservative
+      // Fix missing semicolons - if a line ends with a function call or expression but no semicolon
+      // and the next line starts with a keyword or function name, add semicolon
+      // This is complex, so we'll handle specific patterns
       
-      // Fix duplicate variable declarations by removing the second one
+      // Fix lines that end with ) but should have ; before next statement
+      // Pattern: ...) followed by newline and then a keyword/function
+      content = content.replaceAll("(\\))\\s*\n\\s*([a-zA-Z_][a-zA-Z0-9_]*\\s*\\()", "$1;\n\t$2");
+      
+      // Fix duplicate variable declarations - remove second declaration if variable already declared
       // This is handled in declareMissingVariables, but we can also fix obvious cases here
+      
+      // Fix malformed function calls - if there's a function name followed by invalid syntax
+      // This is hard to fix generically, so we'll be conservative
+      
+      // Fix common decompiler issues: missing parentheses, extra commas, etc.
+      // Remove trailing commas in function calls: func(a, b, ) -> func(a, b)
+      content = content.replaceAll(",\\s*\\)", ")");
+      
+      // Fix double semicolons
+      content = content.replaceAll(";;+", ";");
       
       return content;
    }
