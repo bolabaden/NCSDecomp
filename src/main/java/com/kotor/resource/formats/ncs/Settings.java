@@ -187,7 +187,9 @@ public class Settings extends Properties implements ActionListener {
    
    private void loadSettingsIntoUI() {
       // File/Directory Settings
-      this.outputDirectoryField.setText(this.getProperty("Output Directory", System.getProperty("user.dir")));
+      // Default output directory: ./ncsdecomp_converted relative to current working directory
+      String defaultOutputDir = new File(System.getProperty("user.dir"), "ncsdecomp_converted").getAbsolutePath();
+      this.outputDirectoryField.setText(this.getProperty("Output Directory", defaultOutputDir));
       this.openDirectoryField.setText(this.getProperty("Open Directory", System.getProperty("user.dir")));
       
       // Default nwscript paths: current directory + filename
@@ -214,7 +216,8 @@ public class Settings extends Properties implements ActionListener {
       this.overwriteFilesCheckBox.setSelected(Boolean.parseBoolean(this.getProperty("Overwrite Files", "false")));
       
       // Output Settings
-      String encoding = this.getProperty("Encoding", "UTF-8");
+      // Default encoding: Windows-1252 (standard for KotOR/TSL)
+      String encoding = this.getProperty("Encoding", "Windows-1252");
       this.encodingComboBox.setSelectedItem(encoding);
       this.fileExtensionField.setText(this.getProperty("File Extension", ".nss"));
       this.filenamePrefixField.setText(this.getProperty("Filename Prefix", ""));
@@ -279,7 +282,9 @@ public class Settings extends Properties implements ActionListener {
     * Resets all preferences to their default values.
     */
    public void reset() {
-      this.setProperty("Output Directory", System.getProperty("user.dir"));
+      // Default output directory: ./ncsdecomp_converted relative to current working directory
+      String defaultOutputDir = new File(System.getProperty("user.dir"), "ncsdecomp_converted").getAbsolutePath();
+      this.setProperty("Output Directory", defaultOutputDir);
       this.setProperty("Open Directory", System.getProperty("user.dir"));
       String defaultK1Path = new File(System.getProperty("user.dir"), "k1_nwscript.nss").getAbsolutePath();
       String defaultK2Path = new File(System.getProperty("user.dir"), "tsl_nwscript.nss").getAbsolutePath();
@@ -289,7 +294,7 @@ public class Settings extends Properties implements ActionListener {
       this.setProperty("Prefer Switches", "false");
       this.setProperty("Strict Signatures", "false");
       this.setProperty("Overwrite Files", "false");
-      this.setProperty("Encoding", "UTF-8");
+      this.setProperty("Encoding", "Windows-1252");
       this.setProperty("File Extension", ".nss");
       this.setProperty("Filename Prefix", "");
       this.setProperty("Filename Suffix", "");
@@ -531,7 +536,8 @@ public class Settings extends Properties implements ActionListener {
       panel.add(new JLabel("File Encoding:"), gbc);
       gbc.gridx = 1;
       gbc.weightx = 1.0;
-      String[] encodings = {"UTF-8", "UTF-16", "UTF-16BE", "UTF-16LE", "ISO-8859-1", "Windows-1252", "US-ASCII"};
+      // Put Windows-1252 first as it's the default for KotOR/TSL
+      String[] encodings = {"Windows-1252", "UTF-8", "UTF-16", "UTF-16BE", "UTF-16LE", "ISO-8859-1", "US-ASCII"};
       this.encodingComboBox = new JComboBox<>(encodings);
       this.encodingComboBox.setToolTipText("Character encoding for output files");
       this.encodingComboBox.setEditable(true);

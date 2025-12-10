@@ -142,8 +142,22 @@ public class Decompiler
 
    static {
       settings.load();
-      if (!new File(settings.getProperty("Output Directory")).isDirectory()) {
-         settings.setProperty("Output Directory", chooseOutputDirectory());
+      String outputDir = settings.getProperty("Output Directory");
+      // If output directory is not set or empty, use default: ./ncsdecomp_converted
+      if (outputDir == null || outputDir.isEmpty() || !new File(outputDir).isDirectory()) {
+         String defaultOutputDir = new File(System.getProperty("user.dir"), "ncsdecomp_converted").getAbsolutePath();
+         // If default doesn't exist, try to create it, otherwise prompt user
+         File defaultDir = new File(defaultOutputDir);
+         if (!defaultDir.exists()) {
+            if (defaultDir.mkdirs()) {
+               settings.setProperty("Output Directory", defaultOutputDir);
+            } else {
+               // If we can't create it, prompt user
+               settings.setProperty("Output Directory", chooseOutputDirectory());
+            }
+         } else {
+            settings.setProperty("Output Directory", defaultOutputDir);
+         }
          settings.save();
       }
       // Apply game variant setting to FileDecompiler
@@ -1052,13 +1066,18 @@ public class Decompiler
 
    private File saveBuffer(JTextArea buffer, String canonicalPath) {
       try {
-         // Get encoding from settings, default to UTF-8
-         String encodingName = settings.getProperty("Encoding", "UTF-8");
+         // Get encoding from settings, default to Windows-1252 (standard for KotOR/TSL)
+         String encodingName = settings.getProperty("Encoding", "Windows-1252");
          java.nio.charset.Charset charset;
          try {
             charset = java.nio.charset.Charset.forName(encodingName);
          } catch (Exception e) {
-            charset = java.nio.charset.StandardCharsets.UTF_8;
+            // Fallback to Windows-1252 if encoding is invalid
+            try {
+               charset = java.nio.charset.Charset.forName("Windows-1252");
+            } catch (Exception e2) {
+               charset = java.nio.charset.StandardCharsets.UTF_8;
+            }
          }
          
          BufferedWriter bw = new BufferedWriter(

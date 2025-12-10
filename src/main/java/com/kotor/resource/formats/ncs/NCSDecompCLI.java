@@ -447,7 +447,7 @@ public final class NCSDecompCLI {
       System.out.println("      --prefix <text>        Prefix for generated filenames");
       System.out.println("      --suffix <text>        Suffix for generated filenames");
       System.out.println("      --ext <ext>            Output extension (default: .nss)");
-      System.out.println("      --encoding <name>      Output charset (default: UTF-8)");
+      System.out.println("      --encoding <name>      Output charset (default: Windows-1252)");
       System.out.println("      --nwscript <path>      Path to nwscript.nss file (overrides --k1/--tsl)");
       System.out.println("      --stdout               Write decompiled source to stdout");
       System.out.println("      --overwrite            Overwrite existing files");
@@ -503,7 +503,13 @@ public final class NCSDecompCLI {
       String prefix = "";
       String suffix = "";
       String extension = ".nss";
-      Charset encoding = StandardCharsets.UTF_8;
+      // Default to Windows-1252 (standard for KotOR/TSL), fallback to UTF-8 if unavailable
+      Charset encoding;
+      try {
+         encoding = Charset.forName("Windows-1252");
+      } catch (Exception e) {
+         encoding = StandardCharsets.UTF_8;
+      }
       boolean stdout = false;
       boolean overwrite = false;
       boolean recursive = false;
