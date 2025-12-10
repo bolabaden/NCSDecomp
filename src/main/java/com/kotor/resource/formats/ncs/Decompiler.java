@@ -33,7 +33,6 @@ import java.awt.event.WindowListener;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -147,6 +146,11 @@ public class Decompiler
          settings.setProperty("Output Directory", chooseOutputDirectory());
          settings.save();
       }
+      // Apply game variant setting to FileDecompiler
+      String gameVariant = settings.getProperty("Game Variant", "k1").toLowerCase();
+      FileDecompiler.isK2Selected = gameVariant.equals("k2") || gameVariant.equals("tsl") || gameVariant.equals("2");
+      FileDecompiler.preferSwitches = Boolean.parseBoolean(settings.getProperty("Prefer Switches", "false"));
+      FileDecompiler.strictSignatures = Boolean.parseBoolean(settings.getProperty("Strict Signatures", "false"));
    }
 
    public Decompiler() throws HeadlessException, DecompilerException {
@@ -1080,7 +1084,21 @@ public class Decompiler
 
    private File saveBuffer(JTextArea buffer, String canonicalPath) {
       try {
-         BufferedWriter bw = new BufferedWriter(new FileWriter(canonicalPath));
+         // Get encoding from settings, default to UTF-8
+         String encodingName = settings.getProperty("Encoding", "UTF-8");
+         java.nio.charset.Charset charset;
+         try {
+            charset = java.nio.charset.Charset.forName(encodingName);
+         } catch (Exception e) {
+            charset = java.nio.charset.StandardCharsets.UTF_8;
+         }
+         
+         BufferedWriter bw = new BufferedWriter(
+            new java.io.OutputStreamWriter(
+               new java.io.FileOutputStream(canonicalPath),
+               charset
+            )
+         );
          bw.write(buffer.getText());
          bw.close();
          return new File(canonicalPath);
@@ -1095,6 +1113,20 @@ public class Decompiler
       }
 
       return null;
+   }
+   
+   /**
+    * Builds output filename using settings for prefix, suffix, and extension.
+    */
+   private String buildOutputFilename(String baseName) {
+      String prefix = settings.getProperty("Filename Prefix", "");
+      String suffix = settings.getProperty("Filename Suffix", "");
+      String extension = settings.getProperty("File Extension", ".nss");
+      // Ensure extension starts with a dot
+      if (!extension.startsWith(".")) {
+         extension = "." + extension;
+      }
+      return prefix + baseName + suffix + extension;
    }
 
    private void setTabComponentPanel(int index) {
@@ -1282,9 +1314,15 @@ public class Decompiler
          fileName = fileName.substring(0, fileName.length() - 2);
       }
       
+      // Remove any existing extension to avoid double extensions
+      int lastDot = fileName.lastIndexOf('.');
+      if (lastDot > 0) {
+         fileName = fileName.substring(0, lastDot);
+      }
+      
       File newFile = this.saveBuffer(
          textArea,
-         settings.getProperty("Output Directory") + "/" + fileName + ".nss"
+         settings.getProperty("Output Directory") + "/" + buildOutputFilename(fileName)
       );
       
       this.file = this.hash_TabComponent2File.get(tabComponent);
@@ -1377,9 +1415,20 @@ public class Decompiler
 
    private void saveAll() {
       for (int i = 0; i < this.jTB.getTabCount(); i++) {
+         String fileName = ((JLabel)((JPanel)this.jTB.getTabComponentAt(i)).getComponent(0)).getText();
+         // Remove unsaved marker if present
+         if (fileName.endsWith(" *")) {
+            fileName = fileName.substring(0, fileName.length() - 2);
+         }
+         // Remove any existing extension to avoid double extensions
+         int lastDot = fileName.lastIndexOf('.');
+         if (lastDot > 0) {
+            fileName = fileName.substring(0, lastDot);
+         }
+         
          File newFile = this.saveBuffer(
             (JTextArea)((JScrollPane)((JComponent[])this.jTB.getClientProperty((JComponent)this.jTB.getTabComponentAt(i)))[0].getComponent(0)).getViewport().getView(),
-            settings.getProperty("Output Directory") + "/" + ((JLabel)((JPanel)this.jTB.getTabComponentAt(i)).getComponent(0)).getText() + ".nss"
+            settings.getProperty("Output Directory") + "/" + buildOutputFilename(fileName)
          );
          File file = this.hash_TabComponent2File.get((JComponent)this.jTB.getTabComponentAt(i));
          int result = 2;
