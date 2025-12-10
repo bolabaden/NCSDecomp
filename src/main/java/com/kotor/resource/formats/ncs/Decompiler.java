@@ -306,9 +306,11 @@ public class Decompiler
 
       JMenu helpMenu = new JMenu("Help");
       helpMenu.setMnemonic(KeyEvent.VK_H);
-      helpMenu.add(this.menuItem("Project Website", KeyEvent.VK_F1, false));
-      helpMenu.add(this.menuItem("GitHub Repo", KeyEvent.VK_F2, false));
-      helpMenu.add(this.menuItem("Sponsor NCSDecomp", KeyEvent.VK_F3, false));
+      helpMenu.add(this.menuItem("About", KeyEvent.VK_F1, false));
+      helpMenu.addSeparator();
+      helpMenu.add(this.menuItem("bolabaden.org", KeyEvent.VK_F2, false));
+      helpMenu.add(this.menuItem("GitHub Repo", KeyEvent.VK_F3, false));
+      helpMenu.add(this.menuItem("Sponsor NCSDecomp", KeyEvent.VK_F4, false));
       menuBar.add(helpMenu);
 
       return menuBar;
@@ -389,6 +391,51 @@ public class Decompiler
       } else {
          cl.show(this.workspaceCards, CARD_TABS);
       }
+      this.updateMenuAndToolbarState();
+   }
+   
+   private void updateMenuAndToolbarState() {
+      boolean hasTabs = this.jTB.getTabCount() > 0;
+      int selectedIndex = this.jTB.getSelectedIndex();
+      boolean hasSelection = selectedIndex >= 0 && selectedIndex < this.jTB.getTabCount();
+      
+      JMenuBar menuBar = this.getJMenuBar();
+      if (menuBar != null && menuBar.getMenuCount() > 0) {
+         JMenu fileMenu = menuBar.getMenu(0);
+         if (fileMenu != null) {
+            if (fileMenu.getItemCount() > 1) {
+               fileMenu.getItem(1).setEnabled(hasSelection); // Close
+            }
+            if (fileMenu.getItemCount() > 2) {
+               fileMenu.getItem(2).setEnabled(hasTabs); // Close All
+            }
+            if (fileMenu.getItemCount() > 3) {
+               fileMenu.getItem(3).setEnabled(hasSelection); // Save
+            }
+            if (fileMenu.getItemCount() > 4) {
+               fileMenu.getItem(4).setEnabled(hasTabs); // Save All
+            }
+         }
+      }
+      
+      // Update toolbar buttons
+      if (this.commandBar != null) {
+         for (java.awt.Component comp : this.commandBar.getComponents()) {
+            if (comp instanceof JButton) {
+               JButton button = (JButton)comp;
+               String action = (String)button.getClientProperty("action");
+               if (action != null) {
+                  if (action.equals("Save") || action.equals("Close")) {
+                     button.setEnabled(hasSelection);
+                  } else if (action.equals("Save All") || action.equals("Close All")) {
+                     button.setEnabled(hasTabs);
+                  } else if (action.equals("View Decompiled Code") || action.equals("View Byte Code")) {
+                     button.setEnabled(hasSelection);
+                  }
+               }
+            }
+         }
+      }
    }
 
    private void updateTabLabel(JPanel tabPanel, boolean unsaved) {
@@ -405,6 +452,18 @@ public class Decompiler
          String clean = text.endsWith(" *") ? text.substring(0, text.length() - 2) : text;
          label.setText(unsaved ? clean + " *" : clean);
       }
+   }
+   
+   /**
+    * Safely gets the tab component for the currently selected tab.
+    * @return The tab component, or null if no valid tab is selected
+    */
+   private JComponent getSelectedTabComponent() {
+      int selectedIndex = this.jTB.getSelectedIndex();
+      if (selectedIndex < 0 || selectedIndex >= this.jTB.getTabCount()) {
+         return null;
+      }
+      return (JComponent)this.jTB.getTabComponentAt(selectedIndex);
    }
 
    private void openLink(String url, String statusMessage) {
@@ -424,6 +483,29 @@ public class Decompiler
       if (this.statusBarLabel != null) {
          this.statusBarLabel.setText(message);
       }
+   }
+
+   private void showAboutDialog() {
+      String aboutHtml =
+         "<html>"
+            + "<h2>NCSDecomp</h2>"
+            + "<p>KotOR / TSL NCS script decompiler rebuilt with modern workflows. "
+            + "Origins in the classic DeNCS tooling; re-implemented with improved heuristics, UI, and headless/CLI support.</p>"
+            + "<ul>"
+            + "<li><b>What</b>: Decompile .ncs bytecode to readable .nss; inspect bytecode and regenerated output side-by-side.</li>"
+            + "<li><b>How</b>: Swing GUI with drag/drop, multi-tab workspaces, and bytecode diffing; CLI for batch/headless runs.</li>"
+            + "<li><b>Why</b>: Provide a reliable, transparent pipeline for modders and reverse-engineers working on KotOR/TSL.</li>"
+            + "<li><b>When</b>: Use for day-to-day modding, audits, or batch decompilation workflows.</li>"
+            + "<li><b>Links</b>: "
+            + "<a href='https://bolabaden.org'>bolabaden.org</a> · "
+            + "<a href='https://github.com/OldRepublicDevs'>github.com/OldRepublicDevs</a> · "
+            + "<a href='https://github.com/bolabaden'>github.com/bolabaden</a></li>"
+            + "</ul>"
+            + "</html>";
+
+      JLabel content = new JLabel(aboutHtml);
+      content.setBorder(new EmptyBorder(12, 12, 12, 12));
+      JOptionPane.showMessageDialog(this, content, "About NCSDecomp", JOptionPane.INFORMATION_MESSAGE);
    }
 
    @Override
@@ -479,12 +561,18 @@ public class Decompiler
 
    @Override
    public void stateChanged(ChangeEvent arg0) {
-      if (((JTabbedPane)arg0.getSource()).getSelectedIndex() >= 0) {
-         TreeModel model = this.hash_TabComponent2TreeModel.get((JComponent)((JTabbedPane)arg0.getSource()).getTabComponentAt(this.jTB.getSelectedIndex()));
-         this.jTree.setModel(model);
-      } else {
-         this.jTree.setModel(TreeModelFactory.getEmptyModel());
+      int selectedIndex = this.jTB.getSelectedIndex();
+      if (selectedIndex >= 0 && selectedIndex < this.jTB.getTabCount()) {
+         JComponent tabComponent = (JComponent)this.jTB.getTabComponentAt(selectedIndex);
+         if (tabComponent != null) {
+            TreeModel model = this.hash_TabComponent2TreeModel.get(tabComponent);
+            if (model != null) {
+               this.jTree.setModel(model);
+               return;
+            }
+         }
       }
+      this.jTree.setModel(TreeModelFactory.getEmptyModel());
    }
 
    @Override
@@ -493,39 +581,82 @@ public class Decompiler
 
    @Override
    public void keyReleased(KeyEvent arg0) {
-      if (this.jTB.getSelectedIndex() != -1) {
-         if (arg0.getSource() instanceof JTree) {
-            TreePath changedPath = ((JTree)arg0.getSource()).getSelectionPath();
-            File file = this.hash_TabComponent2File.get((JComponent)this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()));
-            JComponent[] panels = (JComponent[])this.jTB.getClientProperty((JComponent)this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()));
+      int selectedIndex = this.jTB.getSelectedIndex();
+      if (selectedIndex < 0 || selectedIndex >= this.jTB.getTabCount()) {
+         return; // No valid tab selected
+      }
+      
+      JComponent tabComponent = (JComponent)this.jTB.getTabComponentAt(selectedIndex);
+      if (tabComponent == null) {
+         return; // Tab component is null
+      }
+      
+      if (arg0.getSource() instanceof JTree) {
+         TreePath changedPath = ((JTree)arg0.getSource()).getSelectionPath();
+         File file = this.hash_TabComponent2File.get(tabComponent);
+         if (file == null) {
+            return; // File not found for this tab
+         }
+         
+         Object clientProperty = this.jTB.getClientProperty(tabComponent);
+         if (!(clientProperty instanceof JComponent[])) {
+            return; // Invalid client property
+         }
+         
+         JComponent[] panels = (JComponent[])clientProperty;
             if (changedPath != null && changedPath.getPathCount() == 2) {
                Hashtable<String, Vector<Variable>> func2VarVec = this.fileDecompiler.updateSubName(file, this.currentNodeString, changedPath.getLastPathComponent().toString());
-               this.hash_TabComponent2Func2VarVec.put((JComponent)this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()), func2VarVec);
-               this.hash_TabComponent2TreeModel.put((JComponent)this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()), this.jTree.getModel());
-               this.jTA = (JTextArea)((JScrollPane)((JPanel)panels[0]).getComponent(0)).getViewport().getComponent(0);
-               this.jTA.setText(this.fileDecompiler.getGeneratedCode(file));
-               this.jTA.setCaretPosition(0);
+               this.hash_TabComponent2Func2VarVec.put(tabComponent, func2VarVec);
+               this.hash_TabComponent2TreeModel.put(tabComponent, this.jTree.getModel());
+               if (panels.length > 0 && panels[0] instanceof JPanel) {
+                  JPanel panel = (JPanel)panels[0];
+                  if (panel.getComponentCount() > 0 && panel.getComponent(0) instanceof JScrollPane) {
+                     JScrollPane scrollPane = (JScrollPane)panel.getComponent(0);
+                     if (scrollPane.getViewport().getView() instanceof JTextArea) {
+                        this.jTA = (JTextArea)scrollPane.getViewport().getView();
+                        this.jTA.setText(this.fileDecompiler.getGeneratedCode(file));
+                        this.jTA.setCaretPosition(0);
+                     }
+                  }
+               }
             } else if (changedPath != null) {
                TreeNode subroutineNode = (TreeNode)changedPath.getParentPath().getLastPathComponent();
-               Hashtable<String, Vector<Variable>> func2VarVec = this.hash_TabComponent2Func2VarVec.get((JComponent)this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()));
-               Vector<Variable> variables = func2VarVec.get(subroutineNode.toString());
-               int nodeIndex = subroutineNode.getIndex((TreeNode)changedPath.getLastPathComponent());
-               Variable changedVar = variables.get(nodeIndex);
-               changedVar.name(changedPath.getLastPathComponent().toString());
-               this.jTA = (JTextArea)((JScrollPane)((JPanel)panels[0]).getComponent(0)).getViewport().getComponent(0);
-               this.jTA
-                  .setText(this.fileDecompiler.regenerateCode(this.hash_TabComponent2File.get((JComponent)this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()))));
-               this.jTA.setCaretPosition(0);
+               Hashtable<String, Vector<Variable>> func2VarVec = this.hash_TabComponent2Func2VarVec.get(tabComponent);
+               if (func2VarVec != null) {
+                  Vector<Variable> variables = func2VarVec.get(subroutineNode.toString());
+                  if (variables != null) {
+                     int nodeIndex = subroutineNode.getIndex((TreeNode)changedPath.getLastPathComponent());
+                     if (nodeIndex >= 0 && nodeIndex < variables.size()) {
+                        Variable changedVar = variables.get(nodeIndex);
+                        changedVar.name(changedPath.getLastPathComponent().toString());
+                        if (panels.length > 0 && panels[0] instanceof JPanel) {
+                           JPanel panel = (JPanel)panels[0];
+                           if (panel.getComponentCount() > 0 && panel.getComponent(0) instanceof JScrollPane) {
+                              JScrollPane scrollPane = (JScrollPane)panel.getComponent(0);
+                              if (scrollPane.getViewport().getView() instanceof JTextArea) {
+                                 this.jTA = (JTextArea)scrollPane.getViewport().getView();
+                                 this.jTA.setText(this.fileDecompiler.regenerateCode(file));
+                                 this.jTA.setCaretPosition(0);
+                              }
+                           }
+                        }
+                     }
+                  }
+               }
             }
 
             if (changedPath != null) {
                this.currentNodeString = changedPath.getLastPathComponent().toString();
             }
          } else if (arg0.getSource() instanceof JTextArea) {
-            unsavedFiles.add(this.hash_TabComponent2File.get((JComponent)this.jTB.getTabComponentAt(this.jTB.getSelectedIndex())));
-            this.updateTabLabel((JPanel)this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()), true);
+            File file = this.hash_TabComponent2File.get(tabComponent);
+            if (file != null && !unsavedFiles.contains(file)) {
+               unsavedFiles.add(file);
+            }
+            if (tabComponent instanceof JPanel) {
+               this.updateTabLabel((JPanel)tabComponent, true);
+            }
          }
-      }
    }
 
    @Override
@@ -549,11 +680,17 @@ public class Decompiler
       if (cmd.equals("Open")) {
          this.open();
       } else if (cmd.equals("Close")) {
-         this.close(this.jTB.getSelectedIndex());
+         int selectedIndex = this.jTB.getSelectedIndex();
+         if (selectedIndex >= 0) {
+            this.close(selectedIndex);
+         }
       } else if (cmd.equals("Close All")) {
          this.closeAll();
       } else if (cmd.equals("Save")) {
-         this.save(this.jTB.getSelectedIndex());
+         int selectedIndex = this.jTB.getSelectedIndex();
+         if (selectedIndex >= 0) {
+            this.save(selectedIndex);
+         }
       } else if (cmd.equals("Save All")) {
          this.saveAll();
       } else if (cmd.equals("Exit")) {
@@ -563,13 +700,19 @@ public class Decompiler
       } else if (cmd.equals("Clear")) {
          this.status.setText("");
       } else if (cmd.equals("View Byte Code")) {
-         this.setTabComponentPanel(1);
+         if (this.jTB.getSelectedIndex() >= 0) {
+            this.setTabComponentPanel(1);
+         }
       } else if (cmd.equals("View Decompiled Code")) {
-         this.setTabComponentPanel(0);
+         if (this.jTB.getSelectedIndex() >= 0) {
+            this.setTabComponentPanel(0);
+         }
       } else if (cmd.equals("Link Scroll Bars")) {
          this.toggleLinkScrollBars();
-      } else if (cmd.equals("Project Website")) {
-         this.openLink(PROJECT_URL, "Opening project website");
+      } else if (cmd.equals("About")) {
+         this.showAboutDialog();
+      } else if (cmd.equals("bolabaden.org")) {
+         this.openLink(PROJECT_URL, "Opening bolabaden.org");
       } else if (cmd.equals("GitHub Repo")) {
          this.openLink(GITHUB_URL, "Opening GitHub repository");
       } else if (cmd.equals("Sponsor NCSDecomp")) {
@@ -640,26 +783,69 @@ public class Decompiler
 
    @Override
    public void adjustmentValueChanged(AdjustmentEvent arg0) {
-      if (Boolean.parseBoolean(settings.getProperty("Link Scroll Bars"))) {
-         if (this.jTB.getClientProperty(this.jTB.getSelectedComponent()).equals("left")) {
-            ((JScrollPane)((JSplitPane)this.jTB.getSelectedComponent()).getRightComponent())
-               .getVerticalScrollBar()
-               .setValue(((JScrollPane)((JSplitPane)this.jTB.getSelectedComponent()).getLeftComponent()).getVerticalScrollBar().getValue());
-         } else {
-            ((JScrollPane)((JSplitPane)this.jTB.getSelectedComponent()).getLeftComponent())
-               .getVerticalScrollBar()
-               .setValue(((JScrollPane)((JSplitPane)this.jTB.getSelectedComponent()).getRightComponent()).getVerticalScrollBar().getValue());
-         }
+      if (!Boolean.parseBoolean(settings.getProperty("Link Scroll Bars"))) {
+         return;
+      }
+      
+      java.awt.Component selectedComponent = this.jTB.getSelectedComponent();
+      if (selectedComponent == null || !(selectedComponent instanceof JSplitPane)) {
+         return; // No valid component selected
+      }
+      
+      JSplitPane splitPane = (JSplitPane)selectedComponent;
+      Object linkProperty = this.jTB.getClientProperty(selectedComponent);
+      if (linkProperty == null) {
+         return; // No link property set
+      }
+      
+      java.awt.Component leftComp = splitPane.getLeftComponent();
+      java.awt.Component rightComp = splitPane.getRightComponent();
+      
+      if (!(leftComp instanceof JScrollPane) || !(rightComp instanceof JScrollPane)) {
+         return; // Invalid component structure
+      }
+      
+      JScrollPane leftScroll = (JScrollPane)leftComp;
+      JScrollPane rightScroll = (JScrollPane)rightComp;
+      
+      if (linkProperty.equals("left")) {
+         rightScroll.getVerticalScrollBar().setValue(leftScroll.getVerticalScrollBar().getValue());
+      } else {
+         leftScroll.getVerticalScrollBar().setValue(rightScroll.getVerticalScrollBar().getValue());
       }
    }
 
    @Override
    public void caretUpdate(CaretEvent arg0) {
+      int selectedIndex = this.jTB.getSelectedIndex();
+      if (selectedIndex < 0 || selectedIndex >= this.jTB.getTabCount()) {
+         return; // No tab selected or invalid index
+      }
+      
+      JComponent tabComponent = (JComponent)this.jTB.getTabComponentAt(selectedIndex);
+      if (tabComponent == null) {
+         return; // Tab component is null
+      }
+      
+      Object clientProperty = this.jTB.getClientProperty(tabComponent);
+      if (!(clientProperty instanceof JComponent[])) {
+         return; // Invalid client property
+      }
+      
+      JComponent[] panels = (JComponent[])clientProperty;
+      if (panels.length == 0 || !(panels[0] instanceof JPanel)) {
+         return; // Invalid panel structure
+      }
+      
+      JPanel panel = (JPanel)panels[0];
+      if (!(panel.getBorder() instanceof TitledBorder)) {
+         return; // Invalid border type
+      }
+      
       this.jTA = (JTextArea)arg0.getSource();
       this.mark = this.jTA.getCaretPosition();
       this.rootElement = this.jTA.getDocument().getDefaultRootElement();
-      this.titledBorder = (TitledBorder)((JPanel)((JComponent[])this.jTB.getClientProperty((JComponent)this.jTB.getTabComponentAt(this.jTB.getSelectedIndex())))[0])
-         .getBorder();
+      this.titledBorder = (TitledBorder)panel.getBorder();
       if (!(this.temp = Integer.toString(this.rootElement.getElementIndex(this.mark) + 1)).equals(this.titledBorder.getTitle())) {
          this.titledBorder.setTitle(this.temp);
          this.repaint();
@@ -745,16 +931,93 @@ public class Decompiler
       this.statusScrollPane.getVerticalScrollBar().setValue(this.statusScrollPane.getVerticalScrollBar().getMaximum());
       this.status.append(file.getName() + ": ");
       int result = 2;
+      String generatedCode = null;
+      Hashtable<String, Vector<Variable>> vars = null;
 
       try {
          result = this.fileDecompiler.decompile(file);
+         // Always try to get generated code, even if result indicates failure
+         generatedCode = this.fileDecompiler.getGeneratedCode(file);
+         vars = this.fileDecompiler.getVariableData(file);
       } catch (DecompilerException var4) {
-         JOptionPane.showMessageDialog(null, var4.getMessage());
+         // Even if decompile() throws, try to get any partial results
+         this.status.append("error: " + var4.getMessage() + "\n");
+         try {
+            generatedCode = this.fileDecompiler.getGeneratedCode(file);
+            vars = this.fileDecompiler.getVariableData(file);
+            if (generatedCode != null && !generatedCode.trim().isEmpty()) {
+               // We have partial code, show it
+               result = 2; // PARTIAL_COMPILE
+               this.status.append("showing partial decompilation\n");
+            } else {
+               // Show error but don't block UI
+               JOptionPane.showMessageDialog(null, 
+                  "Decompilation encountered errors:\n" + var4.getMessage() + 
+                  "\n\nAttempting to show any partial results...", 
+                  "Decompilation Warning", 
+                  JOptionPane.WARNING_MESSAGE);
+               result = 0;
+            }
+         } catch (Exception e) {
+            // Last resort - show error but don't crash
+            JOptionPane.showMessageDialog(null, 
+               "Failed to decompile " + file.getName() + ":\n" + var4.getMessage(), 
+               "Decompilation Error", 
+               JOptionPane.ERROR_MESSAGE);
+            result = 0;
+         }
+      }
+
+      // Always show source code if we have any, regardless of result code
+      if (generatedCode != null && !generatedCode.trim().isEmpty()) {
+         this.panels = this.newNCSTab(file.getName().substring(0, file.getName().length() - 4));
+         JTextArea codeArea = (JTextArea)((JScrollPane)((JPanel)this.panels[0]).getComponent(0)).getViewport().getView();
+         codeArea.append(generatedCode);
+         
+         // Try to get bytecode if available
+         try {
+            String origByteCode = this.fileDecompiler.getOriginalByteCode(file);
+            if (origByteCode != null && !origByteCode.trim().isEmpty()) {
+               this.origByteCodeJTA = (JTextArea)((JScrollPane)((JSplitPane)this.panels[1]).getLeftComponent()).getViewport().getComponent(0);
+               this.origByteCodeJTA.append(origByteCode);
+            }
+            String newByteCode = this.fileDecompiler.getNewByteCode(file);
+            if (newByteCode != null && !newByteCode.trim().isEmpty()) {
+               this.newByteCodeJTA = (JTextArea)((JScrollPane)((JSplitPane)this.panels[1]).getRightComponent()).getViewport().getComponent(0);
+               this.newByteCodeJTA.append(newByteCode);
+               if (this.origByteCodeJTA != null && this.origByteCodeJTA.getLineCount() >= this.newByteCodeJTA.getLineCount()) {
+                  this.jTB.putClientProperty(this.panels[1], "left");
+               } else {
+                  this.jTB.putClientProperty(this.panels[1], "right");
+               }
+            }
+         } catch (Exception e) {
+            // Bytecode not available, that's okay
+            System.out.println("Bytecode comparison not available: " + e.getMessage());
+         }
+
+         if (vars != null) {
+            this.hash_Func2VarVec = vars;
+            this.jTree.setModel(TreeModelFactory.createTreeModel(this.hash_Func2VarVec));
+         }
+         JComponent tabComponent = this.getSelectedTabComponent();
+         if (tabComponent != null) {
+            this.hash_TabComponent2File.put(tabComponent, file);
+            this.hash_TabComponent2Func2VarVec.put(tabComponent, this.hash_Func2VarVec);
+            this.hash_TabComponent2TreeModel.put(tabComponent, this.jTree.getModel());
+            if (tabComponent instanceof JPanel) {
+               this.updateTabLabel((JPanel)tabComponent, false);
+            }
+         }
       }
 
       switch (result) {
          case 0:
-            this.status.append("failure\n");
+            if (generatedCode == null || generatedCode.trim().isEmpty()) {
+               this.status.append("failure - no source code generated\n");
+            } else {
+               this.status.append("partial - validation failed but source shown\n");
+            }
             break;
          case 1:
             this.panels = this.newNCSTab(file.getName().substring(0, file.getName().length() - 4));
@@ -772,11 +1035,16 @@ public class Decompiler
             this.hash_Func2VarVec = this.fileDecompiler.getVariableData(file);
             this.jTree.setModel(TreeModelFactory.createTreeModel(this.hash_Func2VarVec));
             this.fileDecompiler.getOriginalByteCode(file);
-            this.hash_TabComponent2File.put((JComponent)this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()), file);
-            this.hash_TabComponent2Func2VarVec.put((JComponent)this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()), this.hash_Func2VarVec);
-            this.hash_TabComponent2TreeModel.put((JComponent)this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()), this.jTree.getModel());
+            JComponent tabComponent = this.getSelectedTabComponent();
+            if (tabComponent != null) {
+               this.hash_TabComponent2File.put(tabComponent, file);
+               this.hash_TabComponent2Func2VarVec.put(tabComponent, this.hash_Func2VarVec);
+               this.hash_TabComponent2TreeModel.put(tabComponent, this.jTree.getModel());
+               if (tabComponent instanceof JPanel) {
+                  this.updateTabLabel((JPanel)tabComponent, false);
+               }
+            }
             this.status.append("success\n");
-            this.updateTabLabel((JPanel)this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()), false);
             break;
          case 2:
             this.panels = this.newNCSTab(file.getName().substring(0, file.getName().length() - 4));
@@ -787,12 +1055,17 @@ public class Decompiler
             this.hash_Func2VarVec = this.fileDecompiler.getVariableData(file);
             this.jTree.setModel(TreeModelFactory.createTreeModel(this.hash_Func2VarVec));
             this.fileDecompiler.getOriginalByteCode(file);
-            this.hash_TabComponent2File.put((JComponent)this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()), file);
-            this.hash_TabComponent2Func2VarVec.put((JComponent)this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()), this.hash_Func2VarVec);
-            this.hash_TabComponent2TreeModel.put((JComponent)this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()), this.jTree.getModel());
+            JComponent tabComponent2 = this.getSelectedTabComponent();
+            if (tabComponent2 != null) {
+               this.hash_TabComponent2File.put(tabComponent2, file);
+               this.hash_TabComponent2Func2VarVec.put(tabComponent2, this.hash_Func2VarVec);
+               this.hash_TabComponent2TreeModel.put(tabComponent2, this.jTree.getModel());
+               if (tabComponent2 instanceof JPanel) {
+                  this.updateTabLabel((JPanel)tabComponent2, false);
+               }
+            }
             this.setTabComponentPanel(1);
             this.status.append("partial-could not recompile\n");
-            this.updateTabLabel((JPanel)this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()), false);
             break;
          case 3:
             this.panels = this.newNCSTab(file.getName().substring(0, file.getName().length() - 4));
@@ -810,12 +1083,17 @@ public class Decompiler
             this.hash_Func2VarVec = this.fileDecompiler.getVariableData(file);
             this.jTree.setModel(TreeModelFactory.createTreeModel(this.hash_Func2VarVec));
             this.fileDecompiler.getOriginalByteCode(file);
-            this.hash_TabComponent2File.put((JComponent)this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()), file);
-            this.hash_TabComponent2Func2VarVec.put((JComponent)this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()), this.hash_Func2VarVec);
-            this.hash_TabComponent2TreeModel.put((JComponent)this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()), this.jTree.getModel());
+            JComponent tabComponent3 = this.getSelectedTabComponent();
+            if (tabComponent3 != null) {
+               this.hash_TabComponent2File.put(tabComponent3, file);
+               this.hash_TabComponent2Func2VarVec.put(tabComponent3, this.hash_Func2VarVec);
+               this.hash_TabComponent2TreeModel.put(tabComponent3, this.jTree.getModel());
+               if (tabComponent3 instanceof JPanel) {
+                  this.updateTabLabel((JPanel)tabComponent3, false);
+               }
+            }
             this.setTabComponentPanel(1);
             this.status.append("partial-byte code does not match\n");
-            this.updateTabLabel((JPanel)this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()), false);
       }
       this.updateWorkspaceCard();
    }
@@ -860,10 +1138,27 @@ public class Decompiler
    }
 
    private void setTabComponentPanel(int index) {
-      this.jTB
-         .setComponentAt(
-            this.jTB.getSelectedIndex(), ((JComponent[])this.jTB.getClientProperty((JComponent)this.jTB.getTabComponentAt(this.jTB.getSelectedIndex())))[index]
-         );
+      int selectedIndex = this.jTB.getSelectedIndex();
+      if (selectedIndex < 0 || selectedIndex >= this.jTB.getTabCount()) {
+         return; // No tab selected or invalid index
+      }
+      
+      JComponent tabComponent = (JComponent)this.jTB.getTabComponentAt(selectedIndex);
+      if (tabComponent == null) {
+         return; // Tab component is null
+      }
+      
+      Object clientProperty = this.jTB.getClientProperty(tabComponent);
+      if (!(clientProperty instanceof JComponent[])) {
+         return; // Invalid client property
+      }
+      
+      JComponent[] panels = (JComponent[])clientProperty;
+      if (index < 0 || index >= panels.length || panels[index] == null) {
+         return; // Invalid panel index
+      }
+      
+      this.jTB.setComponentAt(selectedIndex, panels[index]);
       this.repaint();
    }
 
@@ -918,7 +1213,13 @@ public class Decompiler
       for (int j = 0; j < files.length; j++) {
          if ((this.temp = files[j].getName()).substring(this.temp.length() - 3).equalsIgnoreCase("ncs")) {
             this.decompile(files[j]);
-            unsavedFiles.add(this.hash_TabComponent2File.get((JComponent)this.jTB.getTabComponentAt(this.jTB.getSelectedIndex())));
+            JComponent tabComponent = this.getSelectedTabComponent();
+            if (tabComponent != null) {
+               File file = this.hash_TabComponent2File.get(tabComponent);
+               if (file != null && !unsavedFiles.contains(file)) {
+                  unsavedFiles.add(file);
+               }
+            }
          }
       }
    }
@@ -928,8 +1229,18 @@ public class Decompiler
          settings.setProperty("Link Scroll Bars", "false");
       } else {
          settings.setProperty("Link Scroll Bars", "true");
-         ((JScrollPane)((JSplitPane)this.jTB.getSelectedComponent()).getLeftComponent()).getVerticalScrollBar().setValue(0);
-         ((JScrollPane)((JSplitPane)this.jTB.getSelectedComponent()).getRightComponent()).getVerticalScrollBar().setValue(0);
+         java.awt.Component selectedComponent = this.jTB.getSelectedComponent();
+         if (selectedComponent != null && selectedComponent instanceof JSplitPane) {
+            JSplitPane splitPane = (JSplitPane)selectedComponent;
+            java.awt.Component leftComp = splitPane.getLeftComponent();
+            java.awt.Component rightComp = splitPane.getRightComponent();
+            if (leftComp instanceof JScrollPane) {
+               ((JScrollPane)leftComp).getVerticalScrollBar().setValue(0);
+            }
+            if (rightComp instanceof JScrollPane) {
+               ((JScrollPane)rightComp).getVerticalScrollBar().setValue(0);
+            }
+         }
       }
    }
 
@@ -980,16 +1291,57 @@ public class Decompiler
    }
 
    private void save(int index) {
+      if (index < 0 || index >= this.jTB.getTabCount()) {
+         return; // Invalid index
+      }
+      
+      JComponent tabComponent = (JComponent)this.jTB.getTabComponentAt(index);
+      if (tabComponent == null) {
+         return; // Tab component is null
+      }
+      
+      Object clientProperty = this.jTB.getClientProperty(tabComponent);
+      if (!(clientProperty instanceof JComponent[])) {
+         return; // Invalid client property
+      }
+      
+      JComponent[] panels = (JComponent[])clientProperty;
+      if (panels.length == 0 || !(panels[0] instanceof JPanel)) {
+         return; // Invalid panel structure
+      }
+      
+      JPanel panel = (JPanel)panels[0];
+      if (panel.getComponentCount() == 0 || !(panel.getComponent(0) instanceof JScrollPane)) {
+         return; // Invalid component structure
+      }
+      
+      JScrollPane scrollPane = (JScrollPane)panel.getComponent(0);
+      if (!(scrollPane.getViewport().getView() instanceof JTextArea)) {
+         return; // Invalid view type
+      }
+      
+      JTextArea textArea = (JTextArea)scrollPane.getViewport().getView();
+      if (!(tabComponent instanceof JPanel)) {
+         return; // Tab component is not a panel
+      }
+      
+      JPanel tabPanel = (JPanel)tabComponent;
+      if (tabPanel.getComponentCount() == 0 || !(tabPanel.getComponent(0) instanceof JLabel)) {
+         return; // Invalid tab label structure
+      }
+      
+      String fileName = ((JLabel)tabPanel.getComponent(0)).getText();
+      // Remove unsaved marker if present
+      if (fileName.endsWith(" *")) {
+         fileName = fileName.substring(0, fileName.length() - 2);
+      }
+      
       File newFile = this.saveBuffer(
-         (JTextArea)((JScrollPane)((JComponent[])this.jTB.getClientProperty((JComponent)this.jTB.getTabComponentAt(this.jTB.getSelectedIndex())))[0].getComponent(0))
-            .getViewport()
-            .getView(),
-         settings.getProperty("Output Directory")
-            + "/"
-            + ((JLabel)((JPanel)this.jTB.getTabComponentAt(this.jTB.getSelectedIndex())).getComponent(0)).getText()
-            + ".nss"
+         textArea,
+         settings.getProperty("Output Directory") + "/" + fileName + ".nss"
       );
-      this.file = this.hash_TabComponent2File.get((JComponent)this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()));
+      
+      this.file = this.hash_TabComponent2File.get(tabComponent);
       if (unsavedFiles.contains(this.file)) {
          this.status.append("Recompiling..." + this.file.getName() + ": ");
          int result = 2;
@@ -1019,9 +1371,12 @@ public class Decompiler
                this.hash_Func2VarVec = this.fileDecompiler.getVariableData(this.file);
                this.jTree.setModel(TreeModelFactory.createTreeModel(this.hash_Func2VarVec));
                this.fileDecompiler.getOriginalByteCode(this.file);
-               this.hash_TabComponent2File.put((JComponent)this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()), this.file);
-               this.hash_TabComponent2Func2VarVec.put((JComponent)this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()), this.hash_Func2VarVec);
-               this.hash_TabComponent2TreeModel.put((JComponent)this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()), this.jTree.getModel());
+               JComponent selectedTab = this.getSelectedTabComponent();
+               if (selectedTab != null) {
+                  this.hash_TabComponent2File.put(selectedTab, this.file);
+                  this.hash_TabComponent2Func2VarVec.put(selectedTab, this.hash_Func2VarVec);
+                  this.hash_TabComponent2TreeModel.put(selectedTab, this.jTree.getModel());
+               }
                this.status.append("success\n");
                break;
             case 2:
@@ -1032,9 +1387,12 @@ public class Decompiler
                this.hash_Func2VarVec = this.fileDecompiler.getVariableData(this.file);
                this.jTree.setModel(TreeModelFactory.createTreeModel(this.hash_Func2VarVec));
                this.fileDecompiler.getOriginalByteCode(this.file);
-               this.hash_TabComponent2File.put((JComponent)this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()), this.file);
-               this.hash_TabComponent2Func2VarVec.put((JComponent)this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()), this.hash_Func2VarVec);
-               this.hash_TabComponent2TreeModel.put((JComponent)this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()), this.jTree.getModel());
+               JComponent selectedTab2 = this.getSelectedTabComponent();
+               if (selectedTab2 != null) {
+                  this.hash_TabComponent2File.put(selectedTab2, this.file);
+                  this.hash_TabComponent2Func2VarVec.put(selectedTab2, this.hash_Func2VarVec);
+                  this.hash_TabComponent2TreeModel.put(selectedTab2, this.jTree.getModel());
+               }
                this.setTabComponentPanel(1);
                this.status.append("partial-could not recompile\n");
                break;
@@ -1053,15 +1411,20 @@ public class Decompiler
                this.hash_Func2VarVec = this.fileDecompiler.getVariableData(this.file);
                this.jTree.setModel(TreeModelFactory.createTreeModel(this.hash_Func2VarVec));
                this.fileDecompiler.getOriginalByteCode(this.file);
-               this.hash_TabComponent2File.put((JComponent)this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()), this.file);
-               this.hash_TabComponent2Func2VarVec.put((JComponent)this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()), this.hash_Func2VarVec);
-               this.hash_TabComponent2TreeModel.put((JComponent)this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()), this.jTree.getModel());
+               JComponent selectedTab3 = this.getSelectedTabComponent();
+               if (selectedTab3 != null) {
+                  this.hash_TabComponent2File.put(selectedTab3, this.file);
+                  this.hash_TabComponent2Func2VarVec.put(selectedTab3, this.hash_Func2VarVec);
+                  this.hash_TabComponent2TreeModel.put(selectedTab3, this.jTree.getModel());
+               }
                this.setTabComponentPanel(1);
                this.status.append("partial-byte code does not match\n");
          }
 
          unsavedFiles.remove(this.file);
-         this.updateTabLabel((JPanel)this.jTB.getTabComponentAt(this.jTB.getSelectedIndex()), false);
+         if (tabComponent instanceof JPanel) {
+            this.updateTabLabel((JPanel)tabComponent, false);
+         }
          newFile = null;
       }
    }

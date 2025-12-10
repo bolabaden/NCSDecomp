@@ -29,12 +29,13 @@ public class AControlLoop extends ScriptRootNode {
     */
    protected String formattedCondition() {
       if (this.condition == null) {
-         return "()";
+         return " ()";
       }
 
       String cond = this.condition.toString().trim();
       boolean wrapped = cond.startsWith("(") && cond.endsWith(")");
-      return wrapped ? cond : "(" + cond + ")";
+      String wrappedCond = wrapped ? cond : "(" + cond + ")";
+      return " " + wrappedCond;
    }
 
    @Override

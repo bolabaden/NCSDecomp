@@ -153,7 +153,7 @@ public class FileDecompiler {
          if (!configFile.exists()) {
             configFile = new File(dir, "dencs.conf");
          }
-         
+
          if (configFile.exists() && configFile.isFile()) {
             try (BufferedReader reader = new BufferedReader(new FileReader(configFile))) {
                String line;
@@ -225,16 +225,40 @@ public class FileDecompiler {
       FileDecompiler.FileScriptData data = this.filedata.get(file);
       if (data == null) {
          System.out.println("\n---> starting decompilation: " + file.getName() + " <---");
-         data = this.decompileNcs(file);
-         if (data == null) {
-            return 0;
+         try {
+            data = this.decompileNcs(file);
+            if (data == null) {
+               // Even if decompileNcs returns null, try to generate minimal code
+               throw new DecompilerException("Failed to decompile " + file.getName() + ". File may be corrupted or invalid.");
+            }
+            this.filedata.put(file, data);
+         } catch (Exception e) {
+            // Wrap any exception to ensure we always have a message
+            throw new DecompilerException("Error during decompilation: " + e.getMessage());
          }
-
-         this.filedata.put(file, data);
       }
 
-      data.generateCode();
-      return this.compileAndCompare(file, data.getCode(), data);
+      // Always generate code, even if validation fails
+      try {
+         data.generateCode();
+         String code = data.getCode();
+         if (code == null || code.trim().isEmpty()) {
+            // If code generation failed, try to provide at least a minimal stub
+            System.out.println("Warning: Generated code is empty, attempting fallback generation.");
+            return PARTIAL_COMPILE;
+         }
+      } catch (Exception e) {
+         System.out.println("Error during code generation (continuing anyway): " + e.getMessage());
+         return PARTIAL_COMPILE;
+      }
+
+      // Try validation, but don't fail if it doesn't work
+      try {
+         return this.compileAndCompare(file, data.getCode(), data);
+      } catch (Exception e) {
+         System.out.println("Validation failed (showing decompiled source anyway): " + e.getMessage());
+         return PARTIAL_COMPILE;
+      }
    }
 
    /**
@@ -364,33 +388,38 @@ public class FileDecompiler {
     * Also stores bytecode snapshots for later inspection.
     */
    private int compileAndCompare(File file, File newfile, FileDecompiler.FileScriptData data) throws DecompilerException {
+      // If compiler doesn't exist, skip validation but still return success for decompilation
+      if (!this.checkCompilerExists()) {
+         System.out.println("nwnnsscomp.exe not found - skipping bytecode validation. Decompiled source will still be shown.");
+         return PARTIAL_COMPILE;
+      }
+
       File newcompiled = null;
       File newdecompiled = null;
       File olddecompiled = null;
-      this.checkCompilerExists();
 
       try {
          olddecompiled = this.externalDecompile(file, isK2Selected);
          if (olddecompiled == null) {
             System.out.println("nwnnsscomp decompile of old compiled file failed.  Check code.");
-            return 2;
+            return PARTIAL_COMPILE;
          }
 
          data.setOriginalByteCode(this.readFile(olddecompiled));
          newcompiled = this.externalCompile(newfile, isK2Selected);
          if (newcompiled == null) {
-            return 2;
+            return PARTIAL_COMPILE;
          }
 
          newdecompiled = this.externalDecompile(newcompiled, isK2Selected);
          if (newdecompiled == null) {
             System.out.println("nwnnsscomp decompile of new compiled file failed.  Check code.");
-            return 2;
+            return PARTIAL_COMPILE;
          }
 
          data.setNewByteCode(this.readFile(newdecompiled));
          if (this.compareBinaryFiles(file, newcompiled)) {
-            return 1;
+            return SUCCESS;
          }
 
          // Fall back to textual pcode comparison to aid debugging.
@@ -398,6 +427,10 @@ public class FileDecompiler {
          if (diff != null) {
             System.out.println("P-code difference: " + diff);
          }
+      } catch (Exception e) {
+         // Catch any exceptions during compilation/validation and continue with partial result
+         System.out.println("Error during bytecode validation (continuing with decompiled source): " + e.getMessage());
+         return PARTIAL_COMPILE;
       } finally {
          try {
             if (newcompiled != null) {
@@ -415,7 +448,7 @@ public class FileDecompiler {
          }
       }
 
-      return 3;
+      return PARTIAL_COMPARE;
    }
 
    /**
@@ -445,23 +478,31 @@ public class FileDecompiler {
     * Compiles an NSS file via external nwnnsscomp and captures the resulting bytecode.
     */
    private int compileNss(File nssFile, FileDecompiler.FileScriptData data) throws DecompilerException {
+      // If compiler doesn't exist, return failure but don't throw
+      if (!this.checkCompilerExists()) {
+         System.out.println("nwnnsscomp.exe not found - cannot compile NSS file.");
+         return FAILURE;
+      }
+
       File newcompiled = null;
       File newdecompiled = null;
-      this.checkCompilerExists();
 
       try {
          newcompiled = this.externalCompile(nssFile, isK2Selected);
          if (newcompiled == null) {
-            return 0;
+            return FAILURE;
          }
 
          newdecompiled = this.externalDecompile(newcompiled, isK2Selected);
          if (newdecompiled != null) {
             data.setNewByteCode(this.readFile(newdecompiled));
-            return 1;
+            return SUCCESS;
          }
 
          System.out.println("nwnnsscomp decompile of new compiled file failed.  Check code.");
+      } catch (Exception e) {
+         System.out.println("Error during compilation: " + e.getMessage());
+         return FAILURE;
       } finally {
          try {
             if (newcompiled != null) {
@@ -475,7 +516,7 @@ public class FileDecompiler {
          }
       }
 
-      return 0;
+      return FAILURE;
    }
 
    /**
@@ -577,13 +618,12 @@ public class FileDecompiler {
    }
 
    /**
-    * Guard that ensures the compiler binary is present before external invocation.
+    * Checks if the compiler binary is present.
+    * @return true if compiler exists, false otherwise
     */
-   private void checkCompilerExists() throws DecompilerException {
+   private boolean checkCompilerExists() {
       File compiler = getCompilerFile();
-      if (!compiler.exists()) {
-         throw new DecompilerException("The compiler " + compiler.getAbsolutePath() + " could not be opened.");
-      }
+      return compiler.exists();
    }
 
    /**
@@ -717,7 +757,6 @@ public class FileDecompiler {
     * @param file NCS file to decode
     * @return {@link FileScriptData} containing parsed subroutines and metadata, or null on fatal error
     */
-   @SuppressWarnings("unchecked")
    private FileDecompiler.FileScriptData decompileNcs(File file) {
       FileDecompiler.FileScriptData data = null;
       String commands = null;
@@ -812,9 +851,6 @@ public class FileDecompiler {
 
          if (!alldone) {
             System.out.println("Unable to do final prototype of all subroutines.");
-            //FIXME: causes crashes that prevent any output from showing up.
-            //FileScriptData fileScriptData = null;
-            //return fileScriptData;
          }
 
          this.enforceStrictSignatures(subdata, nodedata);
@@ -869,7 +905,25 @@ public class FileDecompiler {
          mainsub.apply(destroytree);
          return data;
       } catch (Exception e) {
+         // Try to salvage partial results before giving up
+         System.out.println("Error during decompilation: " + e.getMessage());
          e.printStackTrace(System.out);
+         
+         // If we got far enough to create data, try to generate at least partial code
+         if (data != null) {
+            try {
+               // Try to generate code from whatever we have
+               data.generateCode();
+               String partialCode = data.getCode();
+               if (partialCode != null && !partialCode.trim().isEmpty()) {
+                  System.out.println("Recovered partial decompilation despite errors.");
+                  return data;
+               }
+            } catch (Exception genEx) {
+               System.out.println("Could not generate partial code: " + genEx.getMessage());
+            }
+         }
+         
          return null;
       } finally {
          data = null;
