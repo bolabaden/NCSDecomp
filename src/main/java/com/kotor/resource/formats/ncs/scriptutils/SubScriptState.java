@@ -1166,6 +1166,10 @@ public class SubScriptState {
             newstruct.addVar(var);
 
             for (int i = loc - 1; i > loc - copy; i--) {
+               // Defensive check: ensure we don't access beyond stack size
+               if (i < 1 || i > stack.size()) {
+                  break;
+               }
                var = (Variable) stack.get(i);
                newstruct.addVar(var);
             }

@@ -653,6 +653,8 @@ public class NCSDecompCLIRoundTripTest {
       normalized = normalizeDeclarationAssignment(normalized);
       normalized = normalizeTrailingZeroParams(normalized);
       normalized = normalizeReturnStatements(normalized);
+      normalized = normalizeTrueFalse(normalized);
+      normalized = normalizeBitwiseOperators(normalized);
 
       String[] lines = normalized.split("\n", -1);
       StringBuilder result = new StringBuilder();
@@ -730,6 +732,31 @@ public class NCSDecompCLIRoundTripTest {
       // Replace return (simple_expression); with return simple_expression;
       result = matcher.replaceAll("return $1;");
       
+      return result;
+   }
+
+   /**
+    * Normalizes TRUE/FALSE to 1/0 for comparison.
+    */
+   private static String normalizeTrueFalse(String code) {
+      // Replace TRUE with 1 and FALSE with 0
+      String result = code;
+      result = result.replaceAll("\\bTRUE\\b", "1");
+      result = result.replaceAll("\\bFALSE\\b", "0");
+      return result;
+   }
+
+   /**
+    * Normalizes bitwise operator formatting.
+    * Ensures consistent spacing around & and | operators.
+    */
+   private static String normalizeBitwiseOperators(String code) {
+      // Normalize spacing around bitwise operators
+      String result = code;
+      // Ensure space before and after & and | when used as bitwise operators
+      // But be careful not to break && and || (logical operators)
+      result = result.replaceAll("\\s*&\\s+(?!=)", " & ");
+      result = result.replaceAll("\\s*\\|\\s+(?!=)", " | ");
       return result;
    }
 

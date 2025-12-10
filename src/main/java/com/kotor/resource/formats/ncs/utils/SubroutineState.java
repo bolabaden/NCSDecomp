@@ -308,7 +308,8 @@ public class SubroutineState {
    }
 
    public int getCurrentDestination() {
-      if (this.decisionqueue == null || this.decisionqueue.isEmpty()) {
+      SubroutineState.DecisionData data = this.decisionqueue.getLast();
+      if (data == null) {
          throw new RuntimeException("Attempted to get a destination but no decision nodes found.");
       }
       SubroutineState.DecisionData data = this.decisionqueue.getLast();
