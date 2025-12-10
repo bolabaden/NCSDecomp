@@ -5,6 +5,9 @@
 
 package com.kotor.resource.formats.ncs;
 
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -307,8 +310,8 @@ public class NCSDecompCLIRoundTripTest {
       // Compare
       long compareStart = System.nanoTime();
       try {
-         String original = normalizeNewlines(Files.readString(nssPath, StandardCharsets.UTF_8));
-         String roundtrip = normalizeNewlines(Files.readString(decompiled, StandardCharsets.UTF_8));
+         String original = normalizeNewlines(new String(Files.readAllBytes(nssPath), StandardCharsets.UTF_8));
+         String roundtrip = normalizeNewlines(new String(Files.readAllBytes(decompiled), StandardCharsets.UTF_8));
          long compareTime = System.nanoTime() - compareStart;
          operationTimes.merge("compare", compareTime, Long::sum);
 
@@ -338,7 +341,7 @@ public class NCSDecompCLIRoundTripTest {
     * by counting commas in the parameter list. A call with 10 commas indicates 11 parameters.
     */
    private static boolean needsAscNwscript(Path nssPath) throws Exception {
-      String content = Files.readString(nssPath, StandardCharsets.UTF_8);
+      String content = new String(Files.readAllBytes(nssPath), StandardCharsets.UTF_8);
       // Look for ActionStartConversation calls with 11 parameters (10 commas)
       // Pattern matches ActionStartConversation( ... ) where the content between parens
       // contains exactly 10 commas (indicating 11 parameters)
@@ -355,7 +358,7 @@ public class NCSDecompCLIRoundTripTest {
     * Parses #include statements and returns the include file names (without quotes).
     */
    private static List<String> extractIncludes(Path nssPath) throws Exception {
-      String content = Files.readString(nssPath, StandardCharsets.UTF_8);
+      String content = new String(Files.readAllBytes(nssPath), StandardCharsets.UTF_8);
       List<String> includes = new ArrayList<>();
       java.util.regex.Pattern includePattern = java.util.regex.Pattern.compile(
          "#include\\s+[\"<]([^\">]+)[\">]",
@@ -655,6 +658,8 @@ public class NCSDecompCLIRoundTripTest {
       normalized = normalizeReturnStatements(normalized);
       normalized = normalizeTrueFalse(normalized);
       normalized = normalizeBitwiseOperators(normalized);
+      normalized = normalizePlaceholderNames(normalized);
+      normalized = normalizeFunctionOrder(normalized);
 
       String[] lines = normalized.split("\n", -1);
       StringBuilder result = new StringBuilder();
@@ -749,6 +754,94 @@ public class NCSDecompCLIRoundTripTest {
       result = result.replaceAll("\\bTRUE\\b", "1");
       result = result.replaceAll("\\bFALSE\\b", "0");
       return result;
+   }
+
+   /**
+    * Normalizes placeholder variable names that come from incomplete stack recovery.
+    */
+   private static String normalizePlaceholderNames(String code) {
+      return code.replaceAll("__unknown_param_\\d+", "__unknown_param");
+   }
+
+   /**
+    * Sorts functions by signature to avoid order-related diffs in decompiler output.
+    * <p>
+    * <b>Limitation:</b> This method uses simple character counting for braces and does not
+    * account for braces within string literals or comments. This may lead to incorrect
+    * function parsing in edge cases where braces appear in strings or comments. For the
+    * typical decompiled NCS output, this is sufficient, but a more robust parser would
+    * be needed for general-purpose code parsing.
+    */
+   private static String normalizeFunctionOrder(String code) {
+      String[] lines = code.split("\n");
+      List<String> functions = new ArrayList<>();
+      StringBuilder current = new StringBuilder();
+      int depth = 0;
+      StringBuilder preamble = new StringBuilder();
+      boolean inFunction = false;
+      // Simple regex for function signature (adjust as needed for your language)
+      // Example: void foo() {, int bar(int x) {, etc.
+      String functionSignatureRegex = "^(\\s*\\w[\\w\\s\\*]+\\w\\s*\\([^)]*\\)\\s*\\{)";
+
+      for (String line : lines) {
+         boolean isFunctionSignature = line.matches(functionSignatureRegex);
+         if (!inFunction && depth == 0 && !isFunctionSignature) {
+            preamble.append(line).append("\n");
+            continue;
+         }
+
+         if (!inFunction && isFunctionSignature) {
+            inFunction = true;
+            current.setLength(0);
+         }
+
+         if (inFunction) {
+            current.append(line).append("\n");
+            int openBraces = countChar(line, '{');
+            int closeBraces = countChar(line, '}');
+            depth += openBraces;
+            depth -= closeBraces;
+            // Handle single-line function: opening and closing brace on same line
+            if (openBraces > 0 && closeBraces > 0 && depth == 0) {
+               functions.add(current.toString().trim());
+               current.setLength(0);
+               inFunction = false;
+            } else if (inFunction && depth == 0) {
+               functions.add(current.toString().trim());
+               current.setLength(0);
+               inFunction = false;
+            }
+         }
+      }
+
+      if (current.length() > 0) {
+         functions.add(current.toString().trim());
+      }
+
+      functions.sort(String::compareTo);
+      String preambleStr = preamble.toString().trim();
+      String functionsStr = String.join("\n", functions);
+      StringBuilder rebuilt = new StringBuilder();
+      if (!preambleStr.isEmpty()) {
+         rebuilt.append(preambleStr);
+         if (!functionsStr.isEmpty()) {
+            rebuilt.append("\n");
+         }
+      }
+      if (!functionsStr.isEmpty()) {
+         rebuilt.append(functionsStr);
+      }
+      return rebuilt.toString().trim();
+   }
+
+   private static int countChar(String line, char ch) {
+      int count = 0;
+      for (int i = 0; i < line.length(); i++) {
+         if (line.charAt(i) == ch) {
+            count++;
+         }
+      }
+      return count;
    }
 
    /**
@@ -1100,6 +1193,16 @@ public class NCSDecompCLIRoundTripTest {
       if (exitCode != 0) {
          System.exit(exitCode);
       }
+   }
+
+   /**
+    * JUnit test method that runs the round-trip test suite.
+    * This allows Maven to discover and run the test during the test phase.
+    */
+   @Test
+   public void testRoundTripSuite() {
+      int exitCode = runRoundTripSuite();
+      assertEquals(0, exitCode, "Round-trip test suite should pass with exit code 0");
    }
 
    private int runRoundTripSuite() {

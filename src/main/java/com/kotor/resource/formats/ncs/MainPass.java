@@ -124,10 +124,11 @@ public class MainPass extends PrunedDepthFirstAdapter {
    @Override
    public void outARsaddCommand(ARsaddCommand node) {
       if (!this.skipdeadcode) {
-         Variable var = new Variable(NodeUtils.getType(node));
-         this.stack.push(var);
-         var = null;
-         this.state.transformRSAdd(node);
+         this.withRecovery(node, () -> {
+            Variable var = new Variable(NodeUtils.getType(node));
+            this.stack.push(var);
+            this.state.transformRSAdd(node);
+         });
       } else {
          this.state.transformDeadCode(node);
       }
@@ -136,13 +137,15 @@ public class MainPass extends PrunedDepthFirstAdapter {
    @Override
    public void outACopyDownSpCommand(ACopyDownSpCommand node) {
       if (!this.skipdeadcode) {
-         int copy = NodeUtils.stackSizeToPos(node.getSize());
-         int loc = NodeUtils.stackOffsetToPos(node.getOffset());
-         if (copy > 1) {
-            this.stack.structify(loc - copy + 1, copy, this.subdata);
-         }
+         this.withRecovery(node, () -> {
+            int copy = NodeUtils.stackSizeToPos(node.getSize());
+            int loc = NodeUtils.stackOffsetToPos(node.getOffset());
+            if (copy > 1) {
+               this.stack.structify(loc - copy + 1, copy, this.subdata);
+            }
 
-         this.state.transformCopyDownSp(node);
+            this.state.transformCopyDownSp(node);
+         });
       } else {
          this.state.transformDeadCode(node);
       }
@@ -151,22 +154,24 @@ public class MainPass extends PrunedDepthFirstAdapter {
    @Override
    public void outACopyTopSpCommand(ACopyTopSpCommand node) {
       if (!this.skipdeadcode) {
-         VarStruct varstruct = null;
-         int copy = NodeUtils.stackSizeToPos(node.getSize());
-         int loc = NodeUtils.stackOffsetToPos(node.getOffset());
-         if (copy > 1) {
-            varstruct = this.stack.structify(loc - copy + 1, copy, this.subdata);
-         }
-
-         this.state.transformCopyTopSp(node);
-         if (copy > 1) {
-            this.stack.push(varstruct);
-         } else {
-            for (int i = 0; i < copy; i++) {
-               StackEntry entry = this.stack.get(loc);
-               this.stack.push(entry);
+         this.withRecovery(node, () -> {
+            VarStruct varstruct = null;
+            int copy = NodeUtils.stackSizeToPos(node.getSize());
+            int loc = NodeUtils.stackOffsetToPos(node.getOffset());
+            if (copy > 1) {
+               varstruct = this.stack.structify(loc - copy + 1, copy, this.subdata);
             }
-         }
+
+            this.state.transformCopyTopSp(node);
+            if (copy > 1) {
+               this.stack.push(varstruct);
+            } else {
+               for (int i = 0; i < copy; i++) {
+                  StackEntry entry = this.stack.get(loc);
+                  this.stack.push(entry);
+               }
+            }
+         });
       } else {
          this.state.transformDeadCode(node);
       }
@@ -175,26 +180,28 @@ public class MainPass extends PrunedDepthFirstAdapter {
    @Override
    public void outAConstCommand(AConstCommand node) {
       if (!this.skipdeadcode) {
-         Type type = NodeUtils.getType(node);
-         Const aconst;
-         switch (type.byteValue()) {
-            case 3:
-               aconst = Const.newConst(type, NodeUtils.getIntConstValue(node));
-               break;
-            case 4:
-               aconst = Const.newConst(type, NodeUtils.getFloatConstValue(node));
-               break;
-            case 5:
-               aconst = Const.newConst(type, NodeUtils.getStringConstValue(node));
-               break;
-            case 6:
-               aconst = Const.newConst(type, NodeUtils.getObjectConstValue(node));
-               break;
-            default:
-               throw new RuntimeException("Invalid const type " + type);
-         }
-         this.stack.push(aconst);
-         this.state.transformConst(node);
+         this.withRecovery(node, () -> {
+            Type type = NodeUtils.getType(node);
+            Const aconst;
+            switch (type.byteValue()) {
+               case 3:
+                  aconst = Const.newConst(type, NodeUtils.getIntConstValue(node));
+                  break;
+               case 4:
+                  aconst = Const.newConst(type, NodeUtils.getFloatConstValue(node));
+                  break;
+               case 5:
+                  aconst = Const.newConst(type, NodeUtils.getStringConstValue(node));
+                  break;
+               case 6:
+                  aconst = Const.newConst(type, NodeUtils.getObjectConstValue(node));
+                  break;
+               default:
+                  throw new RuntimeException("Invalid const type " + type);
+            }
+            this.stack.push(aconst);
+            this.state.transformConst(node);
+         });
       } else {
          this.state.transformDeadCode(node);
       }
@@ -203,30 +210,32 @@ public class MainPass extends PrunedDepthFirstAdapter {
    @Override
    public void outAActionCommand(AActionCommand node) {
       if (!this.skipdeadcode) {
-         int remove = NodeUtils.actionRemoveElementCount(node, this.actions);
-         int i = 0;
+         this.withRecovery(node, () -> {
+            int remove = NodeUtils.actionRemoveElementCount(node, this.actions);
+            int i = 0;
 
-         while (i < remove) {
-            StackEntry entry = this.removeFromStack();
-            i += entry.size();
-         }
-
-         Type type = NodeUtils.getReturnType(node, this.actions);
-         if (!type.equals((byte)-16)) {
-            if (!type.equals((byte)0)) {
-               Variable var = new Variable(type);
-               this.stack.push(var);
-            }
-         } else {
-            for (int ix = 0; ix < 3; ix++) {
-               Variable var = new Variable((byte)4);
-               this.stack.push(var);
+            while (i < remove) {
+               StackEntry entry = this.removeFromStack();
+               i += entry.size();
             }
 
-            this.stack.structify(1, 3, this.subdata);
-         }
+            Type type = NodeUtils.getReturnType(node, this.actions);
+            if (!type.equals((byte)-16)) {
+               if (!type.equals((byte)0)) {
+                  Variable var = new Variable(type);
+                  this.stack.push(var);
+               }
+            } else {
+               for (int ix = 0; ix < 3; ix++) {
+                  Variable var = new Variable((byte)4);
+                  this.stack.push(var);
+               }
 
-         this.state.transformAction(node);
+               this.stack.structify(1, 3, this.subdata);
+            }
+
+            this.state.transformAction(node);
+         });
       } else {
          this.state.transformDeadCode(node);
       }
@@ -235,12 +244,13 @@ public class MainPass extends PrunedDepthFirstAdapter {
    @Override
    public void outALogiiCommand(ALogiiCommand node) {
       if (!this.skipdeadcode) {
-         this.removeFromStack();
-         this.removeFromStack();
-         Variable var = new Variable((byte)3);
-         this.stack.push(var);
-         var = null;
-         this.state.transformLogii(node);
+         this.withRecovery(node, () -> {
+            this.removeFromStack();
+            this.removeFromStack();
+            Variable var = new Variable((byte)3);
+            this.stack.push(var);
+            this.state.transformLogii(node);
+         });
       } else {
          this.state.transformDeadCode(node);
       }
@@ -249,42 +259,44 @@ public class MainPass extends PrunedDepthFirstAdapter {
    @Override
    public void outABinaryCommand(ABinaryCommand node) {
       if (!this.skipdeadcode) {
-         int sizep1;
-         int sizep2;
-         int sizeresult;
-         Type resulttype;
-         if (NodeUtils.isEqualityOp(node)) {
-            if (NodeUtils.getType(node).equals((byte)36)) {
-               sizep1 = sizep2 = NodeUtils.stackSizeToPos(node.getSize());
+         this.withRecovery(node, () -> {
+            int sizep1;
+            int sizep2;
+            int sizeresult;
+            Type resulttype;
+            if (NodeUtils.isEqualityOp(node)) {
+               if (NodeUtils.getType(node).equals((byte)36)) {
+                  sizep1 = sizep2 = NodeUtils.stackSizeToPos(node.getSize());
+               } else {
+                  sizep2 = 1;
+                  sizep1 = 1;
+               }
+
+               sizeresult = 1;
+               resulttype = new Type((byte)3);
+            } else if (NodeUtils.isVectorAllowedOp(node)) {
+               sizep1 = NodeUtils.getParam1Size(node);
+               sizep2 = NodeUtils.getParam2Size(node);
+               sizeresult = NodeUtils.getResultSize(node);
+               resulttype = NodeUtils.getReturnType(node);
             } else {
-               sizep2 = 1;
                sizep1 = 1;
+               sizep2 = 1;
+               sizeresult = 1;
+               resulttype = new Type((byte)3);
             }
 
-            sizeresult = 1;
-            resulttype = new Type((byte)3);
-         } else if (NodeUtils.isVectorAllowedOp(node)) {
-            sizep1 = NodeUtils.getParam1Size(node);
-            sizep2 = NodeUtils.getParam2Size(node);
-            sizeresult = NodeUtils.getResultSize(node);
-            resulttype = NodeUtils.getReturnType(node);
-         } else {
-            sizep1 = 1;
-            sizep2 = 1;
-            sizeresult = 1;
-            resulttype = new Type((byte)3);
-         }
+            for (int i = 0; i < sizep1 + sizep2; i++) {
+               this.removeFromStack();
+            }
 
-         for (int i = 0; i < sizep1 + sizep2; i++) {
-            this.removeFromStack();
-         }
+            for (int i = 0; i < sizeresult; i++) {
+               Variable var = new Variable(resulttype);
+               this.stack.push(var);
+            }
 
-         for (int i = 0; i < sizeresult; i++) {
-            Variable var = new Variable(resulttype);
-            this.stack.push(var);
-         }
-
-         this.state.transformBinary(node);
+            this.state.transformBinary(node);
+         });
       } else {
          this.state.transformDeadCode(node);
       }
@@ -293,7 +305,7 @@ public class MainPass extends PrunedDepthFirstAdapter {
    @Override
    public void outAUnaryCommand(AUnaryCommand node) {
       if (!this.skipdeadcode) {
-         this.state.transformUnary(node);
+         this.withRecovery(node, () -> this.state.transformUnary(node));
       } else {
          this.state.transformDeadCode(node);
       }
@@ -302,23 +314,25 @@ public class MainPass extends PrunedDepthFirstAdapter {
    @Override
    public void outAMoveSpCommand(AMoveSpCommand node) {
       if (!this.skipdeadcode) {
-         this.state.transformMoveSp(node);
-         this.backupstack = (LocalVarStack)this.stack.clone();
-         int remove = NodeUtils.stackOffsetToPos(node.getOffset());
-         ArrayList<Variable> entries = new ArrayList<>();
-         int i = 0;
+         this.withRecovery(node, () -> {
+            this.state.transformMoveSp(node);
+            this.backupstack = (LocalVarStack)this.stack.clone();
+            int remove = NodeUtils.stackOffsetToPos(node.getOffset());
+            ArrayList<Variable> entries = new ArrayList<>();
+            int i = 0;
 
-         while (i < remove) {
-            StackEntry entry = this.removeFromStack();
-            i += entry.size();
-            if (Variable.class.isInstance(entry) && !((Variable)entry).isPlaceholder(this.stack) && !((Variable)entry).isOnStack(this.stack)) {
-               entries.add((Variable)entry);
+            while (i < remove) {
+               StackEntry entry = this.removeFromStack();
+               i += entry.size();
+               if (Variable.class.isInstance(entry) && !((Variable)entry).isPlaceholder(this.stack) && !((Variable)entry).isOnStack(this.stack)) {
+                  entries.add((Variable)entry);
+               }
             }
-         }
 
-         if (entries.size() > 0 && !this.nodedata.deadCode(node)) {
-            this.state.transformMoveSPVariablesRemoved(entries, node);
-         }
+            if (entries.size() > 0 && !this.nodedata.deadCode(node)) {
+               this.state.transformMoveSPVariablesRemoved(entries, node);
+            }
+         });
       } else {
          this.state.transformDeadCode(node);
       }
@@ -327,16 +341,18 @@ public class MainPass extends PrunedDepthFirstAdapter {
    @Override
    public void outAConditionalJumpCommand(AConditionalJumpCommand node) {
       if (!this.skipdeadcode) {
-         if (this.nodedata.logOrCode(node)) {
-            this.state.transformLogOrExtraJump(node);
-         } else {
-            this.state.transformConditionalJump(node);
-         }
+         this.withRecovery(node, () -> {
+            if (this.nodedata.logOrCode(node)) {
+               this.state.transformLogOrExtraJump(node);
+            } else {
+               this.state.transformConditionalJump(node);
+            }
 
-         this.removeFromStack();
-         if (!this.nodedata.logOrCode(node)) {
-            this.storeStackState(this.nodedata.getDestination(node), this.nodedata.deadCode(node));
-         }
+            this.removeFromStack();
+            if (!this.nodedata.logOrCode(node)) {
+               this.storeStackState(this.nodedata.getDestination(node), this.nodedata.deadCode(node));
+            }
+         });
       } else {
          this.state.transformDeadCode(node);
       }
@@ -345,13 +361,15 @@ public class MainPass extends PrunedDepthFirstAdapter {
    @Override
    public void outAJumpCommand(AJumpCommand node) {
       if (!this.skipdeadcode) {
-         this.state.transformJump(node);
-         this.storeStackState(this.nodedata.getDestination(node), this.nodedata.deadCode(node));
-         if (this.backupstack != null) {
-            this.stack.doneWithStack();
-            this.stack = this.backupstack;
-            this.state.setStack(this.stack);
-         }
+         this.withRecovery(node, () -> {
+            this.state.transformJump(node);
+            this.storeStackState(this.nodedata.getDestination(node), this.nodedata.deadCode(node));
+            if (this.backupstack != null) {
+               this.stack.doneWithStack();
+               this.stack = this.backupstack;
+               this.state.setStack(this.stack);
+            }
+         });
       } else {
          this.state.transformDeadCode(node);
       }
@@ -360,14 +378,16 @@ public class MainPass extends PrunedDepthFirstAdapter {
    @Override
    public void outAJumpToSubroutine(AJumpToSubroutine node) {
       if (!this.skipdeadcode) {
-         SubroutineState substate = this.subdata.getState(this.nodedata.getDestination(node));
-         int paramsize = substate.getParamCount();
+         this.withRecovery(node, () -> {
+            SubroutineState substate = this.subdata.getState(this.nodedata.getDestination(node));
+            int paramsize = substate.getParamCount();
 
-         for (int i = 0; i < paramsize; i++) {
-            this.removeFromStack();
-         }
+            for (int i = 0; i < paramsize; i++) {
+               this.removeFromStack();
+            }
 
-         this.state.transformJSR(node);
+            this.state.transformJSR(node);
+         });
       } else {
          this.state.transformDeadCode(node);
       }
@@ -376,11 +396,13 @@ public class MainPass extends PrunedDepthFirstAdapter {
    @Override
    public void outADestructCommand(ADestructCommand node) {
       if (!this.skipdeadcode) {
-         this.state.transformDestruct(node);
-         int removesize = NodeUtils.stackSizeToPos(node.getSizeRem());
-         int savestart = NodeUtils.stackSizeToPos(node.getOffset());
-         int savesize = NodeUtils.stackSizeToPos(node.getSizeSave());
-         this.stack.destruct(removesize, savestart, savesize, this.subdata);
+         this.withRecovery(node, () -> {
+            this.state.transformDestruct(node);
+            int removesize = NodeUtils.stackSizeToPos(node.getSizeRem());
+            int savestart = NodeUtils.stackSizeToPos(node.getOffset());
+            int savesize = NodeUtils.stackSizeToPos(node.getSizeSave());
+            this.stack.destruct(removesize, savestart, savesize, this.subdata);
+         });
       } else {
          this.state.transformDeadCode(node);
       }
@@ -389,23 +411,25 @@ public class MainPass extends PrunedDepthFirstAdapter {
    @Override
    public void outACopyTopBpCommand(ACopyTopBpCommand node) {
       if (!this.skipdeadcode) {
-         VarStruct varstruct = null;
-         int copy = NodeUtils.stackSizeToPos(node.getSize());
-         int loc = NodeUtils.stackOffsetToPos(node.getOffset());
-         if (copy > 1) {
-            varstruct = this.subdata.getGlobalStack().structify(loc - copy + 1, copy, this.subdata);
-         }
-
-         this.state.transformCopyTopBp(node);
-         if (copy > 1) {
-            this.stack.push(varstruct);
-         } else {
-            for (int i = 0; i < copy; i++) {
-               Variable var = (Variable)this.subdata.getGlobalStack().get(loc);
-               this.stack.push(var);
-               loc--;
+         this.withRecovery(node, () -> {
+            VarStruct varstruct = null;
+            int copy = NodeUtils.stackSizeToPos(node.getSize());
+            int loc = NodeUtils.stackOffsetToPos(node.getOffset());
+            if (copy > 1) {
+               varstruct = this.subdata.getGlobalStack().structify(loc - copy + 1, copy, this.subdata);
             }
-         }
+
+            this.state.transformCopyTopBp(node);
+            if (copy > 1) {
+               this.stack.push(varstruct);
+            } else {
+               for (int i = 0; i < copy; i++) {
+                  Variable var = (Variable)this.subdata.getGlobalStack().get(loc);
+                  this.stack.push(var);
+                  loc--;
+               }
+            }
+         });
 
       } else {
          this.state.transformDeadCode(node);
@@ -415,13 +439,15 @@ public class MainPass extends PrunedDepthFirstAdapter {
    @Override
    public void outACopyDownBpCommand(ACopyDownBpCommand node) {
       if (!this.skipdeadcode) {
-         int copy = NodeUtils.stackSizeToPos(node.getSize());
-         int loc = NodeUtils.stackOffsetToPos(node.getOffset());
-         if (copy > 1) {
-            this.subdata.getGlobalStack().structify(loc - copy + 1, copy, this.subdata);
-         }
+         this.withRecovery(node, () -> {
+            int copy = NodeUtils.stackSizeToPos(node.getSize());
+            int loc = NodeUtils.stackOffsetToPos(node.getOffset());
+            if (copy > 1) {
+               this.subdata.getGlobalStack().structify(loc - copy + 1, copy, this.subdata);
+            }
 
-         this.state.transformCopyDownBp(node);
+            this.state.transformCopyDownBp(node);
+         });
       } else {
          this.state.transformDeadCode(node);
       }
@@ -430,8 +456,10 @@ public class MainPass extends PrunedDepthFirstAdapter {
    @Override
    public void outAStoreStateCommand(AStoreStateCommand node) {
       if (!this.skipdeadcode) {
-         this.state.transformStoreState(node);
-         this.backupstack = null;
+         this.withRecovery(node, () -> {
+            this.state.transformStoreState(node);
+            this.backupstack = null;
+         });
       } else {
          this.state.transformDeadCode(node);
       }
@@ -440,7 +468,7 @@ public class MainPass extends PrunedDepthFirstAdapter {
    @Override
    public void outAStackCommand(AStackCommand node) {
       if (!this.skipdeadcode) {
-         this.state.transformStack(node);
+         this.withRecovery(node, () -> this.state.transformStack(node));
       } else {
          this.state.transformDeadCode(node);
       }
@@ -449,7 +477,7 @@ public class MainPass extends PrunedDepthFirstAdapter {
    @Override
    public void outAReturn(AReturn node) {
       if (!this.skipdeadcode) {
-         this.state.transformReturn(node);
+         this.withRecovery(node, () -> this.state.transformReturn(node));
       } else {
          this.state.transformDeadCode(node);
       }
@@ -501,6 +529,22 @@ public class MainPass extends PrunedDepthFirstAdapter {
       }
 
       restore = null;
+   }
+
+   private void withRecovery(Node node, Runnable action) {
+      LocalVarStack stackSnapshot = (LocalVarStack)this.stack.clone();
+      LocalVarStack backupSnapshot = this.backupstack != null ? (LocalVarStack)this.backupstack.clone() : null;
+      try {
+         action.run();
+      } catch (RuntimeException e) {
+         // Log the exception details for debugging while allowing decompiler to continue
+         System.err.println("Decompiler recovery triggered at position " + this.nodedata.getPos(node) + ": " + e.getMessage());
+         e.printStackTrace();
+         this.stack = stackSnapshot;
+         this.state.setStack(this.stack);
+         this.backupstack = backupSnapshot;
+         this.state.emitError(node, this.nodedata.getPos(node));
+      }
    }
 
    private void checkOrigins(Node node) {

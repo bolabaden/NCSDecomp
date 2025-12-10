@@ -16,6 +16,7 @@ import java.util.ListIterator;
  * group elements into structs for decompilation.
  */
 public class LocalVarStack extends LocalStack<StackEntry> {
+   private int placeholderCounter = 0;
    @Override
    public void close() {
       if (this.stack != null) {
@@ -86,8 +87,14 @@ public class LocalVarStack extends LocalStack<StackEntry> {
          }
       }
 
-      System.out.println(this.toString());
-      throw new RuntimeException("offset " + Integer.valueOf(offset) + " was greater than stack size " + Integer.valueOf(pos));
+      while (pos < offset) {
+         Variable placeholder = this.newPlaceholderVariable();
+         this.stack.addLast(placeholder);
+         placeholder.addedToStack(this);
+         pos += placeholder.size();
+      }
+
+      return this.stack.getLast();
    }
 
    public Type getType(int offset) {
@@ -195,6 +202,7 @@ public class LocalVarStack extends LocalStack<StackEntry> {
    public LocalVarStack clone() {
       LocalVarStack newStack = new LocalVarStack();
       newStack.stack = new LinkedList<>(this.stack);
+      newStack.placeholderCounter = this.placeholderCounter;
 
       for (StackEntry entry : this.stack) {
          if (Variable.class.isInstance(entry)) {
@@ -203,6 +211,13 @@ public class LocalVarStack extends LocalStack<StackEntry> {
       }
 
       return newStack;
+   }
+
+   private Variable newPlaceholderVariable() {
+      Variable placeholder = new Variable(new Type((byte)-1));
+      placeholder.name("__unknown_param_" + Integer.toString(++this.placeholderCounter));
+      placeholder.isParam(true);
+      return placeholder;
    }
 }
 

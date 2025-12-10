@@ -36,6 +36,7 @@ import com.kotor.resource.formats.ncs.scriptnode.AConst;
 import com.kotor.resource.formats.ncs.scriptnode.AContinueStatement;
 import com.kotor.resource.formats.ncs.scriptnode.AControlLoop;
 import com.kotor.resource.formats.ncs.scriptnode.ADoLoop;
+import com.kotor.resource.formats.ncs.scriptnode.AErrorComment;
 import com.kotor.resource.formats.ncs.scriptnode.AElse;
 import com.kotor.resource.formats.ncs.scriptnode.AExpression;
 import com.kotor.resource.formats.ncs.scriptnode.AExpressionStatement;
@@ -336,6 +337,15 @@ public class SubScriptState {
       AVarDecl var8 = null;
       ScriptRootNode parent = null;
       AExpression exp = null;
+   }
+
+   public void emitError(Node node, int pos) {
+      String message = "ERROR: failed to decompile statement";
+      if (pos >= 0) {
+         message = message + " at " + pos;
+      }
+
+      this.current.addChild(new AErrorComment(message));
    }
 
    private boolean removingSwitchVar(List<Variable> vars, Node node) {
@@ -974,13 +984,27 @@ public class SubScriptState {
    }
 
    private AExpression removeLastExp(boolean forceOneOnly) {
+      ArrayList<ScriptNode> trailingErrors = new ArrayList<>();
+      while (this.current.hasChildren() && AErrorComment.class.isInstance(this.current.getLastChild())) {
+         trailingErrors.add(this.current.removeLastChild());
+      }
+
       if (!this.current.hasChildren() && AIf.class.isInstance(this.current)) {
+         for (int i = trailingErrors.size() - 1; i >= 0; i--) {
+            this.current.addChild(trailingErrors.get(i));
+         }
+
          return this.removeIfAsExp();
       } else {
          ScriptNode anode = this.current.removeLastChild();
          if (!AExpression.class.isInstance(anode)) {
             if (!forceOneOnly && AVarDecl.class.isInstance(anode) && ((AVarDecl) anode).exp() != null) {
-               return ((AVarDecl) anode).removeExp();
+               AExpression exp = ((AVarDecl) anode).removeExp();
+               for (int i = trailingErrors.size() - 1; i >= 0; i--) {
+                  this.current.addChild(trailingErrors.get(i));
+               }
+
+               return exp;
             } else {
                System.out.println(anode.toString());
                throw new RuntimeException("Last child not an expression: " + anode.getClass());
@@ -994,13 +1018,27 @@ public class SubScriptState {
                ScriptNode last = this.current.getLastChild();
                if (AExpression.class.isInstance(last)
                      && ((AVarRef) anode).var().equals(((AExpression) last).stackentry())) {
-                  return this.removeLastExp(false);
+                  AExpression exp = this.removeLastExp(false);
+                  for (int i = trailingErrors.size() - 1; i >= 0; i--) {
+                     this.current.addChild(trailingErrors.get(i));
+                  }
+
+                  return exp;
                }
 
                if (AVarDecl.class.isInstance(last) && ((AVarRef) anode).var().equals(((AVarDecl) last).var())
                      && ((AVarDecl) last).exp() != null) {
-                  return this.removeLastExp(false);
+                  AExpression exp = this.removeLastExp(false);
+                  for (int i = trailingErrors.size() - 1; i >= 0; i--) {
+                     this.current.addChild(trailingErrors.get(i));
+                  }
+
+                  return exp;
                }
+            }
+
+            for (int i = trailingErrors.size() - 1; i >= 0; i--) {
+               this.current.addChild(trailingErrors.get(i));
             }
 
             return (AExpression) anode;
@@ -1204,8 +1242,16 @@ public class SubScriptState {
       int i = 0;
 
       while (i < paramcount) {
-         AExpression exp = this.removeLastExp(false);
-         i += this.getExpSize(exp);
+         AExpression exp;
+         try {
+            exp = this.removeLastExp(false);
+         } catch (RuntimeException e) {
+            e.printStackTrace();
+            exp = this.buildPlaceholderParam(i + 1);
+         }
+
+         int expSize = this.getExpSize(exp);
+         i += expSize <= 0 ? 1 : expSize;
          params.add(exp);
       }
 
@@ -1218,6 +1264,13 @@ public class SubScriptState {
       } else {
          return AConst.class.isInstance(exp) ? 1 : 1;
       }
+   }
+
+   private AVarRef buildPlaceholderParam(int ordinal) {
+      Variable placeholder = new Variable(new Type((byte)-1));
+      placeholder.name("__unknown_param_" + ordinal);
+      placeholder.isParam(true);
+      return new AVarRef(placeholder);
    }
 
    private List<AExpression> removeActionParams(AActionCommand node) {

@@ -4,6 +4,7 @@ on:
   push:
     branches: [ main, master, develop ]
   pull_request:
+    types: [opened, synchronize, reopened]
     branches: [ main, master, develop ]
   schedule:
     # Run weekly on Monday at 2:00 UTC

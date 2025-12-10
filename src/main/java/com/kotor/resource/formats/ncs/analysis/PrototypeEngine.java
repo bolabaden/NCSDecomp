@@ -6,7 +6,9 @@ package com.kotor.resource.formats.ncs.analysis;
 
 import com.kotor.resource.formats.ncs.ActionsData;
 import com.kotor.resource.formats.ncs.DoTypes;
+import com.kotor.resource.formats.ncs.node.AMoveSpCommand;
 import com.kotor.resource.formats.ncs.utils.NodeAnalysisData;
+import com.kotor.resource.formats.ncs.utils.NodeUtils;
 import com.kotor.resource.formats.ncs.utils.SubroutineAnalysisData;
 import com.kotor.resource.formats.ncs.utils.SubroutinePathFinder;
 import com.kotor.resource.formats.ncs.utils.SubroutineState;
@@ -54,7 +56,8 @@ public class PrototypeEngine {
          this.prototypeComponent(scc, subByPos);
       }
 
-      this.ensureAllPrototyped(subByPos.values());
+      Map<Integer, Integer> callsiteParams = new CallSiteAnalyzer(this.nodedata, this.subdata, this.actions).analyze();
+      this.ensureAllPrototyped(subByPos.values(), callsiteParams);
    }
 
    private Map<Integer, com.kotor.resource.formats.ncs.node.ASubroutine> indexSubroutines() {
@@ -98,7 +101,10 @@ public class PrototypeEngine {
       }
    }
 
-   private void ensureAllPrototyped(Iterable<com.kotor.resource.formats.ncs.node.ASubroutine> subs) {
+   private void ensureAllPrototyped(
+      Iterable<com.kotor.resource.formats.ncs.node.ASubroutine> subs,
+      Map<Integer, Integer> callsiteParams
+   ) {
       for (com.kotor.resource.formats.ncs.node.ASubroutine sub : subs) {
          SubroutineState state = this.subdata.getState(sub);
          if (!state.isPrototyped()) {
@@ -107,11 +113,32 @@ public class PrototypeEngine {
                   "Strict signatures: missing prototype for subroutine at " + Integer.toString(this.nodedata.getPos(sub)) + " (continuing)"
                );
             }
+            int pos = this.nodedata.getPos(sub);
+            int inferredParams = callsiteParams.getOrDefault(pos, 0);
+            if (inferredParams == 0) {
+               inferredParams = this.estimateParamsFromMovesp(sub);
+            }
             state.startPrototyping();
-            state.setParamCount(0);
+            state.setParamCount(inferredParams);
             state.stopPrototyping(true);
          }
       }
+   }
+
+   private int estimateParamsFromMovesp(com.kotor.resource.formats.ncs.node.ASubroutine sub) {
+      final int[] maxParams = new int[]{0};
+      sub.apply(
+         new PrunedDepthFirstAdapter() {
+            @Override
+            public void outAMoveSpCommand(AMoveSpCommand node) {
+               int params = NodeUtils.stackOffsetToPos(node.getOffset());
+               if (params > maxParams[0]) {
+                  maxParams[0] = params;
+               }
+            }
+         }
+      );
+      return maxParams[0];
    }
 }
 
