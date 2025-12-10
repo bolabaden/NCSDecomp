@@ -163,6 +163,7 @@ public class Settings extends Properties implements ActionListener {
          if (chooser.showOpenDialog(this.frame) == JFileChooser.APPROVE_OPTION) {
             this.nwnnsscompPathField.setText(chooser.getSelectedFile().getAbsolutePath());
             updateCompilerInfo();
+            updateCompilerInfo();
          }
       }
    }
@@ -467,7 +468,8 @@ public class Settings extends Properties implements ActionListener {
       this.browseNwnnsscompButton = new JButton("Browse...");
       this.browseNwnnsscompButton.addActionListener(this);
       panel.add(this.browseNwnnsscompButton, gbc);
-      // Compiler info indicator with emoji
+      
+      // Compiler info indicator (emoji + tooltip)
       gbc.gridx = 3;
       gbc.weightx = 0.0;
       this.nwnnsscompInfoLabel = new JLabel("");
