@@ -536,7 +536,10 @@ public class MainPass extends PrunedDepthFirstAdapter {
       LocalVarStack backupSnapshot = this.backupstack != null ? (LocalVarStack)this.backupstack.clone() : null;
       try {
          action.run();
-      } catch (Exception e) {
+      } catch (RuntimeException e) {
+         // Log the exception details for debugging while allowing decompiler to continue
+         System.err.println("Decompiler recovery triggered at position " + this.nodedata.getPos(node) + ": " + e.getMessage());
+         e.printStackTrace();
          this.stack = stackSnapshot;
          this.state.setStack(this.stack);
          this.backupstack = backupSnapshot;

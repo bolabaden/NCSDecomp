@@ -762,6 +762,12 @@ public class NCSDecompCLIRoundTripTest {
 
    /**
     * Sorts functions by signature to avoid order-related diffs in decompiler output.
+    * <p>
+    * <b>Limitation:</b> This method uses simple character counting for braces and does not
+    * account for braces within string literals or comments. This may lead to incorrect
+    * function parsing in edge cases where braces appear in strings or comments. For the
+    * typical decompiled NCS output, this is sufficient, but a more robust parser would
+    * be needed for general-purpose code parsing.
     */
    private static String normalizeFunctionOrder(String code) {
       String[] lines = code.split("\n");
