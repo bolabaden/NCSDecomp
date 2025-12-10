@@ -136,6 +136,31 @@ if (Test-Path $docsReadmeCli) {
     Write-Host "  - Copied README-TECHNICAL.md" -ForegroundColor Cyan
 }
 
+# Copy main README if it exists
+$rootReadme = Join-Path "." "README.md"
+if (Test-Path $rootReadme) {
+    Copy-Item $rootReadme $publishDir
+    Write-Host "  - Copied README.md" -ForegroundColor Cyan
+}
+
+# Copy LICENSE file if it exists (check common locations and names)
+$licenseFiles = @(
+    (Join-Path "." "LICENSE"),
+    (Join-Path "." "LICENSE.txt"),
+    (Join-Path "." "LICENSE.md"),
+    (Join-Path "." "LICENSE.TXT")
+)
+$licenseCopied = $false
+foreach ($licenseFile in $licenseFiles) {
+    if (Test-Path $licenseFile) {
+        $licenseName = Split-Path $licenseFile -Leaf
+        Copy-Item $licenseFile (Join-Path $publishDir $licenseName)
+        Write-Host "  - Copied $licenseName" -ForegroundColor Cyan
+        $licenseCopied = $true
+        break
+    }
+}
+
 # Create examples directory
 $examplesDir = Join-Path $publishDir "examples"
 New-Item -ItemType Directory -Path $examplesDir -Force | Out-Null
@@ -224,10 +249,58 @@ if ($IsWindows) {
 Write-Host "  - Created VERSION.txt" -ForegroundColor Cyan
 
 Write-Host ""
+Write-Host "Step 5: Creating ZIP archive..." -ForegroundColor Yellow
+
+# Create ZIP archive name with version and platform
+$platformSuffix = if ($IsWindows) { "Windows" } elseif ($IsMacOS) { "macOS" } else { "Linux" }
+$zipFileName = "NCSDecomp-CLI-v2.0-$platformSuffix.zip"
+$zipPath = Join-Path "." $zipFileName
+
+# Remove existing ZIP if it exists
+if (Test-Path $zipPath) {
+    Remove-Item -Force $zipPath
+    Write-Host "  - Removed existing ZIP archive" -ForegroundColor Gray
+}
+
+# Create ZIP archive using .NET Compression
+try {
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $compressionLevel = [System.IO.Compression.CompressionLevel]::Optimal
+    
+    # Create ZIP from publish directory
+    [System.IO.Compression.ZipFile]::CreateFromDirectory(
+        (Resolve-Path $publishDir).Path,
+        (Resolve-Path $zipPath).Path,
+        $compressionLevel,
+        $false  # includeBaseDirectory = false (we want contents, not the publish folder itself)
+    )
+    
+    $zipSize = [math]::Round((Get-Item $zipPath).Length / 1MB, 2)
+    Write-Host "  - Created ZIP archive: $zipFileName ($zipSize MB)" -ForegroundColor Cyan
+} catch {
+    Write-Host "  Error creating ZIP archive: $_" -ForegroundColor Red
+    Write-Host "  Falling back to manual ZIP creation..." -ForegroundColor Yellow
+    
+    # Fallback: Use Compress-Archive (PowerShell 5.0+)
+    try {
+        $publishDirResolved = (Resolve-Path $publishDir).Path
+        Compress-Archive -Path "$publishDirResolved\*" -DestinationPath $zipPath -Force
+        $zipSize = [math]::Round((Get-Item $zipPath).Length / 1MB, 2)
+        Write-Host "  - Created ZIP archive: $zipFileName ($zipSize MB)" -ForegroundColor Cyan
+    } catch {
+        Write-Host "  Error: Could not create ZIP archive. Manual packaging required." -ForegroundColor Red
+        Write-Host "  Error details: $_" -ForegroundColor Red
+    }
+}
+
+Write-Host ""
 Write-Host "================================" -ForegroundColor Green
 Write-Host "Publishing complete!" -ForegroundColor Green
 Write-Host ""
 Write-Host "Distribution package ready in: $publishDir" -ForegroundColor Cyan
+if (Test-Path $zipPath) {
+    Write-Host "ZIP archive created: $zipFileName" -ForegroundColor Green
+}
 Write-Host ""
 Write-Host "Package contents:" -ForegroundColor Yellow
 $publishDirResolved = (Resolve-Path $publishDir).Path
