@@ -1407,6 +1407,22 @@ public class FileDecompiler {
                cleanpass.done();
             } catch (Exception e) {
                System.out.println("Error while processing subroutine: " + e);
+               e.printStackTrace(System.out);
+               // Try to add partial subroutine state even if processing failed
+               try {
+                  SubroutineState state = subdata.getState(iterSub);
+                  if (state != null) {
+                     MainPass recoveryPass = new MainPass(state, nodedata, subdata, this.actions);
+                     // Try to get state even if apply failed
+                     SubScriptState recoveryState = recoveryPass.getState();
+                     if (recoveryState != null) {
+                        data.addSub(recoveryState);
+                        System.out.println("Added partial subroutine state after error recovery.");
+                     }
+                  }
+               } catch (Exception e2) {
+                  System.out.println("Could not recover partial subroutine state: " + e2.getMessage());
+               }
             }
          }
 
