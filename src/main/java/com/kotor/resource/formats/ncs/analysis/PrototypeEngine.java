@@ -116,7 +116,7 @@ public class PrototypeEngine {
             int pos = this.nodedata.getPos(sub);
             int inferredParams = callsiteParams.getOrDefault(pos, 0);
             if (inferredParams == 0) {
-               inferredParams = Math.max(inferredParams, this.estimateParamsFromMovesp(sub));
+               inferredParams = this.estimateParamsFromMovesp(sub);
             }
             state.startPrototyping();
             state.setParamCount(inferredParams);
