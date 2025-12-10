@@ -312,7 +312,6 @@ public class SubroutineState {
       if (data == null) {
          throw new RuntimeException("Attempted to get a destination but no decision nodes found.");
       }
-      SubroutineState.DecisionData data = this.decisionqueue.getLast();
       return data.destination;
    }
 
