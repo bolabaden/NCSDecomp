@@ -770,21 +770,38 @@ public class NCSDecompCLIRoundTripTest {
       int depth = 0;
       StringBuilder preamble = new StringBuilder();
       boolean inFunction = false;
+      // Simple regex for function signature (adjust as needed for your language)
+      // Example: void foo() {, int bar(int x) {, etc.
+      String functionSignatureRegex = "^(\\s*\\w[\\w\\s\\*]+\\w\\s*\\([^)]*\\)\\s*\\{)";
 
       for (String line : lines) {
-         if (!inFunction && depth == 0 && !line.contains("{")) {
+         boolean isFunctionSignature = line.matches(functionSignatureRegex);
+         if (!inFunction && depth == 0 && !isFunctionSignature) {
             preamble.append(line).append("\n");
             continue;
          }
 
-         inFunction = true;
-         current.append(line).append("\n");
-         depth += countChar(line, '{');
-         depth -= countChar(line, '}');
-         if (inFunction && depth == 0) {
-            functions.add(current.toString().trim());
+         if (!inFunction && isFunctionSignature) {
+            inFunction = true;
             current.setLength(0);
-            inFunction = false;
+         }
+
+         if (inFunction) {
+            current.append(line).append("\n");
+            int openBraces = countChar(line, '{');
+            int closeBraces = countChar(line, '}');
+            depth += openBraces;
+            depth -= closeBraces;
+            // Handle single-line function: opening and closing brace on same line
+            if (openBraces > 0 && closeBraces > 0 && depth == 0) {
+               functions.add(current.toString().trim());
+               current.setLength(0);
+               inFunction = false;
+            } else if (inFunction && depth == 0) {
+               functions.add(current.toString().trim());
+               current.setLength(0);
+               inFunction = false;
+            }
          }
       }
 
