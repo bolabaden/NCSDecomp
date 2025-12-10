@@ -133,6 +133,7 @@ public final class NCSDecompCLI {
       }
 
       FileDecompiler.isK2Selected = cfg.isK2;
+      FileDecompiler.preferSwitches = cfg.preferSwitches;
       Charset charset = cfg.encoding;
 
       // Collect files with their base directories for hierarchy preservation
@@ -396,6 +397,9 @@ public final class NCSDecompCLI {
                cfg.isK2 = parseGame(args[++i]);
                cfg.gameExplicitlySet = true;
                break;
+            case "--prefer-switches":
+               cfg.preferSwitches = true;
+               break;
             default:
                if (a.startsWith("-")) {
                   throw new IllegalArgumentException("Unknown option: " + a);
@@ -452,6 +456,8 @@ public final class NCSDecompCLI {
       System.out.println("                            nwscript.nss in current directory.");
       System.out.println("      --quiet                Suppress success logs");
       System.out.println("      --fail-fast            Stop on first decompile failure");
+      System.out.println("      --prefer-switches      Prefer generating switch structures instead");
+      System.out.println("                            of if-elseif chains when possible");
       System.out.println();
       System.out.println("Examples:");
       System.out.println("  Decompile single file to stdout:");
@@ -502,6 +508,7 @@ public final class NCSDecompCLI {
       boolean failFast = false;
       boolean isK2 = false;
       boolean gameExplicitlySet = false;  // Track if user explicitly set a game flag
+      boolean preferSwitches = false;  // Prefer switch structures over if-elseif chains
       String nwscriptPath = null;  // Explicit nwscript file path (CLI-only)
    }
 }

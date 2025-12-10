@@ -69,7 +69,7 @@ public class MainPass extends PrunedDepthFirstAdapter {
       this.actions = actions;
       state.initStack(this.stack);
       this.skipdeadcode = false;
-      this.state = new SubScriptState(nodedata, subdata, this.stack, state, actions);
+      this.state = new SubScriptState(nodedata, subdata, this.stack, state, actions, FileDecompiler.preferSwitches);
       this.globals = false;
       this.backupstack = null;
       this.type = state.type();
@@ -79,7 +79,7 @@ public class MainPass extends PrunedDepthFirstAdapter {
       this.nodedata = nodedata;
       this.subdata = subdata;
       this.skipdeadcode = false;
-      this.state = new SubScriptState(nodedata, subdata, this.stack);
+      this.state = new SubScriptState(nodedata, subdata, this.stack, FileDecompiler.preferSwitches);
       this.globals = true;
       this.backupstack = null;
       this.type = new Type((byte)-1);

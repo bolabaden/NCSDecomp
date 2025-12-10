@@ -100,9 +100,10 @@ public class SubScriptState {
    private Hashtable<Variable, AVarDecl> vardecs;
    private Hashtable<Type, Integer> varcounts;
    private Hashtable<String, Integer> varnames;
+   private boolean preferSwitches;
 
    public SubScriptState(NodeAnalysisData nodedata, SubroutineAnalysisData subdata, LocalVarStack stack,
-         SubroutineState protostate, ActionsData actions) {
+         SubroutineState protostate, ActionsData actions, boolean preferSwitches) {
       this.nodedata = nodedata;
       this.subdata = subdata;
       this.state = 0;
@@ -115,9 +116,10 @@ public class SubScriptState {
       this.current = this.root;
       this.varnames = new Hashtable<>(1);
       this.actions = actions;
+      this.preferSwitches = preferSwitches;
    }
 
-   public SubScriptState(NodeAnalysisData nodedata, SubroutineAnalysisData subdata, LocalVarStack stack) {
+   public SubScriptState(NodeAnalysisData nodedata, SubroutineAnalysisData subdata, LocalVarStack stack, boolean preferSwitches) {
       this.nodedata = nodedata;
       this.subdata = subdata;
       this.state = 0;
@@ -128,6 +130,7 @@ public class SubScriptState {
       this.varcounts = new Hashtable<>(1);
       this.varprefix = "";
       this.varnames = new Hashtable<>(1);
+      this.preferSwitches = preferSwitches;
    }
 
    public void setVarPrefix(String prefix) {
@@ -402,27 +405,65 @@ public class SubScriptState {
          ((AWhileLoop) this.current).condition(this.removeLastExp(false));
          this.state = 0;
       } else if (!NodeUtils.isJz(node)) {
+         // Equality comparison - prefer switch when preferSwitches is enabled
          if (this.state != 4) {
             AConditionalExp cond = (AConditionalExp) this.removeLastExp(true);
-            ASwitch aswitch = null;
-            ASwitchCase acase = new ASwitchCase(this.nodedata.getPos(this.nodedata.getDestination(node)),
-                  (AConst) cond.right());
-            if (this.current.hasChildren()) {
+            // When preferSwitches is enabled, be more aggressive about creating switches
+            // Check if we can add to an existing switch or create a new one
+            boolean canCreateSwitch = AConst.class.isInstance(cond.right());
+            ASwitch existingSwitch = null;
+            
+            // Check if we can continue an existing switch when preferSwitches is enabled
+            if (this.preferSwitches && this.current.hasChildren()) {
                ScriptNode last = this.current.getLastChild();
-               if (AVarRef.class.isInstance(last) && AVarRef.class.isInstance(cond.left())
-                     && ((AVarRef) last).var().equals(((AVarRef) cond.left()).var())) {
-                  AVarRef varref = (AVarRef) this.removeLastExp(false);
-                  aswitch = new ASwitch(this.nodedata.getPos(node), varref);
+               if (ASwitch.class.isInstance(last)) {
+                  existingSwitch = (ASwitch) last;
+                  // Verify the switch expression matches
+                  if (AVarRef.class.isInstance(cond.left()) && AVarRef.class.isInstance(existingSwitch.switchExp())
+                        && ((AVarRef) cond.left()).var().equals(((AVarRef) existingSwitch.switchExp()).var())) {
+                     // Can continue existing switch
+                     ASwitchCase aprevcase = existingSwitch.getLastCase();
+                     if (aprevcase != null) {
+                        aprevcase.end(this.nodedata
+                              .getPos(NodeUtils.getPreviousCommand(this.nodedata.getDestination(node), this.nodedata)));
+                     }
+                     ASwitchCase acasex = new ASwitchCase(this.nodedata.getPos(this.nodedata.getDestination(node)),
+                           (AConst) cond.right());
+                     existingSwitch.addCase(acasex);
+                     this.state = 4;
+                     this.checkEnd(node);
+                     return;
+                  }
                }
             }
+            
+            if (canCreateSwitch) {
+               ASwitch aswitch = null;
+               ASwitchCase acase = new ASwitchCase(this.nodedata.getPos(this.nodedata.getDestination(node)),
+                     (AConst) cond.right());
+               if (this.current.hasChildren()) {
+                  ScriptNode last = this.current.getLastChild();
+                  if (AVarRef.class.isInstance(last) && AVarRef.class.isInstance(cond.left())
+                        && ((AVarRef) last).var().equals(((AVarRef) cond.left()).var())) {
+                     AVarRef varref = (AVarRef) this.removeLastExp(false);
+                     aswitch = new ASwitch(this.nodedata.getPos(node), varref);
+                  }
+               }
 
-            if (aswitch == null) {
-               aswitch = new ASwitch(this.nodedata.getPos(node), cond.left());
+               if (aswitch == null) {
+                  aswitch = new ASwitch(this.nodedata.getPos(node), cond.left());
+               }
+
+               this.current.addChild(aswitch);
+               aswitch.addCase(acase);
+               this.state = 4;
+            } else {
+               // Fall back to if statement if we can't create a switch
+               AIf aif = new AIf(this.nodedata.getPos(node), this.nodedata.getPos(this.nodedata.getDestination(node)) - 6,
+                     cond);
+               this.current.addChild(aif);
+               this.current = aif;
             }
-
-            this.current.addChild(aswitch);
-            aswitch.addCase(acase);
-            this.state = 4;
          } else {
             AConditionalExp condx = (AConditionalExp) this.removeLastExp(true);
             ASwitch aswitchx = (ASwitch) this.current.getLastChild();

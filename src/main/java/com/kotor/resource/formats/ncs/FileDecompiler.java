@@ -70,24 +70,28 @@ public class FileDecompiler {
    private Hashtable<File, FileScriptData> filedata;
    /** Global flag toggled by UI/CLI to indicate KotOR 2 (TSL) mode. */
    public static boolean isK2Selected = false;
+   /** Global flag to prefer generating switch structures instead of if-elseif chains. */
+   public static boolean preferSwitches = false;
 
    /**
     * Builds a decompiler configured for the current working directory.
     * <p>
     * Uses {@code user.dir} to locate {@code k1_nwscript.nss} or
     * {@code tsl_nwscript.nss} depending on {@link #isK2Selected}, which mirrors
-    * legacy GUI behavior.
+    * legacy GUI behavior. Also loads {@link #preferSwitches} from config file if present.
     *
     * @throws DecompilerException if the action table cannot be loaded
     */
    public FileDecompiler() throws DecompilerException {
       this.filedata = new Hashtable<>(1);
       this.actions = loadActionsDataInternal(isK2Selected);
+      loadPreferSwitchesFromConfig();
    }
 
    /**
     * CLI-specific constructor that accepts an explicit nwscript file path.
     * This bypasses the user.dir lookup and allows complete CLI independence.
+    * Note: preferSwitches should be set via CLI argument or static flag before construction.
     */
    public FileDecompiler(File nwscriptFile) throws DecompilerException {
       this.filedata = new Hashtable<>(1);
@@ -130,6 +134,41 @@ public class FileDecompiler {
          }
       } catch (IOException ex) {
          throw new DecompilerException(ex.getMessage());
+      }
+   }
+
+   /**
+    * Loads preferSwitches setting from configuration file if present.
+    * <p>
+    * Checks for {@code preferSwitches} property in {@code ncsdecomp.conf} or {@code dencs.conf}
+    * in the current working directory. If not found or unparseable, leaves the current value unchanged.
+    */
+   private static void loadPreferSwitchesFromConfig() {
+      try {
+         File dir = new File(System.getProperty("user.dir"));
+         File configFile = new File(dir, "ncsdecomp.conf");
+         if (!configFile.exists()) {
+            configFile = new File(dir, "dencs.conf");
+         }
+         
+         if (configFile.exists() && configFile.isFile()) {
+            try (BufferedReader reader = new BufferedReader(new FileReader(configFile))) {
+               String line;
+               while ((line = reader.readLine()) != null) {
+                  line = line.trim();
+                  if (line.startsWith("preferSwitches") || line.startsWith("Prefer Switches")) {
+                     int equalsIdx = line.indexOf('=');
+                     if (equalsIdx >= 0) {
+                        String value = line.substring(equalsIdx + 1).trim();
+                        preferSwitches = value.equalsIgnoreCase("true") || value.equals("1");
+                     }
+                     break;
+                  }
+               }
+            }
+         }
+      } catch (Exception ex) {
+         // Silently ignore config file errors - use default value
       }
    }
 
