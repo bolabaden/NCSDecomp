@@ -12,9 +12,9 @@ import com.kotor.resource.formats.ncs.utils.NodeUtils;
 import com.kotor.resource.formats.ncs.utils.SubroutineAnalysisData;
 import com.kotor.resource.formats.ncs.utils.SubroutinePathFinder;
 import com.kotor.resource.formats.ncs.utils.SubroutineState;
+import com.kotor.resource.formats.ncs.utils.Type;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -120,6 +120,11 @@ public class PrototypeEngine {
             }
             state.startPrototyping();
             state.setParamCount(inferredParams);
+            // Default to void return unless already typed
+            if (!state.type().isTyped()) {
+               state.setReturnType(new Type((byte)0), 0);
+            }
+            state.ensureParamPlaceholders();
             state.stopPrototyping(true);
          }
       }
