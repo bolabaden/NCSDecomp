@@ -244,7 +244,12 @@ public class FileDecompiler {
     * @return One of {@link #SUCCESS}, {@link #PARTIAL_COMPILE}, {@link #PARTIAL_COMPARE}, or {@link #FAILURE}
     */
    public int decompile(File file) {
-      this.ensureActionsLoaded();
+      try {
+         this.ensureActionsLoaded();
+      } catch (DecompilerException e) {
+         System.out.println("Error loading actions data: " + e.getMessage());
+         return PARTIAL_COMPILE;
+      }
       FileDecompiler.FileScriptData data = this.filedata.get(file);
       if (data == null) {
          System.out.println("\n---> starting decompilation: " + file.getName() + " <---");
