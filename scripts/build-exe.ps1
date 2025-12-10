@@ -33,7 +33,7 @@ if (-not (Test-Path $jpackagePath)) {
     exit 1
 }
 
-# Ensure JAR exists
+# Ensure JAR exists and is valid
 $jarFile = Join-Path "." "NCSDecomp-CLI.jar"
 if (-not (Test-Path $jarFile)) {
     Write-Host "NCSDecomp-CLI.jar not found. Running build.ps1 first..." -ForegroundColor Yellow
@@ -43,6 +43,69 @@ if (-not (Test-Path $jarFile)) {
         Write-Host "Build failed!" -ForegroundColor Red
         exit 1
     }
+}
+
+# Verify JAR contains the correct main class
+Write-Host "Verifying JAR file..." -ForegroundColor Gray
+$jarList = jar tf $jarFile 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Error: JAR file appears to be corrupted or invalid" -ForegroundColor Red
+    exit 1
+}
+
+$mainClassInJar = $jarList | Where-Object { $_ -like "com/kotor/resource/formats/ncs/NCSDecompCLI.class" }
+if (-not $mainClassInJar) {
+    Write-Host "Error: JAR file does not contain main class com.kotor.resource.formats.ncs.NCSDecompCLI" -ForegroundColor Red
+    Write-Host "JAR may be outdated. Rebuilding..." -ForegroundColor Yellow
+    $buildScript = Join-Path $PSScriptRoot "build.ps1"
+    & $buildScript
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Rebuild failed!" -ForegroundColor Red
+        exit 1
+    }
+    # Verify again after rebuild
+    $jarList = jar tf $jarFile 2>&1
+    $mainClassInJar = $jarList | Where-Object { $_ -like "com/kotor/resource/formats/ncs/NCSDecompCLI.class" }
+    if (-not $mainClassInJar) {
+        Write-Host "Error: Main class still not found after rebuild. Build may be broken." -ForegroundColor Red
+        exit 1
+    }
+}
+
+# Verify manifest has correct main class
+$tempBase = if ($env:TEMP) { $env:TEMP } elseif ($env:TMPDIR) { $env:TMPDIR } else { "/tmp" }
+$tempDir = Join-Path $tempBase "jpackage-verify-$(Get-Random)"
+New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
+$currentLocation = Get-Location
+$jarFileAbsolute = (Resolve-Path $jarFile).Path
+try {
+    Push-Location $tempDir
+    jar xf $jarFileAbsolute META-INF/MANIFEST.MF 2>&1 | Out-Null
+    $manifestPath = if ($IsWindows) { "META-INF\MANIFEST.MF" } else { "META-INF/MANIFEST.MF" }
+    if (Test-Path $manifestPath) {
+        $manifestContent = Get-Content $manifestPath -Raw
+        if ($manifestContent -notmatch "Main-Class: com\.kotor\.resource\.formats\.ncs\.NCSDecompCLI") {
+            Write-Host "Error: JAR manifest has incorrect main class!" -ForegroundColor Red
+            Write-Host "Manifest content:" -ForegroundColor Yellow
+            Get-Content $manifestPath | Write-Host
+            Write-Host "Rebuilding JAR with correct manifest..." -ForegroundColor Yellow
+            Pop-Location
+            Remove-Item -Recurse -Force $tempDir -ErrorAction SilentlyContinue
+            $buildScript = Join-Path $PSScriptRoot "build.ps1"
+            & $buildScript
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "Rebuild failed!" -ForegroundColor Red
+                exit 1
+            }
+        } else {
+            Write-Host "JAR verified: Contains correct main class and manifest" -ForegroundColor Gray
+        }
+    }
+} finally {
+    if ((Get-Location).Path -ne $currentLocation.Path) {
+        Pop-Location
+    }
+    Remove-Item -Recurse -Force $tempDir -ErrorAction SilentlyContinue
 }
 
 # For CLI tools, always use app-image (portable executable that runs directly)

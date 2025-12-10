@@ -1,0 +1,4 @@
+Manifest-Version: 1.0
+Created-By: DeNCS Build Script
+Main-Class: com.knights2end.nwscript.decomp.DeNCSCLI
+

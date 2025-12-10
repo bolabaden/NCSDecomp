@@ -29,11 +29,16 @@ if ($IsWindows) {
     Write-Host "Platform: Linux" -ForegroundColor Gray
 }
 
-# Clean build directory
+# Clean build directory and JAR file for idempotent builds
 $buildDir = Join-Path "." "build"
+$jarFile = Join-Path "." "NCSDecomp-CLI.jar"
+
+Write-Host "Cleaning previous build artifacts..." -ForegroundColor Yellow
 if (Test-Path $buildDir) {
-    Write-Host "Cleaning build directory..." -ForegroundColor Yellow
-    Remove-Item -Recurse -Force $buildDir
+    Remove-Item -Recurse -Force $buildDir -ErrorAction SilentlyContinue
+}
+if (Test-Path $jarFile) {
+    Remove-Item -Force $jarFile -ErrorAction SilentlyContinue
 }
 New-Item -ItemType Directory -Path $buildDir -Force | Out-Null
 
@@ -84,14 +89,64 @@ if (Test-Path $resourcesDir) {
 # Compile Java files
 Write-Host "Compiling Java files..." -ForegroundColor Yellow
 $sourceFiles = $javaFiles -join " "
-$compileCommand = "javac -d $buildDir -encoding UTF-8 -sourcepath `"$javaSourceDir`" $sourceFiles"
+
+# Build javac arguments array for proper handling
+$javacArgs = @(
+    "-d", $buildDir,
+    "-encoding", "UTF-8",
+    "-sourcepath", $javaSourceDir
+) + $javaFiles
 
 try {
-    Invoke-Expression $compileCommand
-    if ($LASTEXITCODE -ne 0) {
-        throw "Compilation failed with exit code $LASTEXITCODE"
+    # Capture both stdout and stderr properly
+    $compileOutput = & javac $javacArgs 2>&1
+    $exitCode = $LASTEXITCODE
+
+    if ($exitCode -ne 0) {
+        Write-Host ""
+        Write-Host "========================================" -ForegroundColor Red
+        Write-Host "COMPILATION ERRORS:" -ForegroundColor Red
+        Write-Host "========================================" -ForegroundColor Red
+        Write-Host ""
+
+        # Display all error output
+        if ($compileOutput) {
+            $compileOutput | ForEach-Object {
+                if ($_ -is [System.Management.Automation.ErrorRecord]) {
+                    Write-Host $_.Exception.Message -ForegroundColor Red
+                    if ($_.ScriptStackTrace) {
+                        Write-Host $_.ScriptStackTrace -ForegroundColor DarkRed
+                    }
+                } else {
+                    Write-Host $_ -ForegroundColor Red
+                }
+            }
+        } else {
+            Write-Host "No error details captured. Exit code: $exitCode" -ForegroundColor Yellow
+        }
+
+        Write-Host ""
+        Write-Host "========================================" -ForegroundColor Red
+        Write-Host ""
+        throw "Compilation failed with exit code $exitCode"
     }
     Write-Host "Compilation successful!" -ForegroundColor Green
+
+    # Verify main class was compiled
+    $mainClassFile = Join-Path $buildDir (Join-Path "com" (Join-Path "kotor" (Join-Path "resource" (Join-Path "formats" (Join-Path "ncs" "NCSDecompCLI.class")))))
+    if (-not (Test-Path $mainClassFile)) {
+        Write-Host "Error: Main class not found after compilation: $mainClassFile" -ForegroundColor Red
+        Write-Host "Checking for compiled classes..." -ForegroundColor Yellow
+        $classFiles = Get-ChildItem -Path $buildDir -Recurse -Filter "*.class"
+        if ($classFiles.Count -eq 0) {
+            Write-Host "No .class files found in build directory!" -ForegroundColor Red
+        } else {
+            Write-Host "Found $($classFiles.Count) class files, but main class is missing." -ForegroundColor Yellow
+            $classFiles | Select-Object -First 5 | ForEach-Object { Write-Host "  $($_.FullName)" -ForegroundColor Gray }
+        }
+        exit 1
+    }
+    Write-Host "Verified main class compiled: NCSDecompCLI.class" -ForegroundColor Gray
 } catch {
     Write-Host "Compilation failed: $_" -ForegroundColor Red
     exit 1
@@ -116,10 +171,6 @@ if ($IsWindows) {
 
 # Create JAR file
 Write-Host "Creating JAR file..." -ForegroundColor Yellow
-$jarFile = Join-Path "." "NCSDecomp-CLI.jar"
-if (Test-Path $jarFile) {
-    Remove-Item -Force $jarFile
-}
 
 Push-Location $buildDir
 try {
@@ -127,11 +178,48 @@ try {
     # This includes everything in the build directory with proper structure
     $manifestPath = Join-Path "META-INF" "MANIFEST.MF"
     $parentJar = if ($IsWindows) { "..\NCSDecomp-CLI.jar" } else { "../NCSDecomp-CLI.jar" }
-    jar cfm $parentJar $manifestPath *
+
+    # Ensure we're creating a fresh JAR (remove if exists)
+    if (Test-Path $parentJar) {
+        Remove-Item -Force $parentJar
+    }
+
+    # Create JAR with explicit manifest
+    jar cfm $parentJar $manifestPath com META-INF
     if ($LASTEXITCODE -ne 0) {
         throw "JAR creation failed"
     }
-    Write-Host "JAR created with all classes and resources" -ForegroundColor Gray
+
+    # Add resources (nwscript files, etc.) to JAR root if they exist
+    $resourceFiles = Get-ChildItem -Path "." -Filter "*.nss" -File -ErrorAction SilentlyContinue
+    if ($resourceFiles.Count -gt 0) {
+        jar uf $parentJar *.nss
+        Write-Host "Added $($resourceFiles.Count) resource file(s) to JAR" -ForegroundColor Gray
+    }
+
+    # Verify JAR contents
+    Write-Host "Verifying JAR contents..." -ForegroundColor Gray
+    $jarList = jar tf $parentJar
+    $mainClassInJar = $jarList | Where-Object { $_ -like "com/kotor/resource/formats/ncs/NCSDecompCLI.class" }
+    if (-not $mainClassInJar) {
+        throw "Main class not found in JAR: com.kotor.resource.formats.ncs.NCSDecompCLI"
+    }
+
+    # Verify manifest
+    jar xf $parentJar META-INF/MANIFEST.MF
+    if (Test-Path "META-INF\MANIFEST.MF") {
+        $manifestContent = Get-Content "META-INF\MANIFEST.MF" -Raw
+        if ($manifestContent -notmatch "Main-Class: com\.kotor\.resource\.formats\.ncs\.NCSDecompCLI") {
+            Write-Host "WARNING: Manifest may have incorrect main class!" -ForegroundColor Yellow
+            Write-Host "Manifest content:" -ForegroundColor Yellow
+            Get-Content "META-INF\MANIFEST.MF" | Write-Host
+        } else {
+            Write-Host "Verified manifest has correct main class" -ForegroundColor Gray
+        }
+        Remove-Item -Recurse -Force "META-INF" -ErrorAction SilentlyContinue
+    }
+
+    Write-Host "JAR created successfully with all classes and resources" -ForegroundColor Gray
 } finally {
     Pop-Location
 }
