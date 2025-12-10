@@ -254,6 +254,7 @@ public class Decompiler
       this.setLocationRelativeTo(null);
       this.addWindowListener(this);
       this.updateWorkspaceCard();
+      this.updateMenuAndToolbarState();
       this.setVisible(true);
    }
 
@@ -1035,13 +1036,13 @@ public class Decompiler
             this.hash_Func2VarVec = this.fileDecompiler.getVariableData(file);
             this.jTree.setModel(TreeModelFactory.createTreeModel(this.hash_Func2VarVec));
             this.fileDecompiler.getOriginalByteCode(file);
-            JComponent tabComponent = this.getSelectedTabComponent();
-            if (tabComponent != null) {
-               this.hash_TabComponent2File.put(tabComponent, file);
-               this.hash_TabComponent2Func2VarVec.put(tabComponent, this.hash_Func2VarVec);
-               this.hash_TabComponent2TreeModel.put(tabComponent, this.jTree.getModel());
-               if (tabComponent instanceof JPanel) {
-                  this.updateTabLabel((JPanel)tabComponent, false);
+            JComponent tabComponent1 = this.getSelectedTabComponent();
+            if (tabComponent1 != null) {
+               this.hash_TabComponent2File.put(tabComponent1, file);
+               this.hash_TabComponent2Func2VarVec.put(tabComponent1, this.hash_Func2VarVec);
+               this.hash_TabComponent2TreeModel.put(tabComponent1, this.jTree.getModel());
+               if (tabComponent1 instanceof JPanel) {
+                  this.updateTabLabel((JPanel)tabComponent1, false);
                }
             }
             this.status.append("success\n");
@@ -1203,13 +1204,6 @@ public class Decompiler
    }
 
    private void open(File[] files) {
-      if (this.jTB.getTabCount() == 0) {
-         this.getJMenuBar().getMenu(0).getItem(1).setEnabled(true);
-         this.getJMenuBar().getMenu(0).getItem(2).setEnabled(true);
-         this.getJMenuBar().getMenu(0).getItem(3).setEnabled(true);
-         this.getJMenuBar().getMenu(0).getItem(4).setEnabled(true);
-      }
-
       for (int j = 0; j < files.length; j++) {
          if ((this.temp = files[j].getName()).substring(this.temp.length() - 3).equalsIgnoreCase("ncs")) {
             this.decompile(files[j]);
@@ -1273,13 +1267,6 @@ public class Decompiler
       this.hash_TabComponent2Func2VarVec.remove(this.panel);
       this.hash_TabComponent2TreeModel.remove(this.panel);
       this.jTB.remove(index);
-      if (this.jTB.getSelectedIndex() < 0) {
-         this.getJMenuBar().getMenu(0).getItem(1).setEnabled(false);
-         this.getJMenuBar().getMenu(0).getItem(2).setEnabled(false);
-         this.getJMenuBar().getMenu(0).getItem(3).setEnabled(false);
-         this.getJMenuBar().getMenu(0).getItem(4).setEnabled(false);
-      }
-
       this.panel = null;
       this.updateWorkspaceCard();
    }
