@@ -47,6 +47,7 @@ public class AActionExp extends ScriptNode implements AExpression {
    @Override
    public String toString() {
       StringBuffer buff = new StringBuffer();
+      buff.append(this.action + "(");
       String prefix = "";
 
       for (int i = 0; i < this.params.size(); i++) {
