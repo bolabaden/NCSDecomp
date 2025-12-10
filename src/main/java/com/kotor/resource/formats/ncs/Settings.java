@@ -20,14 +20,16 @@ import javax.swing.JLabel;
 import javax.swing.JTextField;
 
 /**
- * Persisted user preferences for the DeNCS GUI.
+ * Persisted user preferences for the NCSDecomp GUI.
  * <p>
  * Stores directories and offers a small Swing dialog for editing the output
- * path. Backed by a simple {@code dencs.conf} properties file in the working
- * directory.
+ * path. Backed by a simple {@code ncsdecomp.conf} properties file in the working
+ * directory (with legacy {@code dencs.conf} support for backward compatibility).
  */
 public class Settings extends Properties implements ActionListener {
    private static final long serialVersionUID = 1L;
+   private static final String CONFIG_FILE = "ncsdecomp.conf";
+   private static final String LEGACY_CONFIG_FILE = "dencs.conf";
    private JFrame frame;
    private JButton save;
    private JButton cancel;
@@ -56,13 +58,21 @@ public class Settings extends Properties implements ActionListener {
     * Loads preferences from disk, creating a default config if none exists.
     */
    public void load() {
+      File configToLoad = new File(CONFIG_FILE);
+      if (!configToLoad.exists()) {
+         File legacy = new File(LEGACY_CONFIG_FILE);
+         if (legacy.exists()) {
+            configToLoad = legacy;
+         }
+      }
+
       try {
-         try (FileInputStream fis = new FileInputStream("dencs.conf")) {
+         try (FileInputStream fis = new FileInputStream(configToLoad)) {
             this.load(fis);
          }
       } catch (Exception var4) {
          try {
-            new File("dencs.conf").createNewFile();
+            new File(CONFIG_FILE).createNewFile();
          } catch (FileNotFoundException var2) {
             var2.printStackTrace();
             System.exit(1);
@@ -78,11 +88,11 @@ public class Settings extends Properties implements ActionListener {
    }
 
    /**
-    * Writes preferences to {@code dencs.conf}.
+    * Writes preferences to {@code ncsdecomp.conf}.
     */
    public void save() {
       try {
-         FileOutputStream fos = new FileOutputStream("dencs.conf");
+         FileOutputStream fos = new FileOutputStream(CONFIG_FILE);
          this.store(fos, null);
       } catch (FileNotFoundException var2) {
          var2.printStackTrace();

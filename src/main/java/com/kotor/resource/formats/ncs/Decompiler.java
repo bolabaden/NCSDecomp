@@ -130,7 +130,7 @@ public class Decompiler
    }
 
    public Decompiler() throws HeadlessException, DecompilerException {
-      super("DeNCS");
+      super("NCSDecomp");
       JMenuBar menuBar = new JMenuBar();
       JMenu menu = new JMenu("File");
       menu.setMnemonic(70);

@@ -1,4 +1,4 @@
 Manifest-Version: 1.0
-Created-By: DeNCS Build Script
-Main-Class: com.knights2end.nwscript.decomp.DeNCSCLI
+Created-By: NCSDecomp Build Script
+Main-Class: com.kotor.resource.formats.ncs.Decompiler
 

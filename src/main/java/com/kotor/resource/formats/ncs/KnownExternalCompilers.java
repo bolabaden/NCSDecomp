@@ -73,11 +73,11 @@ public enum KnownExternalCompilers {
    ),
 
    /**
-    * DeNCS compiler (same hash as TSLPATCHER in original Python code).
+    * NCSDecomp compiler (same hash as TSLPATCHER in original Python code).
     */
    DENCS(
       "539EB689D2E0D3751AEED273385865278BEF6696C46BC0CAB116B40C3B2FE820",
-      "DeNCS",
+      "NCSDecomp",
       LocalDate.of(2006, 5, 30),
       "todo",
       new String[]{"-c", "{source}", "-o", "{output}"},
