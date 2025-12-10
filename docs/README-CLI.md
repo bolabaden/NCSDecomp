@@ -13,9 +13,11 @@ NCSDecomp CLI is a headless command-line decompiler for KotOR game scripts. It c
 
 ## Requirements
 
-### For Self-Contained Executable (.exe)
+### For Self-Contained Executable
 
-- Windows 10 or later
+- **Windows**: Windows 10 or later (creates `.exe`)
+- **macOS**: macOS 10.13 or later (creates `.app`)
+- **Linux**: Modern Linux distribution (creates executable binary)
 - No Java installation needed (Java runtime is included)
 
 ### For JAR Version
@@ -27,9 +29,11 @@ NCSDecomp CLI is a headless command-line decompiler for KotOR game scripts. It c
 
 ### Using the Self-Contained Executable
 
-The easiest way to use NCSDecomp CLI is with the self-contained `.exe` file:
+The easiest way to use NCSDecomp CLI is with the self-contained executable:
 
-```powershell
+**Windows:**
+
+```pwsh
 # Show help
 .\NCSDecompCLI\NCSDecompCLI.exe --help
 
@@ -42,14 +46,27 @@ The easiest way to use NCSDecomp CLI is with the self-contained `.exe` file:
 # Decompile single file to output file
 .\NCSDecompCLI\NCSDecompCLI.exe -i input.ncs -o output.nss --k2
 
-# Decompile directory recursively (KotOR 1)
-.\NCSDecompCLI\NCSDecompCLI.exe -i scripts_dir -r --k1 -O output_dir
-
 # Decompile directory recursively (KotOR 2 / TSL)
 .\NCSDecompCLI\NCSDecompCLI.exe -i scripts_dir -r --k2 -O output_dir
+```
 
-# Decompile with custom suffix
-.\NCSDecompCLI\NCSDecompCLI.exe -i input.ncs --suffix "_decompiled" --k2
+**macOS/Linux:**
+
+```bash
+# Show help
+./NCSDecompCLI/NCSDecompCLI --help
+
+# Show version
+./NCSDecompCLI/NCSDecompCLI --version
+
+# Decompile single file to stdout
+./NCSDecompCLI/NCSDecompCLI -i input.ncs --stdout --k2
+
+# Decompile single file to output file
+./NCSDecompCLI/NCSDecompCLI -i input.ncs -o output.nss --k2
+
+# Decompile directory recursively (KotOR 2 / TSL)
+./NCSDecompCLI/NCSDecompCLI -i scripts_dir -r --k2 -O output_dir
 ```
 
 **Note:** The executable must be run from within the `NCSDecompCLI` folder, or use the full path to the executable.
@@ -114,7 +131,7 @@ If you don't specify, it defaults to KotOR 1 mode.
 
 ## Required Files
 
-### Self-Contained Executable (.exe)
+### Self-Contained Executable
 
 The `nwscript.nss` files are automatically included in the `app` subdirectory. The executable will automatically find them - no manual setup needed!
 
@@ -126,32 +143,72 @@ You need to have either `k1_nwscript.nss` or `tsl_nwscript.nss` in your current 
 
 ### Example 1: Decompile Single File
 
+**Windows:**
+
 ```powershell
 .\NCSDecompCLI\NCSDecompCLI.exe -i "script.ncs" -o "script.nss" --k2
 ```
 
+**macOS/Linux:**
+
+```bash
+./NCSDecompCLI/NCSDecompCLI -i "script.ncs" -o "script.nss" --k2
+```
+
 ### Example 2: Decompile Entire Folder
+
+**Windows:**
 
 ```powershell
 .\NCSDecompCLI\NCSDecompCLI.exe -i "C:\KotOR\scripts" -r --k2 -O "C:\KotOR\decompiled"
 ```
 
+**macOS/Linux:**
+
+```bash
+./NCSDecompCLI/NCSDecompCLI -i "/path/to/scripts" -r --k2 -O "/path/to/decompiled"
+```
+
 ### Example 3: View Decompiled Code in Console
+
+**Windows:**
 
 ```powershell
 .\NCSDecompCLI\NCSDecompCLI.exe -i "script.ncs" --stdout --k2
 ```
 
+**macOS/Linux:**
+
+```bash
+./NCSDecompCLI/NCSDecompCLI -i "script.ncs" --stdout --k2
+```
+
 ### Example 4: Process Multiple Files
+
+**Windows:**
 
 ```powershell
 .\NCSDecompCLI\NCSDecompCLI.exe -i file1.ncs -i file2.ncs -i file3.ncs --k2 -O output
 ```
 
+**macOS/Linux:**
+
+```bash
+./NCSDecompCLI/NCSDecompCLI -i file1.ncs -i file2.ncs -i file3.ncs --k2 -O output
+```
+
 ### Example 5: Add Custom Suffix
+
+**Windows:**
 
 ```powershell
 .\NCSDecompCLI\NCSDecompCLI.exe -i script.ncs --suffix "_decompiled" --k2
+```
+
+**macOS/Linux:**
+
+```bash
+./NCSDecompCLI/NCSDecompCLI -i script.ncs --suffix "_decompiled" --k2
 ```
 
 This creates `script_decompiled.nss` instead of `script.nss`.
@@ -160,7 +217,7 @@ This creates `script_decompiled.nss` instead of `script.nss`.
 
 ### "Error: nwscript file not found"
 
-**For .exe version:** The nwscript files should be automatically in the `app` subdirectory. If you get this error, ensure the executable folder structure is intact.
+**For executable version:** The nwscript files should be automatically in the `app` subdirectory. If you get this error, ensure the executable folder structure is intact.
 
 **For JAR version:** Make sure `k1_nwscript.nss` or `tsl_nwscript.nss` is in your current working directory, or use `--nwscript <path>` to specify the exact location.
 
@@ -170,12 +227,24 @@ Check that your input path is correct and contains `.ncs` files.
 
 ### Executable won't start
 
-Windows security might be blocking it. Right-click the executable → Properties → Check "Unblock" → Apply.
+**Windows:** Windows security might be blocking it. Right-click the executable → Properties → Check "Unblock" → Apply.
+
+**macOS:** You may need to allow the app in System Preferences → Security & Privacy.
+
+**Linux:** Ensure the executable has execute permissions: `chmod +x NCSDecompCLI/NCSDecompCLI`
 
 ## Getting Help
 
+**Windows:**
+
 - Run `.\NCSDecompCLI\NCSDecompCLI.exe --help` for a full list of options
 - Run `.\NCSDecompCLI\NCSDecompCLI.exe --version` for version information
+
+**macOS/Linux:**
+
+- Run `./NCSDecompCLI/NCSDecompCLI --help` for a full list of options
+- Run `./NCSDecompCLI/NCSDecompCLI --version` for version information
+
 - Visit [https://bolabaden.org](https://bolabaden.org) for more resources
 
 ## Credits

@@ -12,11 +12,16 @@
 
 ## 🚀 Quick Start Guide
 
-### Option 1: Using the Windows Program (Easiest!)
+### Option 1: Using the Self-Contained Executable (Easiest!)
 
 1. **Download** the `NCSDecompCLI` folder (for command-line) or `NCSDecomp` folder (for GUI)
-2. **For CLI:** Navigate to the `NCSDecompCLI` folder and run `NCSDecompCLI.exe` from Command Prompt
-3. **For GUI:** Navigate to the `NCSDecomp` folder and double-click `NCSDecomp.exe`
+2. **For CLI:**
+   - **Windows:** Navigate to the `NCSDecompCLI` folder and run `NCSDecompCLI.exe` from Command Prompt
+   - **macOS/Linux:** Navigate to the `NCSDecompCLI` folder and run `./NCSDecompCLI` from Terminal
+3. **For GUI:**
+   - **Windows:** Navigate to the `NCSDecomp` folder and double-click `NCSDecomp.exe`
+   - **macOS:** Navigate to the `NCSDecomp` folder and double-click `NCSDecomp.app`
+   - **Linux:** Navigate to the `NCSDecomp` folder and run `./NCSDecomp`
 
 That's it! No Java installation needed - everything is included in the folders.
 
@@ -32,8 +37,9 @@ java -jar NCSDecomp-CLI.jar [options]
 
 ## 📖 How to Use
 
-### Opening Command Prompt (Windows)
+### Opening Terminal/Command Prompt
 
+**Windows:**
 1. Press `Windows Key + R`
 2. Type `cmd` and press Enter
 3. Navigate to the folder where NCSDecomp is located:
@@ -42,18 +48,36 @@ java -jar NCSDecomp-CLI.jar [options]
    cd C:\path\to\NCSDecomp
    ```
 
+**macOS/Linux:**
+1. Open Terminal
+2. Navigate to the folder where NCSDecomp is located:
+
+   ```bash
+   cd /path/to/NCSDecomp
+   ```
+
 ### Basic Examples
 
-**Note:** You can run the executable from any directory. If you're in the `NCSDecompCLI` folder, use `NCSDecompCLI.exe`. If you're in the parent directory, use `NCSDecompCLI\NCSDecompCLI.exe`.
+**Note:** You can run the executable from any directory. If you're in the `NCSDecompCLI` folder, use `NCSDecompCLI.exe` (Windows) or `./NCSDecompCLI` (macOS/Linux). If you're in the parent directory, use `NCSDecompCLI\NCSDecompCLI.exe` (Windows) or `./NCSDecompCLI/NCSDecompCLI` (macOS/Linux).
 
 #### Decompile a Single File (KotOR 2 / TSL)
 
+**Windows:**
 ```powershell
 # From within NCSDecompCLI folder:
 .\NCSDecompCLI.exe -i "script.ncs" -o "script.nss" --k2
 
 # Or from parent directory:
 .\NCSDecompCLI\NCSDecompCLI.exe -i "script.ncs" -o "script.nss" --k2
+```
+
+**macOS/Linux:**
+```bash
+# From within NCSDecompCLI folder:
+./NCSDecompCLI -i "script.ncs" -o "script.nss" --k2
+
+# Or from parent directory:
+./NCSDecompCLI/NCSDecompCLI -i "script.ncs" -o "script.nss" --k2
 ```
 
 This will:
@@ -64,14 +88,26 @@ This will:
 
 #### Decompile a Single File (KotOR 1)
 
+**Windows:**
 ```powershell
 .\NCSDecompCLI.exe -i "script.ncs" -o "script.nss" --k1
 ```
 
+**macOS/Linux:**
+```bash
+./NCSDecompCLI -i "script.ncs" -o "script.nss" --k1
+```
+
 #### Decompile an Entire Folder
 
+**Windows:**
 ```powershell
 .\NCSDecompCLI.exe -i "scripts_folder" -r --k2 -O "output_folder"
+```
+
+**macOS/Linux:**
+```bash
+./NCSDecompCLI -i "scripts_folder" -r --k2 -O "output_folder"
 ```
 
 This will:
@@ -83,11 +119,17 @@ This will:
 
 #### View Decompiled Code in Console
 
+**Windows:**
 ```powershell
 .\NCSDecompCLI.exe -i "script.ncs" --stdout --k2
 ```
 
-This displays the code directly in the command window instead of saving to a file.
+**macOS/Linux:**
+```bash
+./NCSDecompCLI -i "script.ncs" --stdout --k2
+```
+
+This displays the code directly in the terminal/command window instead of saving to a file.
 
 ---
 
@@ -136,7 +178,7 @@ If using the JAR version, you need to have them in your current working director
 
 ### Example 1: Batch Decompile
 
-Create a text file named `decompile.bat` with this content:
+**Windows:** Create a text file named `decompile.bat` with this content:
 
 ```batch
 @echo off
@@ -145,18 +187,40 @@ NCSDecompCLI.exe -i "C:\KotOR\scripts" -r --k2 -O "C:\KotOR\decompiled"
 pause
 ```
 
-This batch file changes to the NCSDecompCLI directory first, then runs the executable. Double-click the `.bat` file to run it.
+**macOS/Linux:** Create a shell script named `decompile.sh` with this content:
+
+```bash
+#!/bin/bash
+cd "$(dirname "$0")/NCSDecompCLI"
+./NCSDecompCLI -i "/path/to/scripts" -r --k2 -O "/path/to/decompiled"
+```
+
+Make it executable: `chmod +x decompile.sh`
+
+This script changes to the NCSDecompCLI directory first, then runs the executable.
 
 ### Example 2: Process Multiple Files
 
+**Windows:**
 ```powershell
 .\NCSDecompCLI.exe -i file1.ncs -i file2.ncs -i file3.ncs --k2 -O output
 ```
 
+**macOS/Linux:**
+```bash
+./NCSDecompCLI -i file1.ncs -i file2.ncs -i file3.ncs --k2 -O output
+```
+
 ### Example 3: Add Custom Suffix
 
+**Windows:**
 ```powershell
 .\NCSDecompCLI.exe -i script.ncs --suffix "_decompiled" --k2
+```
+
+**macOS/Linux:**
+```bash
+./NCSDecompCLI -i script.ncs --suffix "_decompiled" --k2
 ```
 
 This creates `script_decompiled.nss` instead of `script.nss`.
@@ -183,16 +247,24 @@ This creates `script_decompiled.nss` instead of `script.nss`.
 
 ### Program won't start
 
-**Problem**: Windows security might be blocking it
+**Windows:** Windows security might be blocking it. Right-click `NCSDecomp.exe` → Properties → Check "Unblock" → Apply
 
-**Solution**: Right-click `NCSDecomp.exe` → Properties → Check "Unblock" → Apply
+**macOS:** You may need to allow the app in System Preferences → Security & Privacy
+
+**Linux:** Ensure the executable has execute permissions: `chmod +x NCSDecompCLI/NCSDecompCLI`
 
 ---
 
 ## 📚 Getting Help
 
+**Windows:**
 - Run `.\NCSDecompCLI.exe --help` for a full list of CLI options (from within the NCSDecompCLI folder)
 - Run `.\NCSDecompCLI.exe --version` for version information
+
+**macOS/Linux:**
+- Run `./NCSDecompCLI --help` for a full list of CLI options (from within the NCSDecompCLI folder)
+- Run `./NCSDecompCLI --version` for version information
+
 - Visit [https://bolabaden.org](https://bolabaden.org) for more resources
 
 ---
