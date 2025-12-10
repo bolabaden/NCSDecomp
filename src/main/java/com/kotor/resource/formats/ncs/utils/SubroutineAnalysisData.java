@@ -14,7 +14,6 @@ import com.kotor.resource.formats.ncs.scriptutils.SubScriptState;
 import com.kotor.resource.formats.ncs.stack.LocalVarStack;
 import com.kotor.resource.formats.ncs.stack.VarStruct;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Enumeration;
 import java.util.Hashtable;
 import java.util.Iterator;
@@ -288,7 +287,7 @@ public class SubroutineAnalysisData {
 
    public Iterator<ASubroutine> getSubroutines() {
       ArrayList<ASubroutine> subs = new ArrayList<>();
-      TreeSet<Integer> keys = new TreeSet<>(Collections.reverseOrder());
+      TreeSet<Integer> keys = new TreeSet<>();
       keys.addAll(this.subroutines.keySet());
       Iterator<Integer> it = keys.iterator();
 
