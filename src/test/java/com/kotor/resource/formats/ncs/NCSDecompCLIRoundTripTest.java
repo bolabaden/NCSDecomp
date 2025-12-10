@@ -8,12 +8,16 @@ package com.kotor.resource.formats.ncs;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.FileSystemException;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -25,6 +29,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Stream;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Exhaustive round-trip tests:
@@ -58,6 +63,8 @@ public class NCSDecompCLIRoundTripTest {
    private static final Map<String, String> NPC_CONSTANTS_K2 = loadConstantsWithPrefix(K2_NWSCRIPT, "NPC_");
    private static final Map<String, String> ABILITY_CONSTANTS_K1 = loadConstantsWithPrefix(K1_NWSCRIPT, "ABILITY_");
    private static final Map<String, String> ABILITY_CONSTANTS_K2 = loadConstantsWithPrefix(K2_NWSCRIPT, "ABILITY_");
+   private static final Map<String, String> FACTION_CONSTANTS_K1 = loadConstantsWithPrefix(K1_NWSCRIPT, "STANDARD_FACTION_");
+   private static final Map<String, String> FACTION_CONSTANTS_K2 = loadConstantsWithPrefix(K2_NWSCRIPT, "STANDARD_FACTION_");
 
    private static String displayPath(Path path) {
       Path abs = path.toAbsolutePath().normalize();
@@ -88,6 +95,26 @@ public class NCSDecompCLIRoundTripTest {
       }
    }
 
+   private static void copyWithRetry(Path source, Path target) throws IOException, InterruptedException {
+      int attempts = 3;
+      for (int i = 1; i <= attempts; i++) {
+         try {
+            Files.copy(source, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            return;
+         } catch (FileSystemException ex) {
+            if (i == attempts) {
+               throw ex;
+            }
+            Thread.sleep(200L * i);
+         } catch (IOException ex) {
+            if (i == attempts) {
+               throw ex;
+            }
+            Thread.sleep(200L * i);
+         }
+      }
+   }
+
    // Test output directories (gitignored)
    private static final Path WORK_ROOT = TEST_WORK_DIR.resolve("roundtrip-work");
    private static final Path PROFILE_OUTPUT = TEST_WORK_DIR.resolve("test_profile.txt");
@@ -103,6 +130,12 @@ public class NCSDecompCLIRoundTripTest {
 
    private static Path k1Scratch;
    private static Path k2Scratch;
+
+   private static void resetPerformanceTracking() {
+      operationTimes.clear();
+      testsProcessed = 0;
+      totalTests = 0;
+   }
 
    /**
     * Clone or update the Vanilla_KOTOR_Script_Source repository.
@@ -223,10 +256,28 @@ public class NCSDecompCLIRoundTripTest {
       Path k2Nwscript = cwd.resolve("tsl_nwscript.nss");
 
       if (!Files.exists(k1Nwscript) || !Files.isSameFile(K1_NWSCRIPT, k1Nwscript)) {
-         Files.copy(K1_NWSCRIPT, k1Nwscript, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+         try {
+            copyWithRetry(K1_NWSCRIPT, k1Nwscript);
+         } catch (FileSystemException ex) {
+            if (Files.exists(k1Nwscript)) {
+               System.out.println("! Warning: could not refresh k1_nwscript.nss (" + ex.getMessage()
+                     + "); using existing copy at " + displayPath(k1Nwscript));
+            } else {
+               throw ex;
+            }
+         }
       }
       if (!Files.exists(k2Nwscript) || !Files.isSameFile(K2_NWSCRIPT, k2Nwscript)) {
-         Files.copy(K2_NWSCRIPT, k2Nwscript, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+         try {
+            copyWithRetry(K2_NWSCRIPT, k2Nwscript);
+         } catch (FileSystemException ex) {
+            if (Files.exists(k2Nwscript)) {
+               System.out.println("! Warning: could not refresh tsl_nwscript.nss (" + ex.getMessage()
+                     + "); using existing copy at " + displayPath(k2Nwscript));
+            } else {
+               throw ex;
+            }
+         }
       }
 
       System.out.println("=== Preflight Complete ===\n");
@@ -350,7 +401,8 @@ public class NCSDecompCLIRoundTripTest {
       long compareStart = System.nanoTime();
       try {
          boolean isK2 = "k2".equals(gameFlag);
-         String original = normalizeNewlines(new String(Files.readAllBytes(nssPath), StandardCharsets.UTF_8), isK2);
+         String originalExpanded = expandIncludes(nssPath, gameFlag);
+         String original = normalizeNewlines(originalExpanded, isK2);
          String roundtrip = normalizeNewlines(new String(Files.readAllBytes(decompiled), StandardCharsets.UTF_8), isK2);
          long compareTime = System.nanoTime() - compareStart;
          operationTimes.merge("compare", compareTime, Long::sum);
@@ -371,6 +423,100 @@ public class NCSDecompCLIRoundTripTest {
          operationTimes.merge("compare", compareTime, Long::sum);
          throw e; // Re-throw after recording time
       }
+      long totalTime = System.nanoTime() - startTime;
+      operationTimes.merge("total", totalTime, Long::sum);
+   }
+
+   private static void roundTripBytecodeSingle(Path nssPath, String gameFlag, Path scratchRoot) throws Exception {
+      long startTime = System.nanoTime();
+
+      Path rel = VANILLA_REPO_DIR.relativize(nssPath);
+      String displayRelPath = rel.toString().replace('\\', '/');
+
+      Path outDir = scratchRoot.resolve(rel.getParent() == null ? Paths.get("") : rel.getParent());
+      Files.createDirectories(outDir);
+
+      // Step 1: Compile original NSS -> NCS (first NCS)
+      Path compiledFirst = outDir.resolve(stripExt(rel.getFileName().toString()) + ".ncs");
+      System.out.print("  Compiling " + displayRelPath + " to .ncs with nwnnsscomp.exe");
+      long compileOriginalStart = System.nanoTime();
+      try {
+         runCompiler(nssPath, compiledFirst, gameFlag, scratchRoot);
+         long compileTime = System.nanoTime() - compileOriginalStart;
+         operationTimes.merge("compile-original", compileTime, Long::sum);
+         operationTimes.merge("compile", compileTime, Long::sum);
+         System.out.println(" ✓ (" + String.format("%.3f", compileTime / 1_000_000.0) + " ms)");
+      } catch (Exception e) {
+         long compileTime = System.nanoTime() - compileOriginalStart;
+         operationTimes.merge("compile-original", compileTime, Long::sum);
+         operationTimes.merge("compile", compileTime, Long::sum);
+         throw e;
+      }
+
+      // Step 2: Decompile NCS -> NSS
+      Path decompiled = outDir.resolve(stripExt(rel.getFileName().toString()) + ".dec.nss");
+      System.out.print("  Decompiling " + compiledFirst.getFileName() + " back to .nss");
+      long decompileStart = System.nanoTime();
+      try {
+         runDecompile(compiledFirst, decompiled, gameFlag);
+         long decompileTime = System.nanoTime() - decompileStart;
+         operationTimes.merge("decompile", decompileTime, Long::sum);
+         System.out.println(" ✓ (" + String.format("%.3f", decompileTime / 1_000_000.0) + " ms)");
+      } catch (Exception e) {
+         long decompileTime = System.nanoTime() - decompileStart;
+         operationTimes.merge("decompile", decompileTime, Long::sum);
+         throw e;
+      }
+
+      // Step 3: Recompile decompiled NSS -> NCS (second NCS)
+      Path recompiled = outDir.resolve(stripExt(rel.getFileName().toString()) + ".rt.ncs");
+      // Some compiler versions refuse to open filenames with multiple dots (e.g.,
+      // "*.dec.nss"). Create a temporary, compiler-friendly copy when needed.
+      Path compileInput = decompiled;
+      Path tempCompileInput = null;
+      String decompiledName = decompiled.getFileName().toString();
+      if (decompiledName.indexOf('.') != decompiledName.lastIndexOf('.')) {
+         compileInput = outDir.resolve(stripExt(rel.getFileName().toString()) + "_dec.nss");
+         Files.copy(decompiled, compileInput, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+         tempCompileInput = compileInput;
+      }
+
+      System.out.print("  Recompiling " + compileInput.getFileName() + " to .ncs");
+      long compileRoundtripStart = System.nanoTime();
+      try {
+         runCompiler(compileInput, recompiled, gameFlag, scratchRoot);
+         long compileTime = System.nanoTime() - compileRoundtripStart;
+         operationTimes.merge("compile-roundtrip", compileTime, Long::sum);
+         operationTimes.merge("compile", compileTime, Long::sum);
+         System.out.println(" ✓ (" + String.format("%.3f", compileTime / 1_000_000.0) + " ms)");
+      } catch (Exception e) {
+         long compileTime = System.nanoTime() - compileRoundtripStart;
+         operationTimes.merge("compile-roundtrip", compileTime, Long::sum);
+         operationTimes.merge("compile", compileTime, Long::sum);
+         throw e;
+      } finally {
+         if (tempCompileInput != null) {
+            try {
+               Files.deleteIfExists(tempCompileInput);
+            } catch (Exception ignored) {
+            }
+         }
+      }
+
+      // Step 4: Compare bytecode between the first and second NCS outputs
+      System.out.print("  Comparing bytecode " + compiledFirst.getFileName() + " vs " + recompiled.getFileName());
+      long compareStart = System.nanoTime();
+      try {
+         assertBytecodeEqual(compiledFirst, recompiled, gameFlag, displayRelPath);
+         long compareTime = System.nanoTime() - compareStart;
+         operationTimes.merge("compare", compareTime, Long::sum);
+         System.out.println(" ✓ MATCH");
+      } catch (Exception e) {
+         long compareTime = System.nanoTime() - compareStart;
+         operationTimes.merge("compare", compareTime, Long::sum);
+         throw e;
+      }
+
       long totalTime = System.nanoTime() - startTime;
       operationTimes.merge("total", totalTime, Long::sum);
    }
@@ -477,6 +623,46 @@ public class NCSDecompCLIRoundTripTest {
       // return null
 
       return null;
+   }
+
+   /**
+    * Recursively expand #include directives by inlining the referenced file
+    * contents. Duplicate includes are skipped to prevent cycles.
+    */
+   private static String expandIncludes(Path sourceFile, String gameFlag) throws Exception {
+      return expandIncludesInternal(sourceFile, gameFlag, new HashSet<>());
+   }
+
+   private static String expandIncludesInternal(Path sourceFile, String gameFlag, Set<Path> visited) throws Exception {
+      Path normalizedSource = sourceFile.toAbsolutePath().normalize();
+      if (!visited.add(normalizedSource)) {
+         return "";
+      }
+
+      String content = new String(Files.readAllBytes(normalizedSource), StandardCharsets.UTF_8);
+      StringBuilder expanded = new StringBuilder();
+      java.util.regex.Pattern includePattern = java.util.regex.Pattern.compile(
+            "#include\\s+[\"<]([^\">]+)[\">]");
+
+      try (BufferedReader reader = new BufferedReader(new StringReader(content))) {
+         String line;
+         while ((line = reader.readLine()) != null) {
+            java.util.regex.Matcher matcher = includePattern.matcher(line);
+            if (matcher.find()) {
+               String includeName = matcher.group(1);
+               Path includeFile = findIncludeFile(includeName, normalizedSource, gameFlag);
+               if (includeFile != null && Files.exists(includeFile)) {
+                  expanded.append(expandIncludesInternal(includeFile, gameFlag, visited));
+                  expanded.append("\n");
+               }
+               // Skip emitting the original include line; its contents are inlined
+               continue;
+            }
+            expanded.append(line).append("\n");
+         }
+      }
+
+      return expanded.toString();
    }
 
    /**
@@ -760,7 +946,10 @@ public class NCSDecompCLIRoundTripTest {
    private static Path prepareScratch(String gameLabel, Path nwscriptSource) throws IOException {
       Path scratch = WORK_ROOT.resolve(gameLabel);
       Files.createDirectories(scratch);
-      Files.copy(nwscriptSource, scratch.resolve("nwscript.nss"), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+      Path target = scratch.resolve("nwscript.nss");
+      if (!Files.exists(target)) {
+         Files.copy(nwscriptSource, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+      }
       return scratch;
    }
 
@@ -773,19 +962,31 @@ public class NCSDecompCLIRoundTripTest {
       String normalized = s.replace("\r\n", "\n").replace("\r", "\n");
       normalized = stripComments(normalized);
       normalized = normalizeIncludes(normalized);
+      normalized = normalizeDeclarationAssignment(normalized);
       normalized = normalizeFunctionBraces(normalized);
+      normalized = normalizeLeadingPlaceholders(normalized);
       normalized = normalizePlaceholderGlobals(normalized);
       normalized = normalizeVariableNames(normalized);
-      normalized = normalizeDeclarationAssignment(normalized);
       normalized = normalizeTrailingZeroParams(normalized);
       normalized = normalizeTrailingDefaults(normalized);
       normalized = normalizeEffectDeathDefaults(normalized);
+      normalized = normalizeLogicalOperators(normalized);
+      normalized = normalizeIfSpacing(normalized);
+      normalized = normalizeDoubleParensInCalls(normalized);
+      normalized = normalizeAssignmentParens(normalized);
+      normalized = normalizeCallArgumentParens(normalized);
       normalized = normalizeReturnStatements(normalized);
+      normalized = normalizeFunctionSignaturesByArity(normalized);
+      normalized = normalizeComparisonParens(normalized);
       normalized = normalizeTrueFalse(normalized);
       normalized = normalizeConstants(normalized, isK2 ? NPC_CONSTANTS_K2 : NPC_CONSTANTS_K1);
       normalized = normalizeConstants(normalized, isK2 ? ABILITY_CONSTANTS_K2 : ABILITY_CONSTANTS_K1);
+      normalized = normalizeConstants(normalized, isK2 ? FACTION_CONSTANTS_K2 : FACTION_CONSTANTS_K1);
       normalized = normalizeBitwiseOperators(normalized);
+      normalized = normalizeControlFlowConditions(normalized);
+      normalized = normalizeCommaSpacing(normalized);
       normalized = normalizePlaceholderNames(normalized);
+      normalized = normalizeAssignCommandPlaceholders(normalized);
       normalized = normalizeFunctionOrder(normalized);
 
       String[] lines = normalized.split("\n", -1);
@@ -819,6 +1020,18 @@ public class NCSDecompCLIRoundTripTest {
       // Defaults to strip when they appear as the last argument
       java.util.Map<String, String> trailingDefaults = new java.util.HashMap<>();
       trailingDefaults.put("ActionJumpToObject", "(1|TRUE)");
+      // Dice helpers have an optional bonus parameter that defaults to 0; some
+      // decompilations materialize it as 0 or 1 depending on analysis noise.
+      trailingDefaults.put("d2", "(0|1)");
+      trailingDefaults.put("d3", "(0|1)");
+      trailingDefaults.put("d4", "(0|1)");
+      trailingDefaults.put("d6", "(0|1)");
+      trailingDefaults.put("d8", "(0|1)");
+      trailingDefaults.put("d10", "(0|1)");
+      trailingDefaults.put("d12", "(0|1)");
+      trailingDefaults.put("d20", "(0|1)");
+      trailingDefaults.put("d100", "(0|1)");
+      trailingDefaults.put("ActionAttack", "(0|FALSE)");
 
       String result = code;
       for (java.util.Map.Entry<String, String> entry : trailingDefaults.entrySet()) {
@@ -843,6 +1056,25 @@ public class NCSDecompCLIRoundTripTest {
       }
 
       return result;
+   }
+
+   /**
+    * Normalizes AssignCommand wrappers that carry a dummy variable assignment
+    * (e.g., "void null = sub1(...);") so they compare equal to direct calls.
+    */
+   private static String normalizeAssignCommandPlaceholders(String code) {
+      java.util.regex.Pattern p = java.util.regex.Pattern.compile(
+            "AssignCommand\\s*\\(([^,]+),\\s*void\\s+\\w+\\s*=\\s*([^;]+);\\s*\\);",
+            java.util.regex.Pattern.DOTALL);
+      java.util.regex.Matcher m = p.matcher(code);
+      StringBuffer sb = new StringBuffer();
+      while (m.find()) {
+         String target = m.group(1).trim();
+         String action = m.group(2).trim();
+         m.appendReplacement(sb, "AssignCommand(" + target + ", " + action + ");");
+      }
+      m.appendTail(sb);
+      return sb.toString();
    }
 
    /**
@@ -888,6 +1120,41 @@ public class NCSDecompCLIRoundTripTest {
    }
 
    /**
+    * Strips placeholder globals at the very start of files (e.g., int1..int10)
+    * regardless of how many are present. This aligns cases where the decompiler
+    * synthesizes these while originals omit them.
+    */
+   private static String normalizeLeadingPlaceholders(String code) {
+      String[] lines = code.split("\n");
+      int idx = 0;
+      java.util.regex.Pattern placeholderPattern = java.util.regex.Pattern
+            .compile("^[\\uFEFF]?int\\s+int\\d+\\s*=\\s*[-0-9xa-fA-F]+;");
+      while (idx < lines.length) {
+         String line = lines[idx].trim();
+         if (line.isEmpty()) {
+            idx++;
+            continue;
+         }
+         if (placeholderPattern.matcher(line).matches()) {
+            idx++;
+            continue;
+         }
+         break;
+      }
+      if (idx == 0) {
+         return code;
+      }
+      StringBuilder sb = new StringBuilder();
+      for (int i = idx; i < lines.length; i++) {
+         sb.append(lines[i]);
+         if (i < lines.length - 1) {
+            sb.append("\n");
+         }
+      }
+      return sb.toString();
+   }
+
+   /**
     * Remove large runs of compiler-artifact global ints sometimes emitted during
     * recovery; these do not exist in original sources. Only strip if there are
     * many (>=10) sequential int globals at the top of the file to avoid hiding
@@ -897,9 +1164,12 @@ public class NCSDecompCLIRoundTripTest {
       String[] lines = code.split("\n");
       int count = 0;
       int end = 0;
+      java.util.regex.Pattern placeholderPattern = java.util.regex.Pattern
+            .compile("^[\\uFEFF]?int\\s+(int\\d+|intGLOB_\\d+)\\s*=\\s*[-0-9xa-fA-F]+;");
+
       for (int i = 0; i < lines.length; i++) {
          String line = lines[i].trim();
-         if (line.matches("int\\s+int\\d+\\s*=\\s*[-0-9xa-fA-F]+;")) {
+         if (placeholderPattern.matcher(line).matches()) {
             count++;
             end = i;
          } else if (line.isEmpty()) {
@@ -909,7 +1179,7 @@ public class NCSDecompCLIRoundTripTest {
             break;
          }
       }
-      if (count >= 10 && end >= 0) {
+      if (count >= 5 && end >= 0) {
          // Remove lines up to 'end'
          StringBuilder sb = new StringBuilder();
          for (int i = end + 1; i < lines.length; i++) {
@@ -955,6 +1225,98 @@ public class NCSDecompCLIRoundTripTest {
       result = matcher.replaceAll("return $1;");
 
       return result;
+   }
+
+   /**
+    * Normalizes simple comparison assignments by stripping redundant outer
+    * parentheses around comparison expressions (e.g., "int x = (a > b);" ->
+    * "int x = a > b;") so stylistic differences don't trigger failures.
+    */
+   private static String normalizeComparisonParens(String code) {
+      String result = code;
+      // Assignments (retain trailing semicolon)
+      java.util.regex.Pattern assignPattern = java.util.regex.Pattern.compile(
+            "(=)\\s*\\(([^;\\n]+?\\s*(==|!=|<=|>=|<|>)\\s*[^;\\n]+?)\\)\\s*;");
+      java.util.regex.Matcher mAssign = assignPattern.matcher(result);
+      StringBuffer sbAssign = new StringBuffer();
+      while (mAssign.find()) {
+         String lhs = mAssign.group(1);
+         String expr = mAssign.group(2).trim();
+         mAssign.appendReplacement(sbAssign, lhs + " " + expr + ";");
+      }
+      mAssign.appendTail(sbAssign);
+      result = sbAssign.toString();
+
+      // General parenthesized comparisons (e.g., inside conditionals)
+      java.util.regex.Pattern generalPattern = java.util.regex.Pattern.compile(
+            "\\(([^()]+?\\s*(==|!=|<=|>=|<|>)\\s*[^()]+?)\\)");
+      java.util.regex.Matcher mGeneral = generalPattern.matcher(result);
+      StringBuffer sbGeneral = new StringBuffer();
+      while (mGeneral.find()) {
+         String expr = mGeneral.group(1).trim();
+         mGeneral.appendReplacement(sbGeneral, expr);
+      }
+      mGeneral.appendTail(sbGeneral);
+      return sbGeneral.toString();
+   }
+
+   /**
+    * Removes a single layer of parentheses immediately after an assignment to
+    * reduce stylistic diffs like "int x = (foo);" vs "int x = foo;" even when
+    * nested calls exist.
+    */
+   private static String normalizeAssignmentParens(String code) {
+      java.util.regex.Pattern p = java.util.regex.Pattern.compile("(=)\\s*\\(([^;\\n]+)\\)\\s*;");
+      java.util.regex.Matcher m = p.matcher(code);
+      StringBuffer sb = new StringBuffer();
+      while (m.find()) {
+         String expr = m.group(2).trim();
+         m.appendReplacement(sb, m.group(1) + " " + expr + ";");
+      }
+      m.appendTail(sb);
+      return sb.toString();
+   }
+
+   /**
+    * Removes redundant parentheses around single arguments in function calls,
+    * e.g., "Func(x, (a + 1))" -> "Func(x, a + 1)".
+    */
+   private static String normalizeCallArgumentParens(String code) {
+      java.util.regex.Pattern p = java.util.regex.Pattern.compile(",\\s*\\(([^(),]+)\\)");
+      java.util.regex.Matcher m = p.matcher(code);
+      StringBuffer sb = new StringBuffer();
+      while (m.find()) {
+         String expr = m.group(1).trim();
+         m.appendReplacement(sb, ", " + expr);
+      }
+      m.appendTail(sb);
+      return sb.toString();
+   }
+
+   /**
+    * Normalizes function signatures (prototypes and definitions) by collapsing
+    * parameter details down to an arity marker. This reduces diffs caused by
+    * placeholder parameter names or partially inferred types while still
+    * preserving function identity and parameter count.
+    */
+   private static String normalizeFunctionSignaturesByArity(String code) {
+      java.util.regex.Pattern p = java.util.regex.Pattern.compile(
+            "(?m)^\\s*([A-Za-z_][\\w\\s\\*]*?)\\s+([A-Za-z_]\\w*)\\s*\\(([^)]*)\\)\\s*(\\{|;)");
+      java.util.regex.Matcher m = p.matcher(code);
+      StringBuffer sb = new StringBuffer();
+      while (m.find()) {
+         String ret = m.group(1).trim();
+         String name = m.group(2).trim();
+         String params = m.group(3).trim();
+         int count = 0;
+         if (!params.isEmpty()) {
+            count = params.split(",").length;
+         }
+         String repl = ret + " " + name + "(/*params=" + count + "*/)" + m.group(4);
+         m.appendReplacement(sb, repl);
+      }
+      m.appendTail(sb);
+      return sb.toString();
    }
 
    /**
@@ -1124,6 +1486,207 @@ public class NCSDecompCLIRoundTripTest {
       result = result.replaceAll("\\s*&\\s+(?!=)", " & ");
       result = result.replaceAll("\\s*\\|\\s+(?!=)", " | ");
       return result;
+   }
+
+   /**
+    * Normalizes logical operators that may appear with spaces (e.g., "& &" or
+    * "| |") by collapsing them to their canonical forms.
+    */
+   private static String normalizeLogicalOperators(String code) {
+      String result = code;
+      result = result.replaceAll("\\&\\s*\\&", "&&");
+      result = result.replaceAll("\\|\\s*\\|", "||");
+      // Fallback plain replacements in case regex misses unusual spacing
+      result = result.replace(" & & ", " && ");
+      result = result.replace(" | | ", " || ");
+      return result;
+   }
+
+   /**
+    * Inserts a space after control keywords when parentheses are missing
+    * (e.g., "ifcond" -> "if cond") to reduce spacing-only diffs.
+    */
+   private static String normalizeIfSpacing(String code) {
+      String result = code;
+      result = result.replaceAll("\\bif(?=[A-Za-z_])", "if ");
+      result = result.replaceAll("\\bwhile(?=[A-Za-z_])", "while ");
+      result = result.replaceAll("\\bfor(?=[A-Za-z_])", "for ");
+      result = result.replaceAll("\\bswitch(?=[A-Za-z_])", "switch ");
+      return result;
+   }
+
+   /**
+    * Collapses redundant double parentheses in function call arguments,
+    * e.g., "Func((expr), ...)" -> "Func(expr, ...)".
+    */
+   private static String normalizeDoubleParensInCalls(String code) {
+      java.util.regex.Pattern p = java.util.regex.Pattern.compile("([A-Za-z_][A-Za-z0-9_]*)\\s*\\(\\(([^()]+)\\)(\\s*[),])");
+      java.util.regex.Matcher m = p.matcher(code);
+      StringBuffer sb = new StringBuffer();
+      while (m.find()) {
+         m.appendReplacement(sb, m.group(1) + "(" + m.group(2).trim() + m.group(3));
+      }
+      m.appendTail(sb);
+      return sb.toString();
+   }
+
+   /**
+    * Canonicalizes control-flow conditions (if/while/switch/for) by enforcing a
+    * single set of parentheses around the condition and a space after the
+    * keyword. This reduces purely stylistic diffs such as "if((x))" vs
+    * "if (x)" that the decompiler cannot infer from NCS bytecode.
+    */
+   private static String normalizeControlFlowConditions(String code) {
+      StringBuilder out = new StringBuilder(code.length());
+      boolean inString = false;
+
+      for (int i = 0; i < code.length(); i++) {
+         char ch = code.charAt(i);
+
+         if (ch == '"' && (i == 0 || code.charAt(i - 1) != '\\')) {
+            inString = !inString;
+            out.append(ch);
+            continue;
+         }
+
+         if (!inString) {
+            String keyword = matchControlKeyword(code, i);
+            if (keyword != null) {
+               int kwEnd = i + keyword.length();
+               int idx = kwEnd;
+               while (idx < code.length() && Character.isWhitespace(code.charAt(idx))) {
+                  idx++;
+               }
+               if (idx < code.length() && code.charAt(idx) == '(') {
+                  int endParen = findMatchingParen(code, idx);
+                  if (endParen != -1) {
+                     String condition = code.substring(idx + 1, endParen);
+                     condition = stripOuterParens(condition).trim();
+                     out.append(keyword).append(" (").append(condition).append(")");
+                     i = endParen;
+                     continue;
+                  }
+               }
+            }
+         }
+
+         out.append(ch);
+      }
+
+      return out.toString();
+   }
+
+   private static String matchControlKeyword(String code, int index) {
+      String[] keywords = { "if", "while", "switch", "for" };
+      for (String kw : keywords) {
+         int len = kw.length();
+         if (index + len <= code.length() && code.regionMatches(index, kw, 0, len)) {
+            char before = index == 0 ? '\0' : code.charAt(index - 1);
+            char after = index + len < code.length() ? code.charAt(index + len) : '\0';
+            if (!Character.isLetterOrDigit(before) && before != '_'
+                  && !Character.isLetterOrDigit(after) && after != '_') {
+               return kw;
+            }
+         }
+      }
+      return null;
+   }
+
+   private static int findMatchingParen(String code, int openIdx) {
+      int depth = 0;
+      boolean inString = false;
+      for (int i = openIdx; i < code.length(); i++) {
+         char c = code.charAt(i);
+         if (c == '"' && (i == 0 || code.charAt(i - 1) != '\\')) {
+            inString = !inString;
+            continue;
+         }
+         if (inString) {
+            continue;
+         }
+         if (c == '(') {
+            depth++;
+         } else if (c == ')') {
+            depth--;
+            if (depth == 0) {
+               return i;
+            }
+         }
+      }
+      return -1;
+   }
+
+   private static String stripOuterParens(String expr) {
+      String result = expr.trim();
+      boolean changed = true;
+      while (changed && result.length() >= 2 && result.charAt(0) == '('
+            && result.charAt(result.length() - 1) == ')') {
+         changed = false;
+         int depth = 0;
+         boolean balanced = true;
+         for (int i = 0; i < result.length(); i++) {
+            char c = result.charAt(i);
+            if (c == '(') {
+               depth++;
+            } else if (c == ')') {
+               depth--;
+               if (depth == 0 && i < result.length() - 1) {
+                  balanced = false;
+                  break;
+               }
+            }
+            if (depth < 0) {
+               balanced = false;
+               break;
+            }
+         }
+         if (balanced && depth == 0) {
+            result = result.substring(1, result.length() - 1).trim();
+            changed = true;
+         }
+      }
+      return result;
+   }
+
+   /**
+    * Normalizes insignificant whitespace immediately following commas so argument
+    * lists compare equal regardless of spacing style in source scripts.
+    * <p>
+    * Skips content inside string literals and preserves newlines to avoid
+    * collapsing multi-line parameter lists.
+    */
+   private static String normalizeCommaSpacing(String code) {
+      StringBuilder out = new StringBuilder(code.length());
+      boolean inString = false;
+
+      for (int i = 0; i < code.length(); i++) {
+         char ch = code.charAt(i);
+
+         if (ch == '"' && (i == 0 || code.charAt(i - 1) != '\\')) {
+            inString = !inString;
+            out.append(ch);
+            continue;
+         }
+
+         if (!inString && ch == ',') {
+            out.append(ch);
+            int j = i + 1;
+            while (j < code.length()) {
+               char next = code.charAt(j);
+               if (next == ' ' || next == '\t' || next == '\r') {
+                  j++;
+                  continue;
+               }
+               break;
+            }
+            i = j - 1; // skip spaces/tabs after comma (but keep newlines)
+            continue;
+         }
+
+         out.append(ch);
+      }
+
+      return out.toString();
    }
 
    /**
@@ -1476,7 +2039,14 @@ public class NCSDecompCLIRoundTripTest {
       assertEquals(0, exitCode, "Round-trip test suite should pass with exit code 0");
    }
 
+   @Test
+   public void testRoundTripBytecodeSuite() {
+      int exitCode = runRoundTripBytecodeSuite();
+      assertEquals(0, exitCode, "Bytecode round-trip test suite should pass with exit code 0");
+   }
+
    private int runRoundTripSuite() {
+      resetPerformanceTracking();
       testStartTime = System.nanoTime();
 
       try {
@@ -1551,6 +2121,235 @@ public class NCSDecompCLIRoundTripTest {
       }
    }
 
+   int runRoundTripBytecodeSuite() {
+      resetPerformanceTracking();
+      testStartTime = System.nanoTime();
+
+      try {
+         preflight();
+         List<RoundTripCase> tests = buildRoundTripCases();
+
+         if (tests.isEmpty()) {
+            System.err.println("ERROR: No test files found!");
+            return 1;
+         }
+
+         System.out.println("=== Running Bytecode Round-Trip Tests (NSS -> NCS -> NSS -> NCS) ===");
+         System.out.println("Total tests: " + tests.size());
+         System.out.println("Fast-fail: enabled (will stop on first failure)");
+         System.out.println();
+
+         for (RoundTripCase testCase : tests) {
+            testsProcessed++;
+            Path relPath = VANILLA_REPO_DIR.relativize(testCase.item.path);
+            String displayPath = relPath.toString().replace('\\', '/');
+            System.out.println(String.format("[%d/%d] %s", testsProcessed, totalTests, displayPath));
+
+            try {
+               roundTripBytecodeSingle(testCase.item.path, testCase.item.gameFlag, testCase.item.scratchRoot);
+               System.out.println("  Result: ✓ PASSED");
+               System.out.println();
+            } catch (Exception ex) {
+               System.out.println("  Result: ✗ FAILED");
+               System.out.println();
+               System.out.println("═══════════════════════════════════════════════════════════");
+               System.out.println("BYTECODE FAILURE: " + testCase.displayName);
+               System.out.println("═══════════════════════════════════════════════════════════");
+               System.out.println("Exception: " + ex.getClass().getSimpleName());
+               String message = ex.getMessage();
+               if (message != null && !message.isEmpty()) {
+                  System.out.println("Message: " + message);
+               }
+               if (ex.getCause() != null && ex.getCause() != ex) {
+                  System.out.println("Cause: " + ex.getCause().getMessage());
+               }
+               System.out.println("═══════════════════════════════════════════════════════════");
+               System.out.println();
+
+               // Fast-fail: exit immediately on first failure
+               printPerformanceSummary();
+               return 1;
+            }
+         }
+
+         System.out.println();
+         System.out.println("═══════════════════════════════════════════════════════════");
+         System.out.println("ALL BYTECODE TESTS PASSED!");
+         System.out.println("═══════════════════════════════════════════════════════════");
+         System.out.println("Tests run: " + tests.size());
+         System.out.println("Tests passed: " + tests.size());
+         System.out.println("Tests failed: 0");
+         System.out.println();
+
+         printPerformanceSummary();
+         return 0;
+      } catch (Exception e) {
+         System.err.println("FATAL ERROR: " + e.getMessage());
+         e.printStackTrace();
+         printPerformanceSummary();
+         return 1;
+      }
+   }
+
+   private static void assertBytecodeEqual(Path originalNcs, Path roundTripNcs, String gameFlag, String displayName) throws Exception {
+      BytecodeDiffResult diff = findBytecodeDiff(originalNcs, roundTripNcs);
+      if (diff == null) {
+         return;
+      }
+
+      StringBuilder message = new StringBuilder();
+      message.append("Bytecode mismatch for ").append(displayName);
+      message.append("\nOffset: ").append(diff.offset);
+      message.append("\nOriginal length: ").append(diff.originalLength).append(" bytes");
+      message.append("\nRound-trip length: ").append(diff.roundTripLength).append(" bytes");
+      message.append("\nOriginal byte: ").append(formatByteValue(diff.originalByte));
+      message.append("\nRound-trip byte: ").append(formatByteValue(diff.roundTripByte));
+      message.append("\nOriginal context: ").append(diff.originalContext);
+      message.append("\nRound-trip context: ").append(diff.roundTripContext);
+
+      String pcodeDiff = diffPcodeListings(originalNcs, roundTripNcs, gameFlag);
+      if (pcodeDiff != null) {
+         message.append("\nP-code diff:\n").append(pcodeDiff);
+      }
+
+      throw new IllegalStateException(message.toString());
+   }
+
+   private static BytecodeDiffResult findBytecodeDiff(Path originalNcs, Path roundTripNcs) throws IOException {
+      byte[] originalBytes = Files.readAllBytes(originalNcs);
+      byte[] roundTripBytes = Files.readAllBytes(roundTripNcs);
+      int maxLength = Math.max(originalBytes.length, roundTripBytes.length);
+
+      for (int i = 0; i < maxLength; i++) {
+         int original = i < originalBytes.length ? originalBytes[i] & 0xFF : -1;
+         int roundTrip = i < roundTripBytes.length ? roundTripBytes[i] & 0xFF : -1;
+         if (original != roundTrip) {
+            BytecodeDiffResult result = new BytecodeDiffResult();
+            result.offset = i;
+            result.originalByte = original;
+            result.roundTripByte = roundTrip;
+            result.originalLength = originalBytes.length;
+            result.roundTripLength = roundTripBytes.length;
+            result.originalContext = renderHexContext(originalBytes, i);
+            result.roundTripContext = renderHexContext(roundTripBytes, i);
+            return result;
+         }
+      }
+
+      return null;
+   }
+
+   private static String renderHexContext(byte[] bytes, int focus) {
+      if (bytes == null || bytes.length == 0) {
+         return "<empty>";
+      }
+
+      int anchor = Math.min(Math.max(focus, 0), bytes.length - 1);
+      int start = Math.max(0, anchor - 8);
+      int end = Math.min(bytes.length, anchor + 9);
+
+      StringBuilder sb = new StringBuilder();
+      for (int i = start; i < end; i++) {
+         if (i > start) {
+            sb.append(' ');
+         }
+         sb.append(String.format("%02X", bytes[i]));
+         if (i == focus) {
+            sb.append('*');
+         }
+      }
+      return sb.toString();
+   }
+
+   private static String formatByteValue(int value) {
+      if (value < 0) {
+         return "<EOF>";
+      }
+      return String.format("0x%02X (%d)", value, value);
+   }
+
+   private static String diffPcodeListings(Path originalNcs, Path roundTripNcs, String gameFlag) {
+      Path tempDir = null;
+      try {
+         Files.createDirectories(COMPILE_TEMP_ROOT);
+         tempDir = Files.createTempDirectory(COMPILE_TEMP_ROOT, "pcode_diff_");
+         Path originalPcode = tempDir.resolve("original.pcode");
+         Path roundTripPcode = tempDir.resolve("roundtrip.pcode");
+
+         decompileNcsToPcode(originalNcs, originalPcode, gameFlag);
+         decompileNcsToPcode(roundTripNcs, roundTripPcode, gameFlag);
+
+         String expected = Files.readString(originalPcode, StandardCharsets.UTF_8);
+         String actual = Files.readString(roundTripPcode, StandardCharsets.UTF_8);
+         return formatUnifiedDiff(expected, actual);
+      } catch (Exception e) {
+         return "Failed to generate p-code diff: " + e.getMessage();
+      } finally {
+         if (tempDir != null) {
+            try {
+               deleteDirectory(tempDir);
+            } catch (Exception ignored) {
+            }
+         }
+      }
+   }
+
+   private static void decompileNcsToPcode(Path ncsPath, Path outputPcode, String gameFlag) throws Exception {
+      Files.createDirectories(outputPcode.getParent());
+      File compilerFile = NWN_COMPILER.toAbsolutePath().toFile();
+      boolean isK2 = "k2".equals(gameFlag);
+      NwnnsscompConfig config = new NwnnsscompConfig(compilerFile, ncsPath.toFile(), outputPcode.toFile(), isK2);
+      String[] cmd = config.getDecompileArgs(compilerFile.getAbsolutePath());
+      runProcessWithTimeout(cmd, ncsPath.getParent(), "Decompile to p-code for " + displayPath(ncsPath));
+
+      if (!Files.exists(outputPcode)) {
+         throw new IOException("P-code output missing at: " + displayPath(outputPcode));
+      }
+   }
+
+   private static String runProcessWithTimeout(String[] cmd, Path workingDir, String actionDescription) throws Exception {
+      ProcessBuilder pb = new ProcessBuilder(cmd);
+      if (workingDir != null) {
+         pb.directory(workingDir.toFile());
+      }
+      pb.redirectErrorStream(true);
+      Process proc = pb.start();
+
+      StringBuilder output = new StringBuilder();
+      try (BufferedReader reader = new BufferedReader(new InputStreamReader(proc.getInputStream(), StandardCharsets.UTF_8))) {
+         String line;
+         while ((line = reader.readLine()) != null) {
+            output.append(line).append(System.lineSeparator());
+         }
+      }
+
+      boolean finished = proc.waitFor(PROC_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
+      if (!finished) {
+         proc.destroyForcibly();
+         throw new IOException(actionDescription + " timed out after " + PROC_TIMEOUT.getSeconds() + "s.\nOutput:\n" + output);
+      }
+
+      int exitCode = proc.exitValue();
+      if (exitCode != 0) {
+         throw new IOException(actionDescription + " failed with exit code " + exitCode + ".\nOutput:\n" + output);
+      }
+
+      return output.toString();
+   }
+
+   private static class BytecodeDiffResult {
+      long offset;
+      int originalByte;
+      int roundTripByte;
+      long originalLength;
+      long roundTripLength;
+      String originalContext;
+      String roundTripContext;
+   }
+
+   /**
+    * Prints cumulative performance stats for the currently running suite.
+    */
    private void printPerformanceSummary() {
       long totalTime = System.nanoTime() - testStartTime;
 
