@@ -44,6 +44,24 @@ jobs:
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
           restore-keys: ${{ runner.os }}-m2
 
+      - name: Install Wine (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo dpkg --add-architecture i386
+          sudo mkdir -pm755 /etc/apt/keyrings
+          sudo wget -O /etc/apt/keyrings/winehq-archive.key https://dl.winehq.org/wine-builds/winehq.key
+          sudo wget -NP /etc/apt/sources.list.d/ https://dl.winehq.org/wine-builds/ubuntu/dists/$(lsb_release -sc)/winehq-$(lsb_release -sc).sources
+          sudo apt update
+          sudo apt install --install-recommends winehq-stable -y
+
+      - name: Install Wine (macOS)
+        if: runner.os == 'macOS'
+        run: brew install --cask wine-stable
+
+      - name: Make tools executable
+        if: runner.os != 'Windows'
+        run: chmod +x tools/nwnnsscomp.exe
+
       - name: Build with Maven
         run: mvn clean compile -B
 

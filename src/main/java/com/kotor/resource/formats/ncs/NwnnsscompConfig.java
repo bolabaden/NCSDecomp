@@ -134,11 +134,24 @@ public class NwnnsscompConfig {
             .replace("{game_value}", isK2 ? "2" : "1");
       }
 
-      // Prepend the executable path
-      String[] result = new String[formatted.length + 1];
-      result[0] = executable;
-      System.arraycopy(formatted, 0, result, 1, formatted.length);
-      return result;
+      // Check if we're running on a non-Windows platform
+      String osName = System.getProperty("os.name").toLowerCase();
+      boolean isWindows = osName.contains("win");
+      
+      if (!isWindows && executable.toLowerCase().endsWith(".exe")) {
+         // Use Wine to run .exe on non-Windows platforms
+         String[] result = new String[formatted.length + 2];
+         result[0] = "wine";
+         result[1] = executable;
+         System.arraycopy(formatted, 0, result, 2, formatted.length);
+         return result;
+      } else {
+         // Prepend the executable path (Windows or non-.exe executable)
+         String[] result = new String[formatted.length + 1];
+         result[0] = executable;
+         System.arraycopy(formatted, 0, result, 1, formatted.length);
+         return result;
+      }
    }
 
    /**
