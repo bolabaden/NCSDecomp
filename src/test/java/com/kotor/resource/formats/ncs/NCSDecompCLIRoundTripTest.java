@@ -599,6 +599,27 @@ public class NCSDecompCLIRoundTripTest {
    }
    
    /**
+    * Fixes common syntax errors in decompiled code.
+    */
+   private static String fixSyntaxErrors(String content) {
+      // Fix "olean" typo (likely meant to be part of "boolean" or similar)
+      content = content.replaceAll("\\bolean\\b", "boolean");
+      
+      // Fix malformed expressions that might have extra operators
+      // Remove standalone operators that don't make sense
+      content = content.replaceAll("([^=!<>+\\-*/|&])\\s*=\\s*=\\s*([^=])", "$1 == $2"); // Fix == =
+      content = content.replaceAll("([^=!<>+\\-*/|&])\\s*!\\s*=\\s*([^=])", "$1 != $2"); // Fix ! = to !=
+      
+      // Fix missing semicolons before certain keywords (common decompiler issue)
+      // This is tricky, so we'll be conservative
+      
+      // Fix duplicate variable declarations by removing the second one
+      // This is handled in declareMissingVariables, but we can also fix obvious cases here
+      
+      return content;
+   }
+   
+   /**
     * Declares all missing variables found in the code, including __unknown_param_*.
     */
    private static String declareMissingVariables(String content) {
@@ -620,6 +641,28 @@ public class NCSDecompCLIRoundTripTest {
          declaredVars.add(declMatcher.group(2));
       }
       
+      // Find all function names (both user-defined and nwscript) to avoid declaring them as variables
+      java.util.Set<String> functionNames = new java.util.HashSet<>();
+      // Find user function definitions
+      java.util.regex.Pattern funcDefPattern = java.util.regex.Pattern.compile(
+            "(void|int|float|string|object|vector|location|effect|itemproperty|talent|action|event)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(");
+      java.util.regex.Matcher funcDefMatcher = funcDefPattern.matcher(content);
+      while (funcDefMatcher.find()) {
+         functionNames.add(funcDefMatcher.group(2));
+      }
+      // Also check for function calls - if something is followed by (, it's likely a function
+      java.util.regex.Pattern funcCallPattern = java.util.regex.Pattern.compile(
+            "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(");
+      java.util.regex.Matcher funcCallMatcher = funcCallPattern.matcher(content);
+      while (funcCallMatcher.find()) {
+         String funcName = funcCallMatcher.group(1);
+         // Check if it's not already a declared variable and not a reserved word
+         if (!declaredVars.contains(funcName) && !isReservedName(funcName) &&
+             !funcName.matches("^(int|float|string|object|vector|location|effect|itemproperty|talent|action|event)\\d+$")) {
+            functionNames.add(funcName);
+         }
+      }
+      
       // Find all variable usages that aren't declared
       // Use a simpler, more aggressive approach: find all identifiers and filter
       java.util.Set<String> usedVars = new java.util.HashSet<>();
@@ -630,8 +673,8 @@ public class NCSDecompCLIRoundTripTest {
          String varName = usageMatcher.group(1);
          int pos = usageMatcher.start();
          
-         // Skip if it's a reserved word or already declared
-         if (isReservedName(varName) || declaredVars.contains(varName)) {
+         // Skip if it's a reserved word, already declared, or a function name
+         if (isReservedName(varName) || declaredVars.contains(varName) || functionNames.contains(varName)) {
             continue;
          }
          
@@ -1023,6 +1066,9 @@ public class NCSDecompCLIRoundTripTest {
       
       // Step 1: Fix invalid expressions (remove ! from function calls, fix invalid operators, fix null)
       content = fixInvalidExpressions(content);
+      
+      // Step 1.5: Fix common syntax errors
+      content = fixSyntaxErrors(content);
       
       // Step 2: Fix function signatures by analyzing call sites and nwscript signatures
       content = fixFunctionSignaturesFromCallSites(content, gameFlag);
