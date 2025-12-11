@@ -2234,60 +2234,6 @@ public class FileDecompiler {
       }
 
       /**
-       * Replace the first function matching the given header pattern with the provided replacement,
-       * using a simple brace counter to find the end of the function body. The replacement should
-       * include the full function definition.
-       */
-      private String replaceFunctionBody(String code, Pattern headerPattern, String replacement) {
-         Matcher m = headerPattern.matcher(code);
-         if (!m.find()) {
-            return code;
-         }
-         int headerStart = m.start();
-         int braceStart = code.indexOf('{', m.end());
-         if (braceStart == -1) {
-            return code;
-         }
-         int depth = 0;
-         boolean inString = false;
-         boolean escape = false;
-         for (int i = braceStart; i < code.length(); i++) {
-            char c = code.charAt(i);
-            if (inString) {
-               if (c == '\\' && !escape) {
-                  escape = true;
-                  continue;
-               }
-               if (c == '"' && !escape) {
-                  inString = false;
-               }
-               escape = false;
-               continue;
-            }
-            if (c == '"') {
-               inString = true;
-               continue;
-            }
-            if (c == '{') {
-               depth++;
-            } else if (c == '}') {
-               depth--;
-               if (depth == 0) {
-                  int end = i + 1;
-                  return code.substring(0, headerStart) + replacement + code.substring(end);
-               }
-            }
-         }
-         // Fallback: braces were malformed; replace until the next function header or end.
-         Matcher nextFn = Pattern.compile("(?m)^\\s*(int|void)\\s+\\w+\\s*\\(").matcher(code);
-         nextFn.region(Math.min(code.length(), braceStart + 1), code.length());
-         int end = code.length();
-         if (nextFn.find()) {
-            end = nextFn.start();
-         }
-         return code.substring(0, headerStart) + replacement + code.substring(end);
-      }
-      /**
        * Attempt to recover function names for well-known helpers when symbol tables
        * are absent. This is intentionally conservative and only triggers on generic
        * subX names with recognizable bodies.
