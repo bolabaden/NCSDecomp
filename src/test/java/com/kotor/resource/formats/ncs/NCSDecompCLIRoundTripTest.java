@@ -2335,18 +2335,29 @@ public class NCSDecompCLIRoundTripTest {
       // CRITICAL: Must preserve tabs and newlines to keep the declaration line intact
       // Pattern: function() { followed by optional whitespace, newline, then tabs/spaces, then extra {
       // Replace with: function() { followed by newline and tabs/spaces (preserving declaration)
-      // Use \\R to match any line break (\\n, \\r\\n, or \\r) and capture indentation separately
       // CRITICAL: Must match function signature + opening brace + newline + tabs/spaces + extra {
       // and replace with function signature + opening brace + newline + tabs/spaces
       // This preserves ALL content after, including the declaration line
-      // The key insight: we need to match the exact structure and preserve everything after the extra {
-      // Pattern matches: function() { + whitespace + line break + indentation + extra {
-      // Replace with: function() { + whitespace + line break + indentation
-      // This preserves the declaration line that comes immediately after
+      // The structure is: function() { + newline + tab + { + newline + tab+tab + declaration
+      // We need to match: function() { + newline + tab + { and replace with: function() { + newline + tab
+      // This preserves the declaration line that comes after
+      // Use explicit \\n and be very specific about matching tabs
       java.util.regex.Pattern funcWithExtraBlock = java.util.regex.Pattern.compile(
-            "(\\w+\\s+\\w+\\s*\\([^)]*\\)\\s*\\{\\s*\\R)([\\t ]*)\\{\\s*",
+            "(\\w+\\s+\\w+\\s*\\([^)]*\\)\\s*\\{\\s*\\n)([\\t]+)\\{\\s*",
             java.util.regex.Pattern.MULTILINE);
       result = funcWithExtraBlock.matcher(result).replaceAll("$1$2");
+      
+      // Also handle case with spaces instead of tabs
+      java.util.regex.Pattern funcWithExtraBlockSpaces = java.util.regex.Pattern.compile(
+            "(\\w+\\s+\\w+\\s*\\([^)]*\\)\\s*\\{\\s*\\n)([ ]+)\\{\\s*",
+            java.util.regex.Pattern.MULTILINE);
+      result = funcWithExtraBlockSpaces.matcher(result).replaceAll("$1$2");
+      
+      // Also handle case with mixed tabs/spaces or optional whitespace
+      java.util.regex.Pattern funcWithExtraBlockMixed = java.util.regex.Pattern.compile(
+            "(\\w+\\s+\\w+\\s*\\([^)]*\\)\\s*\\{\\s*\\n)([\\t ]*)\\{\\s*",
+            java.util.regex.Pattern.MULTILINE);
+      result = funcWithExtraBlockMixed.matcher(result).replaceAll("$1$2");
 
       // Remove closing brace of extra block before return: } return; } -> return; }
       // Match: closing brace, optional whitespace/newlines, return statement,
