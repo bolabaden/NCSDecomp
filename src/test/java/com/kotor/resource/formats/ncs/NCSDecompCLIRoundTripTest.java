@@ -2342,6 +2342,8 @@ public class NCSDecompCLIRoundTripTest {
       // We need to match: function() { + newline + tab + { and replace with: function() { + newline + tab
       // This preserves the declaration line that comes after
       // Use explicit \\n and be very specific about matching tabs
+      // IMPORTANT: The pattern must NOT consume any content after the extra { - we use \\s* to match
+      // only whitespace, not the actual declaration line
       java.util.regex.Pattern funcWithExtraBlock = java.util.regex.Pattern.compile(
             "(\\w+\\s+\\w+\\s*\\([^)]*\\)\\s*\\{\\s*\\n)([\\t]+)\\{\\s*",
             java.util.regex.Pattern.MULTILINE);
@@ -2354,6 +2356,7 @@ public class NCSDecompCLIRoundTripTest {
       result = funcWithExtraBlockSpaces.matcher(result).replaceAll("$1$2");
       
       // Also handle case with mixed tabs/spaces or optional whitespace
+      // This is a fallback pattern that should match if the above two don't
       java.util.regex.Pattern funcWithExtraBlockMixed = java.util.regex.Pattern.compile(
             "(\\w+\\s+\\w+\\s*\\([^)]*\\)\\s*\\{\\s*\\n)([\\t ]*)\\{\\s*",
             java.util.regex.Pattern.MULTILINE);
