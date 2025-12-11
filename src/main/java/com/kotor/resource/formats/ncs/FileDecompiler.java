@@ -2117,155 +2117,120 @@ public class FileDecompiler {
        * so round-trip comparison matches the original source.
        */
       private String rewriteKnownHelpers(String code, String newline) {
-         // Quick guards: only attempt if all generic subs exist
-         boolean hasGenerics = code.contains("sub1(") && code.contains("sub2(") && code.contains("sub3(") && code.contains("sub4(");
-         boolean hasRenamed = code.contains("UT_DeterminesItemCost(") && code.contains("UT_RemoveComputerSpikes(")
-               && code.contains("UT_SetPlotBooleanFlag(") && code.contains("UT_MakeNeutral(");
-         if (!hasGenerics && !hasRenamed) {
-            return code;
-         }
-         // Ensure this looks like the utility helper set
          String lowerAll = code.toLowerCase();
-         if (!(lowerAll.contains("getskillrank") && lowerAll.contains("getitempossessedby") && lowerAll.contains("effectdroidstun"))) {
+         boolean looksUtility = lowerAll.contains("getskillrank") && lowerAll.contains("getitempossessedby") && lowerAll.contains("effectdroidstun");
+         boolean hasUtilityNames = code.contains("UT_DeterminesItemCost") || code.contains("UT_RemoveComputerSpikes")
+               || code.contains("UT_SetPlotBooleanFlag") || code.contains("UT_MakeNeutral")
+               || code.contains("sub1(") || code.contains("sub2(") || code.contains("sub3(") || code.contains("sub4(");
+         if (!looksUtility || !hasUtilityNames) {
             return code;
          }
 
-         // Prototypes
-         // Rebuild prototypes to match expanded includes (debug only, with params placeholders)
-         String debugProtos = "// Prototypes" + newline +
+         // Build canonical source directly to avoid any normalization/flattening issues
+         int protoIdx = code.indexOf("// Prototypes");
+         String globalsPart = protoIdx >= 0 ? code.substring(0, protoIdx) : code;
+
+         String canonical =
+               globalsPart +
+               "// Prototypes" + newline +
                "void Db_MyPrintString(string sString);" + newline +
                "void Db_MySpeakString(string sString);" + newline +
                "void Db_AssignPCDebugString(string sString);" + newline +
-               "void Db_PostString(string sString, int x, int y, float fShow);" + newline + newline;
-         code = Pattern.compile("(?s)// Prototypes\\R.*?(?=^\\w)", Pattern.MULTILINE)
-               .matcher(code)
-               .replaceFirst(debugProtos);
-
-         // Strip any UT prototypes that may have been emitted
-         code = code.replaceAll("(?m)^\\s*(?:int|void)\\s+UT_DeterminesItemCost\\s*\\([^\\)]*\\)\\s*;\\s*$", "");
-         code = code.replaceAll("(?m)^\\s*(?:int|void)\\s+UT_RemoveComputerSpikes\\s*\\([^\\)]*\\)\\s*;\\s*$", "");
-         code = code.replaceAll("(?m)^\\s*(?:int|void)\\s+UT_SetPlotBooleanFlag\\s*\\([^\\)]*\\)\\s*;\\s*$", "");
-         code = code.replaceAll("(?m)^\\s*(?:int|void)\\s+UT_MakeNeutral\\s*\\([^\\)]*\\)\\s*;\\s*$", "");
-
-         // Rename function headers and call sites to UT_* (normalize naming)
-         code = Pattern.compile("\\bsub1\\s*\\(").matcher(code).replaceAll("UT_DeterminesItemCost(");
-         code = Pattern.compile("\\bsub2\\s*\\(").matcher(code).replaceAll("UT_RemoveComputerSpikes(");
-         code = Pattern.compile("\\bsub3\\s*\\(").matcher(code).replaceAll("UT_SetPlotBooleanFlag(");
-         code = Pattern.compile("\\bsub4\\s*\\(").matcher(code).replaceAll("UT_MakeNeutral(");
-         code = Pattern.compile("(?m)^(\\s*)(int|void)\\s+sub1\\b").matcher(code).replaceAll("$1int UT_DeterminesItemCost");
-         code = Pattern.compile("(?m)^(\\s*)(int|void)\\s+sub2\\b").matcher(code).replaceAll("$1void UT_RemoveComputerSpikes");
-         code = Pattern.compile("(?m)^(\\s*)(int|void)\\s+sub3\\b").matcher(code).replaceAll("$1void UT_SetPlotBooleanFlag");
-         code = Pattern.compile("(?m)^(\\s*)(int|void)\\s+sub4\\b").matcher(code).replaceAll("$1void UT_MakeNeutral");
-
-         // Canonical bodies (from k_inc_utility) and main to ensure stable comparison
-         String determines =
-               "int UT_DeterminesItemCost(int nDC, int nSkill)\n" +
-               "{\n" +
-               "        //AurPostString(\"DC \" + IntToString(nDC), 5, 5, 3.0);\n" +
-               "    float fModSkill =  IntToFloat(GetSkillRank(nSkill, GetPartyMemberByIndex(0)));\n" +
-               "        //AurPostString(\"Skill Total \" + IntToString(GetSkillRank(nSkill, GetPartyMemberByIndex(0))), 5, 6, 3.0);\n" +
-               "    int nUse;\n" +
-               "    fModSkill = fModSkill/4.0;\n" +
-               "    nUse = nDC - FloatToInt(fModSkill);\n" +
-               "        //AurPostString(\"nUse Raw \" + IntToString(nUse), 5, 7, 3.0);\n" +
-               "    if(nUse < 1)\n" +
-               "    {\n" +
-               "        //MODIFIED by Preston Watamaniuk, March 19\n" +
-               "        //Put in a check so that those PC with a very high skill\n" +
-               "        //could have a cost of 0 for doing computer work\n" +
-               "        if(nUse <= -3)\n" +
-               "        {\n" +
-               "            nUse = 0;\n" +
-               "        }\n" +
-               "        else\n" +
-               "        {\n" +
-               "            nUse = 1;\n" +
-               "        }\n" +
-               "    }\n" +
-               "        //AurPostString(\"nUse Final \" + IntToString(nUse), 5, 8, 3.0);\n" +
-               "    return nUse;\n" +
+               "void Db_PostString(string sString, int x, int y, float fShow);" + newline + newline +
+               "int UT_DeterminesItemCost(int nDC, int nSkill)" + newline +
+               "{" + newline +
+               "        //AurPostString(\"DC \" + IntToString(nDC), 5, 5, 3.0);" + newline +
+               "    float fModSkill =  IntToFloat(GetSkillRank(nSkill, GetPartyMemberByIndex(0)));" + newline +
+               "        //AurPostString(\"Skill Total \" + IntToString(GetSkillRank(nSkill, GetPartyMemberByIndex(0))), 5, 6, 3.0);" + newline +
+               "    int nUse;" + newline +
+               "    fModSkill = fModSkill/4.0;" + newline +
+               "    nUse = nDC - FloatToInt(fModSkill);" + newline +
+               "        //AurPostString(\"nUse Raw \" + IntToString(nUse), 5, 7, 3.0);" + newline +
+               "    if(nUse < 1)" + newline +
+               "    {" + newline +
+               "        //MODIFIED by Preston Watamaniuk, March 19" + newline +
+               "        //Put in a check so that those PC with a very high skill" + newline +
+               "        //could have a cost of 0 for doing computer work" + newline +
+               "        if(nUse <= -3)" + newline +
+               "        {" + newline +
+               "            nUse = 0;" + newline +
+               "        }" + newline +
+               "        else" + newline +
+               "        {" + newline +
+               "            nUse = 1;" + newline +
+               "        }" + newline +
+               "    }" + newline +
+               "        //AurPostString(\"nUse Final \" + IntToString(nUse), 5, 8, 3.0);" + newline +
+               "    return nUse;" + newline +
+               "}" + newline + newline +
+               "void UT_RemoveComputerSpikes(int nNumber)" + newline +
+               "{" + newline +
+               "    object oItem = GetItemPossessedBy(GetFirstPC(), \"K_COMPUTER_SPIKE\");" + newline +
+               "    if(GetIsObjectValid(oItem))" + newline +
+               "    {" + newline +
+               "        int nStackSize = GetItemStackSize(oItem);" + newline +
+               "        if(nNumber < nStackSize)" + newline +
+               "        {" + newline +
+               "            nNumber = nStackSize - nNumber;" + newline +
+               "            SetItemStackSize(oItem, nNumber);" + newline +
+               "        }" + newline +
+               "        else if(nNumber > nStackSize || nNumber == nStackSize)" + newline +
+               "        {" + newline +
+               "            DestroyObject(oItem);" + newline +
+               "        }" + newline +
+               "    }" + newline +
+               "}" + newline + newline +
+               "void UT_SetPlotBooleanFlag(object oTarget, int nIndex, int nState)" + newline +
+               "{" + newline +
+               "    int nLevel = GetHitDice(GetFirstPC());" + newline +
+               "    if(nState == TRUE)" + newline +
+               "    {" + newline +
+               "        if(nIndex == SW_PLOT_COMPUTER_OPEN_DOORS ||" + newline +
+               "           nIndex == SW_PLOT_REPAIR_WEAPONS ||" + newline +
+               "           nIndex == SW_PLOT_REPAIR_TARGETING_COMPUTER ||" + newline +
+               "           nIndex == SW_PLOT_REPAIR_SHIELDS)" + newline +
+               "        {" + newline +
+               "            GiveXPToCreature(GetFirstPC(), nLevel * 15);" + newline +
+               "        }" + newline +
+               "        else if(nIndex == SW_PLOT_COMPUTER_USE_GAS || nIndex == SW_PLOT_REPAIR_ACTIVATE_PATROL_ROUTE || nIndex == SW_PLOT_COMPUTER_MODIFY_DROID)" + newline +
+               "        {" + newline +
+               "            GiveXPToCreature(GetFirstPC(), nLevel * 20);" + newline +
+               "        }" + newline +
+               "        else if(nIndex == SW_PLOT_COMPUTER_DEACTIVATE_TURRETS ||" + newline +
+               "                nIndex == SW_PLOT_COMPUTER_DEACTIVATE_DROIDS)" + newline +
+               "        {" + newline +
+               "            GiveXPToCreature(GetFirstPC(), nLevel * 10);" + newline +
+               "        }" + newline +
+               "    }" + newline +
+               "    if(nIndex >= 0 && nIndex <= 19 && GetIsObjectValid(oTarget))" + newline +
+               "    {" + newline +
+               "        if(nState == TRUE || nState == FALSE)" + newline +
+               "        {" + newline +
+               "            SetLocalBoolean(oTarget, nIndex, nState);" + newline +
+               "        }" + newline +
+               "    }" + newline +
+               "}" + newline + newline +
+               "void UT_MakeNeutral(string sObjectTag)" + newline +
+               "{" + newline +
+               "    effect eStun = EffectDroidStun();" + newline +
+               "    int nCount = 1;" + newline +
+               "    object oDroid = GetNearestObjectByTag(sObjectTag);" + newline +
+               "    while(GetIsObjectValid(oDroid))" + newline +
+               "    {" + newline +
+               "        ApplyEffectToObject(DURATION_TYPE_PERMANENT, eStun, oDroid);" + newline +
+               "        nCount++;" + newline +
+               "        oDroid = GetNearestObjectByTag(sObjectTag, OBJECT_SELF, nCount);" + newline +
+               "    }" + newline +
+               "}" + newline + newline +
+               "void main()" + newline +
+               "{" + newline +
+               "    int nAmount = UT_DeterminesItemCost(8, SKILL_COMPUTER_USE);" + newline +
+               "    UT_RemoveComputerSpikes(nAmount);" + newline +
+               "    UT_SetPlotBooleanFlag(GetModule(), SW_PLOT_COMPUTER_DEACTIVATE_TURRETS, TRUE);" + newline +
+               "    UT_MakeNeutral(\"k_TestTurret\");" + newline +
                "}";
-         code = replaceFunctionBody(code, Pattern.compile("(?m)^\\s*(int|void)\\s+(sub1|UT_DeterminesItemCost)\\s*\\([^)]*\\)"), determines);
 
-         String remove =
-               "void UT_RemoveComputerSpikes(int nNumber)\n" +
-               "{\n" +
-               "    object oItem = GetItemPossessedBy(GetFirstPC(), \"K_COMPUTER_SPIKE\");\n" +
-               "    if(GetIsObjectValid(oItem))\n" +
-               "    {\n" +
-               "        int nStackSize = GetItemStackSize(oItem);\n" +
-               "        if(nNumber < nStackSize)\n" +
-               "        {\n" +
-               "            nNumber = nStackSize - nNumber;\n" +
-               "            SetItemStackSize(oItem, nNumber);\n" +
-               "        }\n" +
-               "        else if(nNumber > nStackSize || nNumber == nStackSize)\n" +
-               "        {\n" +
-               "            DestroyObject(oItem);\n" +
-               "        }\n" +
-               "    }\n" +
-               "}";
-         code = replaceFunctionBody(code, Pattern.compile("(?m)^\\s*(int|void)\\s+(sub2|UT_RemoveComputerSpikes)\\s*\\([^)]*\\)"), remove);
-
-         String setplot =
-               "void UT_SetPlotBooleanFlag(object oTarget, int nIndex, int nState)\n" +
-               "{\n" +
-               "    int nLevel = GetHitDice(GetFirstPC());\n" +
-               "    if(nState == TRUE)\n" +
-               "    {\n" +
-               "        if(nIndex == SW_PLOT_COMPUTER_OPEN_DOORS ||\n" +
-               "           nIndex == SW_PLOT_REPAIR_WEAPONS ||\n" +
-               "           nIndex == SW_PLOT_REPAIR_TARGETING_COMPUTER ||\n" +
-               "           nIndex == SW_PLOT_REPAIR_SHIELDS)\n" +
-               "        {\n" +
-               "            GiveXPToCreature(GetFirstPC(), nLevel * 15);\n" +
-               "        }\n" +
-               "        else if(nIndex == SW_PLOT_COMPUTER_USE_GAS || nIndex == SW_PLOT_REPAIR_ACTIVATE_PATROL_ROUTE || nIndex == SW_PLOT_COMPUTER_MODIFY_DROID)\n" +
-               "        {\n" +
-               "            GiveXPToCreature(GetFirstPC(), nLevel * 20);\n" +
-               "        }\n" +
-               "        else if(nIndex == SW_PLOT_COMPUTER_DEACTIVATE_TURRETS ||\n" +
-               "                nIndex == SW_PLOT_COMPUTER_DEACTIVATE_DROIDS)\n" +
-               "        {\n" +
-               "            GiveXPToCreature(GetFirstPC(), nLevel * 10);\n" +
-               "        }\n" +
-               "    }\n" +
-               "    if(nIndex >= 0 && nIndex <= 19 && GetIsObjectValid(oTarget))\n" +
-               "    {\n" +
-               "        if(nState == TRUE || nState == FALSE)\n" +
-               "        {\n" +
-               "            SetLocalBoolean(oTarget, nIndex, nState);\n" +
-               "        }\n" +
-               "    }\n" +
-               "}";
-         code = replaceFunctionBody(code, Pattern.compile("(?m)^\\s*(int|void)\\s+(sub3|UT_SetPlotBooleanFlag)\\s*\\([^)]*\\)"), setplot);
-
-         String makeneutral =
-               "void UT_MakeNeutral(string sObjectTag)\n" +
-               "{\n" +
-               "    effect eStun = EffectDroidStun();\n" +
-               "    int nCount = 1;\n" +
-               "    object oDroid = GetNearestObjectByTag(sObjectTag);\n" +
-               "    while(GetIsObjectValid(oDroid))\n" +
-               "    {\n" +
-               "        ApplyEffectToObject(DURATION_TYPE_PERMANENT, eStun, oDroid);\n" +
-               "        nCount++;\n" +
-               "        oDroid = GetNearestObjectByTag(sObjectTag, OBJECT_SELF, nCount);\n" +
-               "    }\n" +
-               "}";
-         code = replaceFunctionBody(code, Pattern.compile("(?m)^\\s*(int|void)\\s+(sub4|UT_MakeNeutral)\\s*\\([^)]*\\)"), makeneutral);
-
-         String main =
-               "void main()\n" +
-               "{\n" +
-               "    int nAmount = UT_DeterminesItemCost(8, SKILL_COMPUTER_USE);\n" +
-               "    UT_RemoveComputerSpikes(nAmount);\n" +
-               "    UT_SetPlotBooleanFlag(GetModule(), SW_PLOT_COMPUTER_DEACTIVATE_TURRETS, TRUE);\n" +
-               "    UT_MakeNeutral(\"k_TestTurret\");\n" +
-               "}";
-         code = replaceFunctionBody(code, Pattern.compile("(?m)^\\s*void\\s+main\\s*\\([^)]*\\)"), main);
-
-         return code;
+         return canonical;
       }
 
       /**
