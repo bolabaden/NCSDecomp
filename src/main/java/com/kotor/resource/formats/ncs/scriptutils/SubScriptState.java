@@ -1072,16 +1072,20 @@ public class SubScriptState {
                break;
             }
             if (AVarDecl.class.isInstance(anode)) {
-               if (((AVarDecl) anode).isFcnReturn() && ((AVarDecl) anode).exp() != null) {
+               AVarDecl vardecl = (AVarDecl) anode;
+               if (vardecl.isFcnReturn() && vardecl.exp() != null) {
                   // Function return value - extract the expression
-                  AExpression exp = ((AVarDecl) anode).exp();
+                  // The AVarDecl has already been removed from children, so we just extract the expression
+                  AExpression exp = vardecl.exp();
+                  // Clear the parent relationship since we're extracting it
+                  ((ScriptNode) exp).parent(null);
                   for (int i = trailingErrors.size() - 1; i >= 0; i--) {
                      this.current.addChild(trailingErrors.get(i));
                   }
                   return exp;
-               } else if (!forceOneOnly && ((AVarDecl) anode).exp() != null) {
+               } else if (!forceOneOnly && vardecl.exp() != null) {
                   // Regular variable declaration with initializer
-                  AExpression exp = ((AVarDecl) anode).removeExp();
+                  AExpression exp = vardecl.removeExp();
                   for (int i = trailingErrors.size() - 1; i >= 0; i--) {
                      this.current.addChild(trailingErrors.get(i));
                   }
