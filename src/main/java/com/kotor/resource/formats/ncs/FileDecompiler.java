@@ -768,12 +768,12 @@ public class FileDecompiler {
     * 2. tools/ directory - all 3 filenames
     * 3. Current working directory - all 3 filenames
     * 4. NCSDecomp installation directory - all 3 filenames
-    * 
+    *
     * Filenames tried in order: nwnnsscomp.exe, nwnnsscomp_kscript.exe, nwnnsscomp_tslpatcher.exe
     */
    private File getCompilerFile() {
       String[] compilerNames = {"nwnnsscomp.exe", "nwnnsscomp_kscript.exe", "nwnnsscomp_tslpatcher.exe"};
-      
+
       // 1. Try configured path (if set) - all 3 filenames
       if (nwnnsscompPath != null && !nwnnsscompPath.trim().isEmpty()) {
          File configuredDir = new File(nwnnsscompPath);

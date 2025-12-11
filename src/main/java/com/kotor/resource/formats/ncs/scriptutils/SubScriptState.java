@@ -220,6 +220,13 @@ public class SubScriptState {
    }
 
    public Vector<Variable> getVariables() {
+      // #region agent log
+      try {
+         java.nio.file.Files.write(java.nio.file.Paths.get("g:\\GitHub\\HoloPatcher.NET\\vendor\\DeNCS\\.cursor\\debug.log"),
+            (java.nio.charset.StandardCharsets.UTF_8.encode("{\"id\":\"log_" + System.currentTimeMillis() + "_getvars\",\"timestamp\":" + System.currentTimeMillis() + ",\"location\":\"SubScriptState.java:222\",\"message\":\"getVariables called\",\"data\":{\"subroutine\":\"" + (this.root != null ? this.root.name() : "null") + "\",\"vardecsSize\":" + (this.vardecs != null ? this.vardecs.size() : 0) + "},\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"B\"}\n").array()),
+            java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
+      } catch (Exception e) {}
+      // #endregion
       Vector<Variable> vars = new Vector<>(this.vardecs.keySet());
       TreeSet<VarStruct> varstructs = new TreeSet<>();
       Iterator<Variable> it = vars.iterator();
@@ -233,7 +240,32 @@ public class SubScriptState {
       }
 
       vars.addAll(varstructs);
-      vars.addAll(this.root.getParamVars());
+      java.util.ArrayList<Variable> paramVars = this.root.getParamVars();
+      // #region agent log
+      try {
+         int placeholderCount = 0;
+         if (paramVars != null) {
+            for (Variable v : paramVars) {
+               if (v.toString().contains("__unknown_param_")) placeholderCount++;
+            }
+         }
+         java.nio.file.Files.write(java.nio.file.Paths.get("g:\\GitHub\\HoloPatcher.NET\\vendor\\DeNCS\\.cursor\\debug.log"),
+            (java.nio.charset.StandardCharsets.UTF_8.encode("{\"id\":\"log_" + System.currentTimeMillis() + "_params\",\"timestamp\":" + System.currentTimeMillis() + ",\"location\":\"SubScriptState.java:236\",\"message\":\"paramVars retrieved\",\"data\":{\"paramCount\":" + (paramVars != null ? paramVars.size() : 0) + ",\"placeholderCount\":" + placeholderCount + "},\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"B\"}\n").array()),
+            java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
+      } catch (Exception e) {}
+      // #endregion
+      vars.addAll(paramVars);
+      // #region agent log
+      try {
+         int totalPlaceholders = 0;
+         for (Variable v : vars) {
+            if (v.toString().contains("__unknown_param_")) totalPlaceholders++;
+         }
+         java.nio.file.Files.write(java.nio.file.Paths.get("g:\\GitHub\\HoloPatcher.NET\\vendor\\DeNCS\\.cursor\\debug.log"),
+            (java.nio.charset.StandardCharsets.UTF_8.encode("{\"id\":\"log_" + System.currentTimeMillis() + "_final\",\"timestamp\":" + System.currentTimeMillis() + ",\"location\":\"SubScriptState.java:237\",\"message\":\"getVariables returning\",\"data\":{\"totalVars\":" + vars.size() + ",\"totalPlaceholders\":" + totalPlaceholders + "},\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"B\"}\n").array()),
+            java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
+      } catch (Exception e) {}
+      // #endregion
       return vars;
    }
 
@@ -1310,9 +1342,23 @@ public class SubScriptState {
    }
 
    private AVarRef buildPlaceholderParam(int ordinal) {
+      // #region agent log
+      try {
+         java.nio.file.Files.write(java.nio.file.Paths.get("g:\\GitHub\\HoloPatcher.NET\\vendor\\DeNCS\\.cursor\\debug.log"),
+            (java.nio.charset.StandardCharsets.UTF_8.encode("{\"id\":\"log_" + System.currentTimeMillis() + "_" + ordinal + "\",\"timestamp\":" + System.currentTimeMillis() + ",\"location\":\"SubScriptState.java:1312\",\"message\":\"buildPlaceholderParam called\",\"data\":{\"ordinal\":" + ordinal + ",\"subroutine\":\"" + (this.root != null ? this.root.name() : "null") + "\"},\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"A\"}\n").array()),
+            java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
+      } catch (Exception e) {}
+      // #endregion
       Variable placeholder = new Variable(new Type((byte)-1));
       placeholder.name("__unknown_param_" + ordinal);
       placeholder.isParam(true);
+      // #region agent log
+      try {
+         java.nio.file.Files.write(java.nio.file.Paths.get("g:\\GitHub\\HoloPatcher.NET\\vendor\\DeNCS\\.cursor\\debug.log"),
+            (java.nio.charset.StandardCharsets.UTF_8.encode("{\"id\":\"log_" + System.currentTimeMillis() + "_" + ordinal + "_2\",\"timestamp\":" + System.currentTimeMillis() + ",\"location\":\"SubScriptState.java:1316\",\"message\":\"placeholder created\",\"data\":{\"ordinal\":" + ordinal + ",\"isParam\":" + placeholder.isParam() + ",\"type\":\"" + placeholder.type() + "\"},\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"A\"}\n").array()),
+            java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
+      } catch (Exception e) {}
+      // #endregion
       return new AVarRef(placeholder);
    }
 

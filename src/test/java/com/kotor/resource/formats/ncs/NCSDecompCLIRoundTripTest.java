@@ -2354,28 +2354,41 @@ public class NCSDecompCLIRoundTripTest {
       // IMPORTANT: Apply patterns in order from most specific to least specific to avoid conflicts
 
       // Pattern 1: function() { + line break + tabs + extra {
+      // CRITICAL: We must capture the function signature, opening brace, line break, and indentation
+      // Then replace the extra { with just the indentation, preserving everything after
       java.util.regex.Pattern funcWithExtraBlock = java.util.regex.Pattern.compile(
             "(\\w+\\s+\\w+\\s*\\([^)]*\\)\\s*\\{\\s*\\R)([\\t]+)\\{\\s*",
             java.util.regex.Pattern.MULTILINE);
+      String beforePattern1 = result;
       result = funcWithExtraBlock.matcher(result).replaceAll("$1$2");
+      boolean pattern1Matched = !result.equals(beforePattern1);
 
       // Pattern 2: function() { + explicit \\n + tabs + extra {
-      java.util.regex.Pattern funcWithExtraBlockNewline = java.util.regex.Pattern.compile(
-            "(\\w+\\s+\\w+\\s*\\([^)]*\\)\\s*\\{\\s*\\n)([\\t]+)\\{\\s*",
-            java.util.regex.Pattern.MULTILINE);
-      result = funcWithExtraBlockNewline.matcher(result).replaceAll("$1$2");
+      // Only apply if pattern 1 didn't match
+      if (!pattern1Matched) {
+         java.util.regex.Pattern funcWithExtraBlockNewline = java.util.regex.Pattern.compile(
+               "(\\w+\\s+\\w+\\s*\\([^)]*\\)\\s*\\{\\s*\\n)([\\t]+)\\{\\s*",
+               java.util.regex.Pattern.MULTILINE);
+         String beforePattern2 = result;
+         result = funcWithExtraBlockNewline.matcher(result).replaceAll("$1$2");
+         pattern1Matched = !result.equals(beforePattern2);
+      }
 
       // Pattern 3: function() { + line break + spaces + extra {
-      java.util.regex.Pattern funcWithExtraBlockSpaces = java.util.regex.Pattern.compile(
-            "(\\w+\\s+\\w+\\s*\\([^)]*\\)\\s*\\{\\s*\\R)([ ]+)\\{\\s*",
-            java.util.regex.Pattern.MULTILINE);
-      result = funcWithExtraBlockSpaces.matcher(result).replaceAll("$1$2");
+      // Only apply if previous patterns didn't match
+      if (!pattern1Matched) {
+         java.util.regex.Pattern funcWithExtraBlockSpaces = java.util.regex.Pattern.compile(
+               "(\\w+\\s+\\w+\\s*\\([^)]*\\)\\s*\\{\\s*\\R)([ ]+)\\{\\s*",
+               java.util.regex.Pattern.MULTILINE);
+         String beforePattern3 = result;
+         result = funcWithExtraBlockSpaces.matcher(result).replaceAll("$1$2");
+         pattern1Matched = !result.equals(beforePattern3);
+      }
 
       // Pattern 4: function() { + line break + optional tabs/spaces + extra {
       // This is a fallback pattern that should match if the above don't
       // CRITICAL: Only apply this if the previous patterns didn't match (to avoid double-processing)
-      // We check if the result still contains the pattern before applying
-      if (result.contains("{\n\t{") || result.contains("{\r\n\t{")) {
+      if (!pattern1Matched && (result.contains("{\n\t{") || result.contains("{\r\n\t{"))) {
          java.util.regex.Pattern funcWithExtraBlockMixed = java.util.regex.Pattern.compile(
                "(\\w+\\s+\\w+\\s*\\([^)]*\\)\\s*\\{\\s*\\R)([\\t ]*)\\{\\s*",
                java.util.regex.Pattern.MULTILINE);
