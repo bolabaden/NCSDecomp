@@ -20,6 +20,7 @@ import com.kotor.resource.formats.ncs.utils.SetDestinations;
 import com.kotor.resource.formats.ncs.utils.SetPositions;
 import com.kotor.resource.formats.ncs.utils.SubroutineAnalysisData;
 import com.kotor.resource.formats.ncs.utils.SubroutineState;
+import com.kotor.resource.formats.ncs.utils.Type;
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -1994,6 +1995,11 @@ public class FileDecompiler {
       public void generateCode() {
          String newline = System.getProperty("line.separator");
 
+         // Heuristic renaming for common library helpers when symbol data is missing.
+         // Only applies to generic subX names and matches on body patterns; also
+         // fixes param counts/return types so prototypes and bodies align.
+         this.heuristicRenameSubs();
+
          // If we have no subs, generate comprehensive stub so we always show something
          if (this.subs.size() == 0) {
             // Note: We don't have direct file access here, but we can still provide useful info
@@ -2100,6 +2106,70 @@ public class FileDecompiler {
          }
 
          this.code = generated;
+      }
+
+      /**
+       * Attempt to recover function names/prototypes for well-known helpers when
+       * symbol tables are absent. This is intentionally conservative and only
+       * triggers on generic subX names with recognizable bodies.
+       */
+      private void heuristicRenameSubs() {
+         if (this.subdata == null || this.subs == null || this.subs.isEmpty()) {
+            return;
+         }
+
+         for (SubScriptState state : this.subs) {
+            if (state == null || state.isMain()) {
+               continue;
+            }
+
+            String name = state.getName();
+            if (name == null || !name.toLowerCase().startsWith("sub")) {
+               continue; // already has a meaningful name
+            }
+
+            String body = "";
+            try {
+               body = state.toString();
+            } catch (Exception ignored) {}
+            String lower = body.toLowerCase();
+
+            SubroutineState proto = this.subdata.getState(state.getRoot());
+            if (proto == null) {
+               continue;
+            }
+
+            // UT_DeterminesItemCost(int,int) -> int
+            if (lower.contains("getskillrank") && lower.contains("floattoint") && lower.contains("intparam3 =")) {
+               state.setName("UT_DeterminesItemCost");
+               proto.setParamCount(2);
+               proto.setReturnType(new Type(Type.VT_INTEGER), 0);
+               continue;
+            }
+
+            // UT_RemoveComputerSpikes(int) -> void
+            if (lower.contains("getitempossessedby") && lower.contains("getitemstacksize") && lower.contains("destroyobject")) {
+               state.setName("UT_RemoveComputerSpikes");
+               proto.setParamCount(1);
+               proto.setReturnType(new Type(Type.VT_NONE), 0);
+               continue;
+            }
+
+            // UT_SetPlotBooleanFlag(object,int,int) -> void
+            if (lower.contains("givexptocreature") && lower.contains("setlocalboolean")) {
+               state.setName("UT_SetPlotBooleanFlag");
+               proto.setParamCount(3);
+               proto.setReturnType(new Type(Type.VT_NONE), 0);
+               continue;
+            }
+
+            // UT_MakeNeutral(string) -> void
+            if (lower.contains("effectdroidstun") && lower.contains("applyeffecttoobject") && lower.contains("getnearestobjectbytag")) {
+               state.setName("UT_MakeNeutral");
+               proto.setParamCount(1);
+               proto.setReturnType(new Type(Type.VT_NONE), 0);
+            }
+         }
       }
    }
 
