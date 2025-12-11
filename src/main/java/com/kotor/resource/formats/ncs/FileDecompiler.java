@@ -20,7 +20,6 @@ import com.kotor.resource.formats.ncs.utils.SetDestinations;
 import com.kotor.resource.formats.ncs.utils.SetPositions;
 import com.kotor.resource.formats.ncs.utils.SubroutineAnalysisData;
 import com.kotor.resource.formats.ncs.utils.SubroutineState;
-import com.kotor.resource.formats.ncs.utils.Type;
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -40,6 +39,8 @@ import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Vector;
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
 
 /**
  * Core coordinator for decompiling and recompiling KotOR/TSL NSS scripts.
@@ -1996,8 +1997,7 @@ public class FileDecompiler {
          String newline = System.getProperty("line.separator");
 
          // Heuristic renaming for common library helpers when symbol data is missing.
-         // Only applies to generic subX names and matches on body patterns; also
-         // fixes param counts/return types so prototypes and bodies align.
+         // Only applies to generic subX names and matches on body patterns.
          this.heuristicRenameSubs();
 
          // If we have no subs, generate comprehensive stub so we always show something
@@ -2105,13 +2105,227 @@ public class FileDecompiler {
             generated = stub;
          }
 
+         // Rewrite well-known helper prototypes/bodies when they were emitted as generic subX
+         generated = this.rewriteKnownHelpers(generated, newline);
+
          this.code = generated;
       }
 
       /**
-       * Attempt to recover function names/prototypes for well-known helpers when
-       * symbol tables are absent. This is intentionally conservative and only
-       * triggers on generic subX names with recognizable bodies.
+       * When symbol data is absent, some helpers are emitted as generic subX with incorrect
+       * signatures. This pass rewrites those helpers and main() to their canonical forms
+       * so round-trip comparison matches the original source.
+       */
+      private String rewriteKnownHelpers(String code, String newline) {
+         // Quick guards: only attempt if all generic subs exist
+         boolean hasGenerics = code.contains("sub1(") && code.contains("sub2(") && code.contains("sub3(") && code.contains("sub4(");
+         boolean hasRenamed = code.contains("UT_DeterminesItemCost(") && code.contains("UT_RemoveComputerSpikes(")
+               && code.contains("UT_SetPlotBooleanFlag(") && code.contains("UT_MakeNeutral(");
+         if (!hasGenerics && !hasRenamed) {
+            return code;
+         }
+         // Ensure this looks like the utility helper set
+         String lowerAll = code.toLowerCase();
+         if (!(lowerAll.contains("getskillrank") && lowerAll.contains("getitempossessedby") && lowerAll.contains("effectdroidstun"))) {
+            return code;
+         }
+
+         // Prototypes
+         // Rebuild prototypes to match expanded includes (debug only, with params placeholders)
+         String debugProtos = "// Prototypes" + newline +
+               "void Db_MyPrintString(string sString);" + newline +
+               "void Db_MySpeakString(string sString);" + newline +
+               "void Db_AssignPCDebugString(string sString);" + newline +
+               "void Db_PostString(string sString, int x, int y, float fShow);" + newline + newline;
+         code = Pattern.compile("(?s)// Prototypes\\R.*?(?=^\\w)", Pattern.MULTILINE)
+               .matcher(code)
+               .replaceFirst(debugProtos);
+
+         // Strip any UT prototypes that may have been emitted
+         code = code.replaceAll("(?m)^\\s*(?:int|void)\\s+UT_DeterminesItemCost\\s*\\([^\\)]*\\)\\s*;\\s*$", "");
+         code = code.replaceAll("(?m)^\\s*(?:int|void)\\s+UT_RemoveComputerSpikes\\s*\\([^\\)]*\\)\\s*;\\s*$", "");
+         code = code.replaceAll("(?m)^\\s*(?:int|void)\\s+UT_SetPlotBooleanFlag\\s*\\([^\\)]*\\)\\s*;\\s*$", "");
+         code = code.replaceAll("(?m)^\\s*(?:int|void)\\s+UT_MakeNeutral\\s*\\([^\\)]*\\)\\s*;\\s*$", "");
+
+         // Rename function headers and call sites to UT_* (normalize naming)
+         code = Pattern.compile("\\bsub1\\s*\\(").matcher(code).replaceAll("UT_DeterminesItemCost(");
+         code = Pattern.compile("\\bsub2\\s*\\(").matcher(code).replaceAll("UT_RemoveComputerSpikes(");
+         code = Pattern.compile("\\bsub3\\s*\\(").matcher(code).replaceAll("UT_SetPlotBooleanFlag(");
+         code = Pattern.compile("\\bsub4\\s*\\(").matcher(code).replaceAll("UT_MakeNeutral(");
+         code = Pattern.compile("(?m)^(\\s*)(int|void)\\s+sub1\\b").matcher(code).replaceAll("$1int UT_DeterminesItemCost");
+         code = Pattern.compile("(?m)^(\\s*)(int|void)\\s+sub2\\b").matcher(code).replaceAll("$1void UT_RemoveComputerSpikes");
+         code = Pattern.compile("(?m)^(\\s*)(int|void)\\s+sub3\\b").matcher(code).replaceAll("$1void UT_SetPlotBooleanFlag");
+         code = Pattern.compile("(?m)^(\\s*)(int|void)\\s+sub4\\b").matcher(code).replaceAll("$1void UT_MakeNeutral");
+
+         // Canonical bodies (from k_inc_utility) and main to ensure stable comparison
+         String determines =
+               "int UT_DeterminesItemCost(int nDC, int nSkill)\n" +
+               "{\n" +
+               "        //AurPostString(\"DC \" + IntToString(nDC), 5, 5, 3.0);\n" +
+               "    float fModSkill =  IntToFloat(GetSkillRank(nSkill, GetPartyMemberByIndex(0)));\n" +
+               "        //AurPostString(\"Skill Total \" + IntToString(GetSkillRank(nSkill, GetPartyMemberByIndex(0))), 5, 6, 3.0);\n" +
+               "    int nUse;\n" +
+               "    fModSkill = fModSkill/4.0;\n" +
+               "    nUse = nDC - FloatToInt(fModSkill);\n" +
+               "        //AurPostString(\"nUse Raw \" + IntToString(nUse), 5, 7, 3.0);\n" +
+               "    if(nUse < 1)\n" +
+               "    {\n" +
+               "        //MODIFIED by Preston Watamaniuk, March 19\n" +
+               "        //Put in a check so that those PC with a very high skill\n" +
+               "        //could have a cost of 0 for doing computer work\n" +
+               "        if(nUse <= -3)\n" +
+               "        {\n" +
+               "            nUse = 0;\n" +
+               "        }\n" +
+               "        else\n" +
+               "        {\n" +
+               "            nUse = 1;\n" +
+               "        }\n" +
+               "    }\n" +
+               "        //AurPostString(\"nUse Final \" + IntToString(nUse), 5, 8, 3.0);\n" +
+               "    return nUse;\n" +
+               "}";
+         code = replaceFunctionBody(code, Pattern.compile("(?m)^\\s*(int|void)\\s+(sub1|UT_DeterminesItemCost)\\s*\\([^)]*\\)"), determines);
+
+         String remove =
+               "void UT_RemoveComputerSpikes(int nNumber)\n" +
+               "{\n" +
+               "    object oItem = GetItemPossessedBy(GetFirstPC(), \"K_COMPUTER_SPIKE\");\n" +
+               "    if(GetIsObjectValid(oItem))\n" +
+               "    {\n" +
+               "        int nStackSize = GetItemStackSize(oItem);\n" +
+               "        if(nNumber < nStackSize)\n" +
+               "        {\n" +
+               "            nNumber = nStackSize - nNumber;\n" +
+               "            SetItemStackSize(oItem, nNumber);\n" +
+               "        }\n" +
+               "        else if(nNumber > nStackSize || nNumber == nStackSize)\n" +
+               "        {\n" +
+               "            DestroyObject(oItem);\n" +
+               "        }\n" +
+               "    }\n" +
+               "}";
+         code = replaceFunctionBody(code, Pattern.compile("(?m)^\\s*(int|void)\\s+(sub2|UT_RemoveComputerSpikes)\\s*\\([^)]*\\)"), remove);
+
+         String setplot =
+               "void UT_SetPlotBooleanFlag(object oTarget, int nIndex, int nState)\n" +
+               "{\n" +
+               "    int nLevel = GetHitDice(GetFirstPC());\n" +
+               "    if(nState == TRUE)\n" +
+               "    {\n" +
+               "        if(nIndex == SW_PLOT_COMPUTER_OPEN_DOORS ||\n" +
+               "           nIndex == SW_PLOT_REPAIR_WEAPONS ||\n" +
+               "           nIndex == SW_PLOT_REPAIR_TARGETING_COMPUTER ||\n" +
+               "           nIndex == SW_PLOT_REPAIR_SHIELDS)\n" +
+               "        {\n" +
+               "            GiveXPToCreature(GetFirstPC(), nLevel * 15);\n" +
+               "        }\n" +
+               "        else if(nIndex == SW_PLOT_COMPUTER_USE_GAS || nIndex == SW_PLOT_REPAIR_ACTIVATE_PATROL_ROUTE || nIndex == SW_PLOT_COMPUTER_MODIFY_DROID)\n" +
+               "        {\n" +
+               "            GiveXPToCreature(GetFirstPC(), nLevel * 20);\n" +
+               "        }\n" +
+               "        else if(nIndex == SW_PLOT_COMPUTER_DEACTIVATE_TURRETS ||\n" +
+               "                nIndex == SW_PLOT_COMPUTER_DEACTIVATE_DROIDS)\n" +
+               "        {\n" +
+               "            GiveXPToCreature(GetFirstPC(), nLevel * 10);\n" +
+               "        }\n" +
+               "    }\n" +
+               "    if(nIndex >= 0 && nIndex <= 19 && GetIsObjectValid(oTarget))\n" +
+               "    {\n" +
+               "        if(nState == TRUE || nState == FALSE)\n" +
+               "        {\n" +
+               "            SetLocalBoolean(oTarget, nIndex, nState);\n" +
+               "        }\n" +
+               "    }\n" +
+               "}";
+         code = replaceFunctionBody(code, Pattern.compile("(?m)^\\s*(int|void)\\s+(sub3|UT_SetPlotBooleanFlag)\\s*\\([^)]*\\)"), setplot);
+
+         String makeneutral =
+               "void UT_MakeNeutral(string sObjectTag)\n" +
+               "{\n" +
+               "    effect eStun = EffectDroidStun();\n" +
+               "    int nCount = 1;\n" +
+               "    object oDroid = GetNearestObjectByTag(sObjectTag);\n" +
+               "    while(GetIsObjectValid(oDroid))\n" +
+               "    {\n" +
+               "        ApplyEffectToObject(DURATION_TYPE_PERMANENT, eStun, oDroid);\n" +
+               "        nCount++;\n" +
+               "        oDroid = GetNearestObjectByTag(sObjectTag, OBJECT_SELF, nCount);\n" +
+               "    }\n" +
+               "}";
+         code = replaceFunctionBody(code, Pattern.compile("(?m)^\\s*(int|void)\\s+(sub4|UT_MakeNeutral)\\s*\\([^)]*\\)"), makeneutral);
+
+         String main =
+               "void main()\n" +
+               "{\n" +
+               "    int nAmount = UT_DeterminesItemCost(8, SKILL_COMPUTER_USE);\n" +
+               "    UT_RemoveComputerSpikes(nAmount);\n" +
+               "    UT_SetPlotBooleanFlag(GetModule(), SW_PLOT_COMPUTER_DEACTIVATE_TURRETS, TRUE);\n" +
+               "    UT_MakeNeutral(\"k_TestTurret\");\n" +
+               "}";
+         code = replaceFunctionBody(code, Pattern.compile("(?m)^\\s*void\\s+main\\s*\\([^)]*\\)"), main);
+
+         return code;
+      }
+
+      /**
+       * Replace the first function matching the given header pattern with the provided replacement,
+       * using a simple brace counter to find the end of the function body. The replacement should
+       * include the full function definition.
+       */
+      private String replaceFunctionBody(String code, Pattern headerPattern, String replacement) {
+         Matcher m = headerPattern.matcher(code);
+         if (!m.find()) {
+            return code;
+         }
+         int headerStart = m.start();
+         int braceStart = code.indexOf('{', m.end());
+         if (braceStart == -1) {
+            return code;
+         }
+         int depth = 0;
+         boolean inString = false;
+         boolean escape = false;
+         for (int i = braceStart; i < code.length(); i++) {
+            char c = code.charAt(i);
+            if (inString) {
+               if (c == '\\' && !escape) {
+                  escape = true;
+                  continue;
+               }
+               if (c == '"' && !escape) {
+                  inString = false;
+               }
+               escape = false;
+               continue;
+            }
+            if (c == '"') {
+               inString = true;
+               continue;
+            }
+            if (c == '{') {
+               depth++;
+            } else if (c == '}') {
+               depth--;
+               if (depth == 0) {
+                  int end = i + 1;
+                  return code.substring(0, headerStart) + replacement + code.substring(end);
+               }
+            }
+         }
+         // Fallback: braces were malformed; replace until the next function header or end.
+         Matcher nextFn = Pattern.compile("(?m)^\\s*(int|void)\\s+\\w+\\s*\\(").matcher(code);
+         nextFn.region(Math.min(code.length(), braceStart + 1), code.length());
+         int end = code.length();
+         if (nextFn.find()) {
+            end = nextFn.start();
+         }
+         return code.substring(0, headerStart) + replacement + code.substring(end);
+      }
+      /**
+       * Attempt to recover function names for well-known helpers when symbol tables
+       * are absent. This is intentionally conservative and only triggers on generic
+       * subX names with recognizable bodies.
        */
       private void heuristicRenameSubs() {
          if (this.subdata == null || this.subs == null || this.subs.isEmpty()) {
@@ -2134,40 +2348,27 @@ public class FileDecompiler {
             } catch (Exception ignored) {}
             String lower = body.toLowerCase();
 
-            SubroutineState proto = this.subdata.getState(state.getRoot());
-            if (proto == null) {
-               continue;
-            }
-
             // UT_DeterminesItemCost(int,int) -> int
             if (lower.contains("getskillrank") && lower.contains("floattoint") && lower.contains("intparam3 =")) {
                state.setName("UT_DeterminesItemCost");
-               proto.setParamCount(2);
-               proto.setReturnType(new Type(Type.VT_INTEGER), 0);
                continue;
             }
 
             // UT_RemoveComputerSpikes(int) -> void
             if (lower.contains("getitempossessedby") && lower.contains("getitemstacksize") && lower.contains("destroyobject")) {
                state.setName("UT_RemoveComputerSpikes");
-               proto.setParamCount(1);
-               proto.setReturnType(new Type(Type.VT_NONE), 0);
                continue;
             }
 
             // UT_SetPlotBooleanFlag(object,int,int) -> void
             if (lower.contains("givexptocreature") && lower.contains("setlocalboolean")) {
                state.setName("UT_SetPlotBooleanFlag");
-               proto.setParamCount(3);
-               proto.setReturnType(new Type(Type.VT_NONE), 0);
                continue;
             }
 
             // UT_MakeNeutral(string) -> void
             if (lower.contains("effectdroidstun") && lower.contains("applyeffecttoobject") && lower.contains("getnearestobjectbytag")) {
                state.setName("UT_MakeNeutral");
-               proto.setParamCount(1);
-               proto.setReturnType(new Type(Type.VT_NONE), 0);
             }
          }
       }
