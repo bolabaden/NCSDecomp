@@ -2344,25 +2344,34 @@ public class NCSDecompCLIRoundTripTest {
       // Use explicit \\n and be very specific about matching tabs
       // IMPORTANT: The pattern must NOT consume any content after the extra { - we use \\s* to match
       // only whitespace, not the actual declaration line
-      // Try matching with \\R first (any line break), then fallback to explicit \\n
+      // CRITICAL: Match function signature + opening brace + line break + indentation + extra {
+      // and replace with function signature + opening brace + line break + indentation
+      // This preserves ALL content after, including the declaration line
+      // The structure is: function() { + line break + tab + { + line break + tab+tab + declaration
+      // We need to match: function() { + line break + tab + { and replace with: function() { + line break + tab
+      // This preserves the declaration line that comes after
+      // Try multiple patterns to handle different line break and whitespace scenarios
+      // IMPORTANT: Apply patterns in order from most specific to least specific to avoid conflicts
+      
+      // Pattern 1: function() { + line break + tabs + extra {
       java.util.regex.Pattern funcWithExtraBlock = java.util.regex.Pattern.compile(
             "(\\w+\\s+\\w+\\s*\\([^)]*\\)\\s*\\{\\s*\\R)([\\t]+)\\{\\s*",
             java.util.regex.Pattern.MULTILINE);
       result = funcWithExtraBlock.matcher(result).replaceAll("$1$2");
 
-      // Also handle case with explicit \\n
+      // Pattern 2: function() { + explicit \\n + tabs + extra {
       java.util.regex.Pattern funcWithExtraBlockNewline = java.util.regex.Pattern.compile(
             "(\\w+\\s+\\w+\\s*\\([^)]*\\)\\s*\\{\\s*\\n)([\\t]+)\\{\\s*",
             java.util.regex.Pattern.MULTILINE);
       result = funcWithExtraBlockNewline.matcher(result).replaceAll("$1$2");
 
-      // Also handle case with spaces instead of tabs
+      // Pattern 3: function() { + line break + spaces + extra {
       java.util.regex.Pattern funcWithExtraBlockSpaces = java.util.regex.Pattern.compile(
             "(\\w+\\s+\\w+\\s*\\([^)]*\\)\\s*\\{\\s*\\R)([ ]+)\\{\\s*",
             java.util.regex.Pattern.MULTILINE);
       result = funcWithExtraBlockSpaces.matcher(result).replaceAll("$1$2");
 
-      // Also handle case with mixed tabs/spaces or optional whitespace
+      // Pattern 4: function() { + line break + optional tabs/spaces + extra {
       // This is a fallback pattern that should match if the above don't
       java.util.regex.Pattern funcWithExtraBlockMixed = java.util.regex.Pattern.compile(
             "(\\w+\\s+\\w+\\s*\\([^)]*\\)\\s*\\{\\s*\\R)([\\t ]*)\\{\\s*",
