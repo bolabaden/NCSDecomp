@@ -326,7 +326,13 @@ public class SubScriptState {
                return;
             }
 
-            if (this.nodedata.getPos(dest) != this.current.getEnd() + 6) {
+            // Get the destination position and AIf end position
+            int destPos = this.nodedata.getPos(dest);
+            int aifEnd = this.current.getEnd();
+
+            // If the destination is exactly 6 bytes after the AIf's end, there's no else block
+            // Otherwise, there's an else block starting at AIf's end + 6
+            if (destPos != aifEnd + 6) {
                // Check if this AIf is inside an AElse (else-if chain)
                // If so, create the next AElse as a sibling of the parent AElse, not nested
                ScriptRootNode parent = (ScriptRootNode) this.current.parent();
@@ -572,6 +578,18 @@ public class SubScriptState {
                this.removeLastExp(false));
          this.current.addChild(aif);
          this.current = aif;
+      }
+
+      // Ensure AIf's end is up-to-date before checkEnd, in case it needs to check for else blocks
+      // The end might have been set in the constructor, but we should verify it's correct
+      if (AIf.class.isInstance(this.current)) {
+         Node destNode = this.nodedata.getDestination(node);
+         if (destNode != null) {
+            int expectedEnd = this.nodedata.getPos(destNode) - 6;
+            if (this.current.getEnd() != expectedEnd) {
+               ((AIf) this.current).end(expectedEnd);
+            }
+         }
       }
 
       this.checkEnd(node);
