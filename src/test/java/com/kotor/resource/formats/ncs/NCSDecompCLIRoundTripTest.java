@@ -85,6 +85,8 @@ public class NCSDecompCLIRoundTripTest {
    private static final Path TEST_WORK_DIR = Paths.get(".").toAbsolutePath().normalize()
          .resolve("test-work");
    private static final Path VANILLA_REPO_DIR = TEST_WORK_DIR.resolve("Vanilla_KOTOR_Script_Source");
+   // Resume file to track last failed test (allows resuming from failure point)
+   private static final Path RESUME_FILE = TEST_WORK_DIR.resolve(".test-resume");
    private static final java.util.List<String> VANILLA_REPO_URLS = java.util.Arrays.asList(
          "https://github.com/KOTORCommunityPatches/Vanilla_KOTOR_Script_Source.git",
          "https://github.com/th3w1zard1/Vanilla_KOTOR_Script_Source.git");
@@ -3439,22 +3441,37 @@ public class NCSDecompCLIRoundTripTest {
     * Entry point for running the round-trip suite.
     *
     * Usage:
-    *   java NCSDecompCLIRoundTripTest                    - Run all tests
+    *   java NCSDecompCLIRoundTripTest                    - Run all tests (with resume from last failure)
+    *   java NCSDecompCLIRoundTripTest --no-resume         - Run all tests from start (ignore resume file)
     *   java NCSDecompCLIRoundTripTest <filename>         - Test single file (e.g., "k_def_buff.nss")
     *   java NCSDecompCLIRoundTripTest <filename> <game>  - Test single file with game flag (k1/k2)
     */
    public static void main(String[] args) {
       NCSDecompCLIRoundTripTest runner = new NCSDecompCLIRoundTripTest();
       int exitCode;
+      boolean useResume = true;
 
       if (args.length > 0) {
-         // Single file test mode
-         String filename = args[0];
-         String gameFlag = args.length > 1 ? args[1] : "k1";
-         exitCode = runner.testSingleFile(filename, gameFlag);
+         if ("--no-resume".equals(args[0])) {
+            useResume = false;
+            if (args.length > 1) {
+               // Single file test mode with --no-resume
+               String filename = args[1];
+               String gameFlag = args.length > 2 ? args[2] : "k1";
+               exitCode = runner.testSingleFile(filename, gameFlag);
+            } else {
+               // Full suite with --no-resume
+               exitCode = runner.runRoundTripSuite(useResume);
+            }
+         } else {
+            // Single file test mode
+            String filename = args[0];
+            String gameFlag = args.length > 1 ? args[1] : "k1";
+            exitCode = runner.testSingleFile(filename, gameFlag);
+         }
       } else {
-         // Full suite
-         exitCode = runner.runRoundTripSuite();
+         // Full suite (with resume by default)
+         exitCode = runner.runRoundTripSuite(useResume);
       }
 
       if (exitCode != 0) {
@@ -3516,17 +3533,63 @@ public class NCSDecompCLIRoundTripTest {
     */
    @Test
    public void testRoundTripSuite() {
-      int exitCode = runRoundTripSuite();
+      int exitCode = runRoundTripSuite(false); // JUnit tests don't use resume
       assertEquals(0, exitCode, "Round-trip test suite should pass with exit code 0");
    }
 
    @Test
    public void testRoundTripBytecodeSuite() {
-      int exitCode = runRoundTripBytecodeSuite();
+      int exitCode = runRoundTripBytecodeSuite(false); // JUnit tests don't use resume
       assertEquals(0, exitCode, "Bytecode round-trip test suite should pass with exit code 0");
    }
 
+   /**
+    * Saves the resume point (test case identifier) to the resume file.
+    */
+   private static void saveResumePoint(String testIdentifier) {
+      try {
+         Files.createDirectories(RESUME_FILE.getParent());
+         Files.writeString(RESUME_FILE, testIdentifier, StandardCharsets.UTF_8);
+      } catch (IOException e) {
+         System.err.println("Warning: Could not save resume point: " + e.getMessage());
+      }
+   }
+
+   /**
+    * Loads the resume point from the resume file, or returns null if not found/invalid.
+    */
+   private static String loadResumePoint() {
+      try {
+         if (Files.exists(RESUME_FILE)) {
+            String content = Files.readString(RESUME_FILE, StandardCharsets.UTF_8).trim();
+            if (!content.isEmpty()) {
+               return content;
+            }
+         }
+      } catch (IOException e) {
+         // Ignore - resume file doesn't exist or can't be read
+      }
+      return null;
+   }
+
+   /**
+    * Clears the resume file (called when all tests pass).
+    */
+   private static void clearResumePoint() {
+      try {
+         if (Files.exists(RESUME_FILE)) {
+            Files.delete(RESUME_FILE);
+         }
+      } catch (IOException e) {
+         // Ignore - resume file doesn't exist or can't be deleted
+      }
+   }
+
    private int runRoundTripSuite() {
+      return runRoundTripSuite(true); // Default to using resume
+   }
+
+   private int runRoundTripSuite(boolean useResume) {
       resetPerformanceTracking();
       testStartTime = System.nanoTime();
 
@@ -3539,9 +3602,34 @@ public class NCSDecompCLIRoundTripTest {
             return 1;
          }
 
+         // Handle resume functionality
+         String resumePoint = useResume ? loadResumePoint() : null;
+         int startIndex = 0;
+         if (resumePoint != null) {
+            // Find the resume point in the test list
+            for (int i = 0; i < tests.size(); i++) {
+               Path relPath = VANILLA_REPO_DIR.relativize(tests.get(i).item.path);
+               String displayPath = relPath.toString().replace('\\', '/');
+               if (displayPath.equals(resumePoint) || tests.get(i).displayName.equals(resumePoint)) {
+                  startIndex = i;
+                  System.out.println("=== Resuming from last failure ===");
+                  System.out.println("Resume point: " + displayPath);
+                  System.out.println("Skipping " + i + " tests that already passed");
+                  System.out.println();
+                  break;
+               }
+            }
+         }
+
          System.out.println("=== Running Round-Trip Tests ===");
          System.out.println("Total tests: " + tests.size());
+         if (startIndex > 0) {
+            System.out.println("Starting from test: " + (startIndex + 1));
+         }
          System.out.println("Fast-fail: enabled (will stop on first failure)");
+         if (useResume) {
+            System.out.println("Resume: enabled (use --no-resume to start from beginning)");
+         }
          System.out.println();
 
          for (RoundTripCase testCase : tests) {
@@ -3597,6 +3685,16 @@ public class NCSDecompCLIRoundTripTest {
                }
                System.out.println();
 
+               // Save resume point for next run
+               if (useResume) {
+                  Path relPath = VANILLA_REPO_DIR.relativize(testCase.item.path);
+                  String displayPath = relPath.toString().replace('\\', '/');
+                  saveResumePoint(displayPath);
+                  System.out.println("Resume point saved. Next run will start from: " + displayPath);
+                  System.out.println("(Use --no-resume to start from beginning)");
+                  System.out.println();
+               }
+
                // Fast-fail: exit immediately on first failure
                printPerformanceSummary();
                return 1;
@@ -3612,6 +3710,11 @@ public class NCSDecompCLIRoundTripTest {
          System.out.println("Tests failed: 0");
          System.out.println();
 
+         // Clear resume point on success
+         if (useResume) {
+            clearResumePoint();
+         }
+
          printPerformanceSummary();
          return 0;
       } catch (Exception e) {
@@ -3623,6 +3726,10 @@ public class NCSDecompCLIRoundTripTest {
    }
 
    int runRoundTripBytecodeSuite() {
+      return runRoundTripBytecodeSuite(true); // Default to using resume
+   }
+
+   int runRoundTripBytecodeSuite(boolean useResume) {
       resetPerformanceTracking();
       testStartTime = System.nanoTime();
 
@@ -3635,9 +3742,34 @@ public class NCSDecompCLIRoundTripTest {
             return 1;
          }
 
+         // Handle resume functionality
+         String resumePoint = useResume ? loadResumePoint() : null;
+         int startIndex = 0;
+         if (resumePoint != null) {
+            // Find the resume point in the test list
+            for (int i = 0; i < tests.size(); i++) {
+               Path relPath = VANILLA_REPO_DIR.relativize(tests.get(i).item.path);
+               String displayPath = relPath.toString().replace('\\', '/');
+               if (displayPath.equals(resumePoint) || tests.get(i).displayName.equals(resumePoint)) {
+                  startIndex = i;
+                  System.out.println("=== Resuming from last failure ===");
+                  System.out.println("Resume point: " + displayPath);
+                  System.out.println("Skipping " + i + " tests that already passed");
+                  System.out.println();
+                  break;
+               }
+            }
+         }
+
          System.out.println("=== Running Bytecode Round-Trip Tests (NSS -> NCS -> NSS -> NCS) ===");
          System.out.println("Total tests: " + tests.size());
+         if (startIndex > 0) {
+            System.out.println("Starting from test: " + (startIndex + 1));
+         }
          System.out.println("Fast-fail: enabled (will stop on first failure)");
+         if (useResume) {
+            System.out.println("Resume: enabled (use --no-resume to start from beginning)");
+         }
          System.out.println();
 
          for (RoundTripCase testCase : tests) {
