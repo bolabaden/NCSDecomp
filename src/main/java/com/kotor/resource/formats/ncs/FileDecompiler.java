@@ -2405,10 +2405,12 @@ public class FileDecompiler {
          System.out.println(cmdStr.toString());
          System.out.println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
+         // Check if this is a TSLPatcher variant that needs the compatibility layer workaround
+         // Declare outside try block so it can be used in catch block for error messages
+         String exePath = args.length > 0 ? args[0] : "";
+         boolean isTslPatcher = exePath.toLowerCase().contains("tslpatcher");
+
          try {
-            // Check if this is a TSLPatcher variant that needs the compatibility layer workaround
-            String exePath = args.length > 0 ? args[0] : "";
-            boolean isTslPatcher = exePath.toLowerCase().contains("tslpatcher");
 
             ProcessBuilder pb = new ProcessBuilder(args);
 
@@ -2437,9 +2439,7 @@ public class FileDecompiler {
             String errorMsg = e.getMessage();
             boolean isElevationError = errorMsg != null && errorMsg.contains("error=740");
 
-            // Check if this is a TSLPatcher variant (already checked above, but check again for error message)
-            String exePath = args.length > 0 ? args[0] : "";
-            boolean isTslPatcher = exePath.toLowerCase().contains("tslpatcher");
+            // exePath and isTslPatcher are already declared above, available in catch block
 
             // If we still get elevation error after applying compatibility layer, it means the workaround didn't work
             // This could happen if the environment variable wasn't set correctly or Windows doesn't support it
