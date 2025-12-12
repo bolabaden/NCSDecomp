@@ -70,9 +70,6 @@ public class NWScriptSyntaxHighlighter {
    // Maximum text size for highlighting (500KB - prevents regex catastrophic backtracking on huge files)
    private static final int MAX_HIGHLIGHT_SIZE = 500000;
    
-   // Timeout for highlighting (5 seconds)
-   private static final long HIGHLIGHT_TIMEOUT_MS = 5000;
-
    /**
     * Applies syntax highlighting to a JTextPane.
     *

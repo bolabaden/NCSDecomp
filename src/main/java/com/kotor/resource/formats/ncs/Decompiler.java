@@ -1746,7 +1746,10 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
                            }
 
                            NwnnsscompConfig config = new NwnnsscompConfig(compiler, file, compiledNcs, isK2);
-                           String[] cmd = config.getCompileArgs(compiler.getAbsolutePath());
+                           // Include the source file's parent directory for relative #include resolution
+                           java.util.List<File> includeDirs = new java.util.ArrayList<>();
+                           includeDirs.add(file.getParentFile());
+                           String[] cmd = config.getCompileArgs(compiler.getAbsolutePath(), includeDirs);
 
                            System.err.println("DEBUG loadNssFile: Running compiler: " + java.util.Arrays.toString(cmd));
                            ProcessBuilder pb = new ProcessBuilder(cmd);
@@ -1771,11 +1774,14 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
                            } else {
                               int exitCode = proc.exitValue();
                               System.err.println("DEBUG loadNssFile: Compiler exit code: " + exitCode);
-                              if (exitCode != 0) {
-                                 System.err.println("DEBUG loadNssFile: Compiler output: " + output.toString());
+                              // Always print compiler output for debugging
+                              String compilerOutput = output.toString().trim();
+                              if (!compilerOutput.isEmpty()) {
+                                 System.err.println("DEBUG loadNssFile: Compiler output:\n" + compilerOutput);
                               }
                            }
 
+                           System.err.println("DEBUG loadNssFile: Checking for compiled NCS at: " + compiledNcs.getAbsolutePath());
                            if (compiledNcs.exists()) {
                               System.err.println(
                                     "DEBUG loadNssFile: Compiled NCS exists at: " + compiledNcs.getAbsolutePath());
