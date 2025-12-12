@@ -309,7 +309,8 @@ public class FileDecompiler {
       if (this.checkCompilerExists()) {
          try {
             System.out.println("[NCSDecomp] Attempting to capture original bytecode from NCS file...");
-            File olddecompiled = this.externalDecompile(file, isK2Selected);
+            // Use temp directory to avoid creating files outside temp without user consent
+            File olddecompiled = this.externalDecompile(file, isK2Selected, null);
             if (olddecompiled != null && olddecompiled.exists()) {
                String originalByteCode = this.readFile(olddecompiled);
                if (originalByteCode != null && !originalByteCode.trim().isEmpty()) {
@@ -491,7 +492,8 @@ public class FileDecompiler {
 
       try {
          System.out.println("[NCSDecomp] Decompiling original NCS file to capture bytecode...");
-         olddecompiled = this.externalDecompile(file, isK2Selected);
+         // Use temp directory to avoid creating files outside temp without user consent
+         olddecompiled = this.externalDecompile(file, isK2Selected, null);
          if (olddecompiled == null || !olddecompiled.exists()) {
             System.out.println("[NCSDecomp] ERROR: nwnnsscomp decompile of original NCS file failed.");
             System.out.println("[NCSDecomp]   Expected output file: " + (olddecompiled != null ? olddecompiled.getAbsolutePath() : "null"));
@@ -501,7 +503,8 @@ public class FileDecompiler {
 
          data.setOriginalByteCode(this.readFile(olddecompiled));
          System.out.println("[NCSDecomp] Compiling generated NSS file...");
-         newcompiled = this.externalCompile(newfile, isK2Selected);
+         // Use same directory as input NSS file for output NCS (user has already chosen this location via save dialog)
+         newcompiled = this.externalCompile(newfile, isK2Selected, newfile.getParentFile());
          if (newcompiled == null || !newcompiled.exists()) {
             System.out.println("[NCSDecomp] ERROR: nwnnsscomp compilation of generated NSS file failed.");
             System.out.println("[NCSDecomp]   Input file: " + newfile.getAbsolutePath());
@@ -511,7 +514,8 @@ public class FileDecompiler {
          }
 
          System.out.println("[NCSDecomp] Decompiling newly compiled NCS file to capture bytecode...");
-         newdecompiled = this.externalDecompile(newcompiled, isK2Selected);
+         // Use temp directory for pcode files (intermediate files, cleaned up after use)
+         newdecompiled = this.externalDecompile(newcompiled, isK2Selected, null);
          if (newdecompiled == null || !newdecompiled.exists()) {
             System.out.println("[NCSDecomp] ERROR: nwnnsscomp decompile of newly compiled file failed.");
             System.out.println("[NCSDecomp]   Expected output file: " + (newdecompiled != null ? newdecompiled.getAbsolutePath() : "null"));
@@ -598,12 +602,18 @@ public class FileDecompiler {
       File newdecompiled = null;
 
       try {
-         newcompiled = this.externalCompile(nssFile, isK2Selected);
+         // Use temp directory for compileNss (used internally, not user-initiated save)
+         File tempDir = new File(System.getProperty("java.io.tmpdir"), "ncsdecomp_roundtrip");
+         if (!tempDir.exists()) {
+            tempDir.mkdirs();
+         }
+         newcompiled = this.externalCompile(nssFile, isK2Selected, tempDir);
          if (newcompiled == null) {
             return FAILURE;
          }
 
-         newdecompiled = this.externalDecompile(newcompiled, isK2Selected);
+         // Use temp directory to avoid creating files outside temp without user consent
+         newdecompiled = this.externalDecompile(newcompiled, isK2Selected, null);
          if (newdecompiled != null) {
             data.setNewByteCode(this.readFile(newdecompiled));
             return SUCCESS;
@@ -762,96 +772,38 @@ public class FileDecompiler {
    }
 
    /**
-    * Finds the compiler executable by trying multiple filenames in multiple locations.
-    * Tries in order:
-    * 1. Configured path (if set) - all compiler filenames
-    * 2. tools/ directory - all compiler filenames
-    * 3. Current working directory - all compiler filenames
-    * 4. NCSDecomp installation directory - all compiler filenames
-    *
-    * Filenames tried in priority order:
-    * 1. nwnnsscomp.exe (primary - generic name)
-    * 2. nwnnsscomp_kscript.exe (secondary - KOTOR Scripting Tool)
-    * 3. nwnnsscomp_tslpatcher.exe (TSLPatcher variant)
-    * 4. nwnnsscomp_v1.exe (v1.3 first public release)
+    * Returns the compiler executable location.
+    * <p>
+    * For GUI mode: Uses CompilerUtil.getCompilerFromSettings() EXCLUSIVELY - NO FALLBACKS.
+    * The Settings stores "nwnnsscomp Folder Path" (directory) and "nwnnsscomp Filename" (filename).
+    * <p>
+    * For CLI mode: Uses nwnnsscompPath if set via command-line argument - NO FALLBACKS.
+    * <p>
+    * Returns null if no compiler is configured.
     */
    private File getCompilerFile() {
-      // Priority order: primary first, then secondary, then others
-      String[] compilerNames = {
-         "nwnnsscomp.exe",              // Primary - generic name (highest priority)
-         "nwnnsscomp_kscript.exe",      // Secondary - KOTOR Scripting Tool
-         "nwnnsscomp_tslpatcher.exe",   // TSLPatcher variant
-         "nwnnsscomp_v1.exe"            // v1.3 first public release
-      };
+      // GUI MODE: Try to get compiler from Settings (EXCLUSIVE - NO FALLBACKS)
+      try {
+         File settingsCompiler = CompilerUtil.getCompilerFromSettings();
+         if (settingsCompiler != null) {
+            System.err.println("DEBUG FileDecompiler.getCompilerFile: Using Settings compiler: " + settingsCompiler.getAbsolutePath());
+            return settingsCompiler;
+         }
+      } catch (NoClassDefFoundError | Exception e) {
+         // CompilerUtil or Decompiler.settings not available - likely CLI mode
+         System.err.println("DEBUG FileDecompiler.getCompilerFile: Settings not available (CLI mode): " + e.getClass().getSimpleName());
+      }
 
-      // 1. Try configured path (if set) - all 3 filenames
+      // CLI MODE: Use nwnnsscompPath if set (set by CLI argument)
       if (nwnnsscompPath != null && !nwnnsscompPath.trim().isEmpty()) {
-         File configuredDir = new File(nwnnsscompPath);
-         if (configuredDir.isDirectory()) {
-            // If it's a directory, try all filenames in it
-            for (String name : compilerNames) {
-               File candidate = new File(configuredDir, name);
-               if (candidate.exists()) {
-                  return candidate;
-               }
-            }
-         } else {
-            // If it's a file, check if it exists
-            if (configuredDir.exists()) {
-               return configuredDir;
-            }
-            // Also try other filenames in the same directory
-            File parent = configuredDir.getParentFile();
-            if (parent != null) {
-               for (String name : compilerNames) {
-                  File candidate = new File(parent, name);
-                  if (candidate.exists()) {
-                     return candidate;
-                  }
-               }
-            }
-         }
+         File cliCompiler = new File(nwnnsscompPath);
+         System.err.println("DEBUG FileDecompiler.getCompilerFile: Using CLI nwnnsscompPath: " + cliCompiler.getAbsolutePath());
+         return cliCompiler;
       }
 
-      // 2. Try tools/ directory - all 3 filenames
-      File toolsDir = new File(System.getProperty("user.dir"), "tools");
-      for (String name : compilerNames) {
-         File candidate = new File(toolsDir, name);
-         if (candidate.exists()) {
-            return candidate;
-         }
-      }
-
-      // 3. Try current working directory - all 3 filenames
-      File cwd = new File(System.getProperty("user.dir"));
-      for (String name : compilerNames) {
-         File candidate = new File(cwd, name);
-         if (candidate.exists()) {
-            return candidate;
-         }
-      }
-
-      // 4. Try NCSDecomp installation directory - all 3 filenames
-      File ncsDecompDir = getNCSDecompDirectory();
-      if (ncsDecompDir != null && !ncsDecompDir.equals(cwd)) {
-         for (String name : compilerNames) {
-            File candidate = new File(ncsDecompDir, name);
-            if (candidate.exists()) {
-               return candidate;
-            }
-         }
-         // Also try tools/ subdirectory of NCSDecomp directory
-         File ncsToolsDir = new File(ncsDecompDir, "tools");
-         for (String name : compilerNames) {
-            File candidate = new File(ncsToolsDir, name);
-            if (candidate.exists()) {
-               return candidate;
-            }
-         }
-      }
-
-      // Final fallback: return nwnnsscomp.exe in current directory (may not exist)
-      return new File("nwnnsscomp.exe");
+      // NO FALLBACKS - return null if not configured
+      System.err.println("DEBUG FileDecompiler.getCompilerFile: No compiler configured - returning null");
+      return null;
    }
 
    /**
@@ -860,7 +812,7 @@ public class FileDecompiler {
     */
    private boolean checkCompilerExists() {
       File compiler = getCompilerFile();
-      return compiler.exists();
+      return compiler != null && compiler.exists();
    }
 
    /**
@@ -874,8 +826,12 @@ public class FileDecompiler {
    /**
     * Invokes nwnnsscomp in decompile mode against a single file.
     * Uses {@link NwnnsscompConfig} to build arguments appropriate for the detected binary.
+    * @param in Input NCS file to decompile
+    * @param k2 Whether to use K2 mode
+    * @param outputDir Explicit output directory for the decompiled pcode file. If null, uses temp directory.
+    * @return The decompiled pcode file, or null if decompilation failed
     */
-   private File externalDecompile(File in, boolean k2) {
+   private File externalDecompile(File in, boolean k2, File outputDir) {
       try {
          File compiler = getCompilerFile();
          if (!compiler.exists()) {
@@ -883,8 +839,25 @@ public class FileDecompiler {
             return null;
          }
 
-         String outname = this.getShortName(in) + ".pcode";
-         File result = new File(outname).getAbsoluteFile();
+         // Determine output directory: use provided outputDir, or temp if null
+         File actualOutputDir;
+         if (outputDir != null) {
+            actualOutputDir = outputDir;
+         } else {
+            // Default to temp directory to avoid creating files without user consent
+            actualOutputDir = new File(System.getProperty("java.io.tmpdir"), "ncsdecomp_roundtrip");
+            if (!actualOutputDir.exists()) {
+               actualOutputDir.mkdirs();
+            }
+         }
+
+         // Create output pcode file in the specified output directory
+         String baseName = in.getName();
+         int lastDot = baseName.lastIndexOf('.');
+         if (lastDot > 0) {
+            baseName = baseName.substring(0, lastDot);
+         }
+         File result = new File(actualOutputDir, baseName + ".pcode");
          if (result.exists()) {
             result.delete();
          }
@@ -922,15 +895,25 @@ public class FileDecompiler {
 
    /**
     * Writes generated NSS code to a temporary file for external compilation.
+    * Always uses temp directory to avoid creating files in working directory without user consent.
     */
    private File writeCode(String code) {
       try {
-         File out = new File("_generatedcode.nss").getAbsoluteFile();
-         out.createNewFile();
+         // Use temp directory to avoid creating files outside temp without user consent
+         File tempDir = new File(System.getProperty("java.io.tmpdir"), "ncsdecomp_roundtrip");
+         if (!tempDir.exists()) {
+            tempDir.mkdirs();
+         }
+
+         // Create unique temp file to avoid conflicts
+         File out = File.createTempFile("generatedcode_", ".nss", tempDir);
          FileWriter writer = new FileWriter(out);
          writer.write(code);
          writer.close();
-         File result = new File("_generatedcode.ncs").getAbsoluteFile();
+
+         // Clean up any old NCS file with similar name (shouldn't exist, but just in case)
+         String baseName = out.getName().substring(0, out.getName().lastIndexOf('.'));
+         File result = new File(tempDir, baseName + ".ncs");
          if (result.exists()) {
             result.delete();
          }
@@ -944,8 +927,12 @@ public class FileDecompiler {
 
    /**
     * Invokes nwnnsscomp in compile mode against a single NSS file.
+    * @param file Input NSS file to compile
+    * @param k2 Whether to use K2 mode
+    * @param outputDir Explicit output directory for the compiled NCS file. If null, uses temp directory.
+    * @return The compiled NCS file, or null if compilation failed
     */
-   private File externalCompile(File file, boolean k2) {
+   private File externalCompile(File file, boolean k2, File outputDir) {
       try {
          File compiler = getCompilerFile();
          if (!compiler.exists()) {
@@ -953,8 +940,25 @@ public class FileDecompiler {
             return null;
          }
 
-         String outname = this.getShortName(file) + ".ncs";
-         File result = new File(outname).getAbsoluteFile();
+         // Determine output directory: use provided outputDir, or temp if null
+         File actualOutputDir;
+         if (outputDir != null) {
+            actualOutputDir = outputDir;
+         } else {
+            // Default to temp directory to avoid creating files without user consent
+            actualOutputDir = new File(System.getProperty("java.io.tmpdir"), "ncsdecomp_roundtrip");
+            if (!actualOutputDir.exists()) {
+               actualOutputDir.mkdirs();
+            }
+         }
+
+         // Create output NCS file in the specified output directory
+         String baseName = file.getName();
+         int lastDot = baseName.lastIndexOf('.');
+         if (lastDot > 0) {
+            baseName = baseName.substring(0, lastDot);
+         }
+         File result = new File(actualOutputDir, baseName + ".ncs");
 
          // Ensure nwscript.nss is in the compiler's directory (like test does)
          File compilerDir = compiler.getParentFile();
