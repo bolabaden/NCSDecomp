@@ -166,8 +166,8 @@ public class BytecodeSyntaxHighlighter {
             try {
                applyHighlighting(textPane);
             } catch (Exception ex) {
-               System.err.println("DEBUG BytecodeSyntaxHighlighter: Error during highlighting: " + ex.getMessage());
-               ex.printStackTrace();
+               // Silently ignore errors during highlighting to prevent UI freeze
+               System.err.println("DEBUG BytecodeSyntaxHighlighter: Error during deferred highlighting: " + ex.getMessage());
             }
          });
       }
