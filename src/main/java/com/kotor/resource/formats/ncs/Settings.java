@@ -256,21 +256,62 @@ public class Settings extends Properties implements ActionListener {
       // Check FileDecompiler.nwnnsscompPath first to ensure synchronization with actual runtime state
       String nwnnsscompPath = FileDecompiler.nwnnsscompPath != null ? FileDecompiler.nwnnsscompPath : this.getProperty("nwnnsscomp Path", defaultNwnnsscompPath);
 
-      // If path is a file, extract parent directory
+      // If path looks like a file (ends with .exe), extract parent directory and filename
+      String selectedCompilerNameTemp = null;
+      String originalPath = nwnnsscompPath;
       File pathFile = new File(nwnnsscompPath);
-      if (pathFile.isFile()) {
+      if (nwnnsscompPath.toLowerCase().endsWith(".exe") || pathFile.isFile()) {
+         // It's a file path - extract folder and filename
          File parent = pathFile.getParentFile();
          if (parent != null) {
             nwnnsscompPath = parent.getAbsolutePath();
+            selectedCompilerNameTemp = pathFile.getName();
+         } else {
+            // Fallback: try to extract from string
+            int lastSlash = Math.max(originalPath.lastIndexOf('\\'), originalPath.lastIndexOf('/'));
+            if (lastSlash >= 0 && lastSlash < originalPath.length() - 1) {
+               nwnnsscompPath = originalPath.substring(0, lastSlash);
+               selectedCompilerNameTemp = originalPath.substring(lastSlash + 1);
+            }
          }
       }
+      final String selectedCompilerName = selectedCompilerNameTemp;
 
       this.nwnnsscompPathField.setText(nwnnsscompPath);
       // Populate combobox and update compiler info after setting the path
       File folder = new File(nwnnsscompPath);
-      if (folder.isDirectory() || (folder.isFile() && folder.getParentFile() != null)) {
-         File actualFolder = folder.isDirectory() ? folder : folder.getParentFile();
+      File actualFolder = null;
+      
+      if (folder.exists() && folder.isDirectory()) {
+         actualFolder = folder;
+      } else if (folder.exists() && folder.isFile()) {
+         // If it's a file, get parent
+         File parent = folder.getParentFile();
+         if (parent != null && parent.isDirectory()) {
+            actualFolder = parent;
+         }
+      } else {
+         // Folder doesn't exist, but use it anyway (might be created later)
+         // Check if it looks like a directory path (doesn't end with .exe)
+         if (!nwnnsscompPath.toLowerCase().endsWith(".exe")) {
+            actualFolder = folder;
+         }
+      }
+      
+      if (actualFolder != null) {
          populateCompilerComboBox(actualFolder);
+         // If we had a specific compiler selected, try to select it in the combobox
+         if (selectedCompilerName != null && !selectedCompilerName.isEmpty()) {
+            SwingUtilities.invokeLater(() -> {
+               for (int i = 0; i < this.nwnnsscompComboBox.getItemCount(); i++) {
+                  String item = (String) this.nwnnsscompComboBox.getItemAt(i);
+                  if (item.equals(selectedCompilerName)) {
+                     this.nwnnsscompComboBox.setSelectedIndex(i);
+                     break;
+                  }
+               }
+            });
+         }
       }
       updateCompilerInfo();
 
