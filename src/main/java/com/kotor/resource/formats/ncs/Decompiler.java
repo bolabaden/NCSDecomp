@@ -2721,7 +2721,25 @@ public class Decompiler
             }
          }
 
-         JTextComponent textArea = (JTextComponent)((JScrollPane)((JComponent[])this.jTB.getClientProperty(tabComponent))[0].getComponent(0)).getViewport().getView();
+         // Get the text component from the JSplitPane (same as save() method)
+         Object clientProperty = this.jTB.getClientProperty(tabComponent);
+         if (!(clientProperty instanceof JComponent[])) {
+            continue; // Invalid client property
+         }
+         JComponent[] panels = (JComponent[])clientProperty;
+         if (panels.length == 0 || !(panels[0] instanceof JSplitPane)) {
+            continue; // Invalid panel structure
+         }
+         JSplitPane decompSplitPane = (JSplitPane)panels[0];
+         java.awt.Component leftComp = decompSplitPane.getLeftComponent();
+         if (!(leftComp instanceof JScrollPane)) {
+            continue; // Invalid component structure
+         }
+         JScrollPane scrollPane = (JScrollPane)leftComp;
+         if (!(scrollPane.getViewport().getView() instanceof JTextComponent)) {
+            continue; // Invalid view type
+         }
+         JTextComponent textArea = (JTextComponent)scrollPane.getViewport().getView();
          newFile = this.saveBuffer(textArea, newFile.getAbsolutePath());
          if (newFile == null) {
             continue; // saveBuffer failed
