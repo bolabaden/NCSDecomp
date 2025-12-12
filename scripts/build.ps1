@@ -954,8 +954,11 @@ Categories=Utility;
             return $null
         }
 
-        # Package CLI
-        $cliSingleFile = New-SingleFileExecutable -AppImagePath $cliAppImagePath -AppName $cliAppName -AppVersion $appVersion -IsGui $false
+        # Skip single-file packaging for CLI apps - NSIS shows installer UI which is not suitable for CLI tools
+        # CLI apps should use the directory-based executable instead
+        $cliSingleFile = $null
+        Write-Host "  Skipping single-file packaging for CLI (NSIS installer UI not suitable for console apps)" -ForegroundColor Gray
+        Write-Host "  Use the directory-based executable for CLI: $cliExePath" -ForegroundColor Gray
 
         # Package GUI if it exists
         $guiAppImagePath = Join-Path $exeOutputDir $guiAppName
@@ -995,20 +998,11 @@ Categories=Utility;
         Write-Host "Portable executables ready! Run directly without installation." -ForegroundColor Green
         Write-Host ""
         Write-Host "CLI Usage examples:" -ForegroundColor Cyan
-        if ($cliSingleFile -and (Test-Path $cliSingleFile)) {
-            $singleFileRelPath = $cliSingleFile.Replace((Get-Location).Path + [System.IO.Path]::DirectorySeparatorChar, "")
-            Write-Host "  Single-file executable:" -ForegroundColor Yellow
-            Write-Host "  .\$singleFileRelPath --help" -ForegroundColor White
-            Write-Host "  .\$singleFileRelPath --version" -ForegroundColor White
-            Write-Host "  .\$singleFileRelPath -i script.ncs -o script.nss --k2" -ForegroundColor White
-            Write-Host ""
-        }
         $exePathExample = if ($IsWindows) {
             ".\target\dist\NCSDecompCLI\NCSDecompCLI.exe"
         } else {
             "./target/dist/NCSDecompCLI/NCSDecompCLI"
         }
-        Write-Host "  Directory-based executable:" -ForegroundColor Yellow
         Write-Host "  $exePathExample --help" -ForegroundColor White
         Write-Host "  $exePathExample --version" -ForegroundColor White
         Write-Host "  $exePathExample -i script.ncs -o script.nss --k2" -ForegroundColor White
