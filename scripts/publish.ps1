@@ -74,6 +74,11 @@ New-Item -ItemType Directory -Path $publishDir -Force | Out-Null
 Write-Host ""
 Write-Host "Step 3: Packaging distribution files..." -ForegroundColor Yellow
 
+# Get JAR file paths first (needed for copying next to executables)
+$jarDir = Join-Path $targetDir "jar"
+$cliJarSource = Join-Path $jarDir "NCSDecomp-CLI.jar"
+$guiJarSource = Join-Path $jarDir "NCSDecomp.jar"
+
 # Copy CLI executable folder (NCSDecompCLI)
 $cliAppImageDir = Join-Path $targetDir (Join-Path "dist" "NCSDecompCLI")
 $cliAppDest = Join-Path $publishDir "NCSDecompCLI"
@@ -114,10 +119,7 @@ if (Test-Path $guiAppImageDir) {
     Write-Host "  Note: NCSDecomp folder (GUI) not found, skipping..." -ForegroundColor Gray
 }
 
-# Copy JAR as alternative (from target/jar)
-$jarDir = Join-Path $targetDir "jar"
-$cliJarSource = Join-Path $jarDir "NCSDecomp-CLI.jar"
-$guiJarSource = Join-Path $jarDir "NCSDecomp.jar"
+# Copy JAR files to root as well (for standalone usage)
 
 if (Test-Path $cliJarSource) {
     Copy-Item $cliJarSource (Join-Path $publishDir "NCSDecomp-CLI.jar")
