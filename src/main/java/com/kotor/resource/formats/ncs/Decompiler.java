@@ -182,6 +182,7 @@ public class Decompiler
       super("NCSDecomp");
       this.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
       this.setJMenuBar(this.buildMenuBar());
+      this.registerKeyboardShortcuts();
 
       this.hash_TabComponent2Func2VarVec = new HashMap<>();
       this.hash_TabComponent2File = new HashMap<>();
@@ -600,6 +601,190 @@ public class Decompiler
          item.setMnemonic(key);
       }
       return item;
+   }
+
+   /**
+    * Registers comprehensive industry-standard keyboard shortcuts.
+    * These shortcuts work globally across the application.
+    */
+   private void registerKeyboardShortcuts() {
+      javax.swing.JRootPane rootPane = this.getRootPane();
+      javax.swing.InputMap inputMap = rootPane.getInputMap(javax.swing.JComponent.WHEN_IN_FOCUSED_WINDOW);
+      javax.swing.ActionMap actionMap = rootPane.getActionMap();
+
+      // File operations
+      registerShortcut(inputMap, actionMap, "ctrl O", "Open", e -> open());
+      registerShortcut(inputMap, actionMap, "ctrl S", "Save", e -> { int idx = jTB.getSelectedIndex(); if (idx >= 0) save(idx); });
+      registerShortcut(inputMap, actionMap, "ctrl shift S", "SaveAll", e -> saveAll());
+      registerShortcut(inputMap, actionMap, "ctrl W", "Close", e -> { int idx = jTB.getSelectedIndex(); if (idx >= 0) close(idx); });
+      registerShortcut(inputMap, actionMap, "ctrl shift W", "CloseAll", e -> closeAll());
+      registerShortcut(inputMap, actionMap, "ctrl Q", "Exit", e -> exit());
+
+      // Tab navigation
+      registerShortcut(inputMap, actionMap, "ctrl TAB", "NextTab", e -> { int count = jTB.getTabCount(); if (count > 0) jTB.setSelectedIndex((jTB.getSelectedIndex() + 1) % count); });
+      registerShortcut(inputMap, actionMap, "ctrl shift TAB", "PrevTab", e -> { int count = jTB.getTabCount(); if (count > 0) jTB.setSelectedIndex((jTB.getSelectedIndex() - 1 + count) % count); });
+      registerShortcut(inputMap, actionMap, "ctrl PAGE_DOWN", "NextTabAlt", e -> { int count = jTB.getTabCount(); if (count > 0) jTB.setSelectedIndex((jTB.getSelectedIndex() + 1) % count); });
+      registerShortcut(inputMap, actionMap, "ctrl PAGE_UP", "PrevTabAlt", e -> { int count = jTB.getTabCount(); if (count > 0) jTB.setSelectedIndex((jTB.getSelectedIndex() - 1 + count) % count); });
+
+      // Numbered tab access (Ctrl+1 through Ctrl+9)
+      for (int i = 1; i <= 9; i++) {
+         final int tabIndex = i - 1;
+         registerShortcut(inputMap, actionMap, "ctrl " + i, "GoToTab" + i, e -> { if (tabIndex < jTB.getTabCount()) jTB.setSelectedIndex(tabIndex); });
+      }
+
+      // View switching
+      registerShortcut(inputMap, actionMap, "F2", "ViewDecompiledCode", e -> { if (jTB.getSelectedIndex() >= 0) setTabComponentPanel(0); });
+      registerShortcut(inputMap, actionMap, "F3", "ViewByteCode", e -> { if (jTB.getSelectedIndex() >= 0) setTabComponentPanel(1); });
+
+      // Refresh/Recompile
+      registerShortcut(inputMap, actionMap, "F5", "Refresh", e -> { int idx = jTB.getSelectedIndex(); if (idx >= 0) save(idx); });
+
+      // Settings
+      registerShortcut(inputMap, actionMap, "ctrl COMMA", "Settings", e -> settings.show());
+      registerShortcut(inputMap, actionMap, "ctrl P", "SettingsAlt", e -> settings.show());
+
+      // Find/Replace (placeholders for future implementation)
+      registerShortcut(inputMap, actionMap, "ctrl F", "Find", e -> showFindDialog());
+      registerShortcut(inputMap, actionMap, "ctrl H", "Replace", e -> showReplaceDialog());
+      registerShortcut(inputMap, actionMap, "ctrl G", "GoToLine", e -> showGoToLineDialog());
+
+      // Selection and editing (work on current text pane)
+      registerShortcut(inputMap, actionMap, "ctrl A", "SelectAll", e -> getCurrentTextPane().ifPresent(pane -> pane.selectAll()));
+      registerShortcut(inputMap, actionMap, "ctrl D", "DuplicateLine", e -> duplicateCurrentLine());
+      registerShortcut(inputMap, actionMap, "ctrl SLASH", "ToggleComment", e -> toggleComment());
+
+      // Zoom
+      registerShortcut(inputMap, actionMap, "ctrl PLUS", "ZoomIn", e -> adjustFontSize(2));
+      registerShortcut(inputMap, actionMap, "ctrl EQUALS", "ZoomInAlt", e -> adjustFontSize(2));  // Ctrl+= (same key as +)
+      registerShortcut(inputMap, actionMap, "ctrl MINUS", "ZoomOut", e -> adjustFontSize(-2));
+      registerShortcut(inputMap, actionMap, "ctrl 0", "ResetZoom", e -> resetFontSize());
+
+      // Full screen toggle
+      registerShortcut(inputMap, actionMap, "F11", "ToggleFullScreen", e -> toggleFullScreen());
+
+      // Help
+      registerShortcut(inputMap, actionMap, "F1", "Help", e -> showAboutDialog());
+   }
+
+   private void registerShortcut(javax.swing.InputMap inputMap, javax.swing.ActionMap actionMap, String keystroke, String actionKey, java.awt.event.ActionListener action) {
+      inputMap.put(javax.swing.KeyStroke.getKeyStroke(keystroke), actionKey);
+      actionMap.put(actionKey, new javax.swing.AbstractAction() {
+         @Override
+         public void actionPerformed(java.awt.event.ActionEvent e) {
+            action.actionPerformed(e);
+         }
+      });
+   }
+
+   private java.util.Optional<javax.swing.text.JTextComponent> getCurrentTextPane() {
+      int selectedIndex = jTB.getSelectedIndex();
+      if (selectedIndex < 0) return java.util.Optional.empty();
+
+      javax.swing.JComponent tabComponent = (javax.swing.JComponent)jTB.getTabComponentAt(selectedIndex);
+      if (tabComponent == null) return java.util.Optional.empty();
+
+      Object clientProperty = jTB.getClientProperty(tabComponent);
+      if (!(clientProperty instanceof javax.swing.JComponent[])) return java.util.Optional.empty();
+
+      javax.swing.JComponent[] panels = (javax.swing.JComponent[])clientProperty;
+      if (panels.length == 0 || !(panels[0] instanceof javax.swing.JSplitPane)) return java.util.Optional.empty();
+
+      javax.swing.JSplitPane splitPane = (javax.swing.JSplitPane)panels[0];
+      java.awt.Component leftComp = splitPane.getLeftComponent();
+      if (leftComp instanceof javax.swing.JScrollPane) {
+         javax.swing.JScrollPane scrollPane = (javax.swing.JScrollPane)leftComp;
+         java.awt.Component view = scrollPane.getViewport().getView();
+         if (view instanceof javax.swing.text.JTextComponent) {
+            return java.util.Optional.of((javax.swing.text.JTextComponent)view);
+         }
+      }
+      return java.util.Optional.empty();
+   }
+
+   private void showFindDialog() {
+      javax.swing.JOptionPane.showMessageDialog(this, "Find functionality coming soon!", "Find", javax.swing.JOptionPane.INFORMATION_MESSAGE);
+   }
+
+   private void showReplaceDialog() {
+      javax.swing.JOptionPane.showMessageDialog(this, "Replace functionality coming soon!", "Replace", javax.swing.JOptionPane.INFORMATION_MESSAGE);
+   }
+
+   private void showGoToLineDialog() {
+      javax.swing.JOptionPane.showMessageDialog(this, "Go to Line functionality coming soon!", "Go to Line", javax.swing.JOptionPane.INFORMATION_MESSAGE);
+   }
+
+   private void duplicateCurrentLine() {
+      getCurrentTextPane().ifPresent(pane -> {
+         try {
+            int caretPos = pane.getCaretPosition();
+            int lineStart = pane.getDocument().getDefaultRootElement().getElementIndex(caretPos);
+            javax.swing.text.Element line = pane.getDocument().getDefaultRootElement().getElement(lineStart);
+            int start = line.getStartOffset();
+            int end = line.getEndOffset();
+            String lineText = pane.getDocument().getText(start, end - start);
+            pane.getDocument().insertString(end, lineText, null);
+         } catch (javax.swing.text.BadLocationException ex) {
+            // Ignore
+         }
+      });
+   }
+
+   private void toggleComment() {
+      getCurrentTextPane().ifPresent(pane -> {
+         try {
+            int start = pane.getSelectionStart();
+            int end = pane.getSelectionEnd();
+            if (start == end) {
+               // No selection, comment current line
+               int lineIndex = pane.getDocument().getDefaultRootElement().getElementIndex(start);
+               javax.swing.text.Element line = pane.getDocument().getDefaultRootElement().getElement(lineIndex);
+               int lineStart = line.getStartOffset();
+               int lineEnd = line.getEndOffset();
+               String lineText = pane.getDocument().getText(lineStart, lineEnd - lineStart);
+
+               if (lineText.trim().startsWith("//")) {
+                  // Uncomment
+                  String uncommented = lineText.replaceFirst("//\\s*", "");
+                  pane.getDocument().remove(lineStart, lineEnd - lineStart);
+                  pane.getDocument().insertString(lineStart, uncommented, null);
+               } else {
+                  // Comment
+                  pane.getDocument().insertString(lineStart, "// ", null);
+               }
+            }
+         } catch (javax.swing.text.BadLocationException ex) {
+            // Ignore
+         }
+      });
+   }
+
+   private void adjustFontSize(int delta) {
+      getCurrentTextPane().ifPresent(pane -> {
+         java.awt.Font currentFont = pane.getFont();
+         int newSize = Math.max(8, Math.min(72, currentFont.getSize() + delta));
+         pane.setFont(currentFont.deriveFont((float)newSize));
+      });
+   }
+
+   private void resetFontSize() {
+      getCurrentTextPane().ifPresent(pane -> {
+         pane.setFont(pane.getFont().deriveFont(12f));
+      });
+   }
+
+   private boolean isFullScreen = false;
+   private void toggleFullScreen() {
+      java.awt.GraphicsDevice device = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice();
+      if (isFullScreen) {
+         device.setFullScreenWindow(null);
+         isFullScreen = false;
+      } else {
+         this.dispose();
+         this.setUndecorated(true);
+         device.setFullScreenWindow(this);
+         this.setVisible(true);
+         isFullScreen = true;
+      }
    }
 
    private JToolBar buildToolBar() {
@@ -1393,13 +1578,9 @@ public class Decompiler
          return;
       }
 
-      // Create tab and display content
-      String baseName = file.getName();
-      int lastDot = baseName.lastIndexOf('.');
-      if (lastDot > 0) {
-         baseName = baseName.substring(0, lastDot);
-      }
-      this.panels = this.newNCSTab(baseName);
+      // Create tab and display content (keep .nss extension in tab name)
+      String fileName = file.getName();
+      this.panels = this.newNCSTab(fileName);
 
       // Get the left side text pane from the split pane
       if (this.panels[0] instanceof JSplitPane) {
@@ -1443,8 +1624,13 @@ public class Decompiler
 
                         if (compiler != null && compiler.exists()) {
                            // Create output NCS file in same directory as input
-                           // Reuse baseName from outer scope
-                           String compiledBaseName = baseName;
+                           // Extract base name without extension
+                           String nssFileName = file.getName();
+                           String compiledBaseName = nssFileName;
+                           int lastDot = nssFileName.lastIndexOf('.');
+                           if (lastDot > 0) {
+                              compiledBaseName = nssFileName.substring(0, lastDot);
+                           }
                            compiledNcs = new File(file.getParentFile(), compiledBaseName + ".ncs");
 
                            // Use NwnnsscompConfig to compile (same as FileDecompiler.externalCompile)
@@ -1595,7 +1781,9 @@ public class Decompiler
 
       // Now we're guaranteed to have code - always show it
       {
-         this.panels = this.newNCSTab(file.getName().substring(0, file.getName().length() - 4));
+         // Create tab with .nss extension (base name + .nss)
+         String baseName = file.getName().substring(0, file.getName().length() - 4);
+         this.panels = this.newNCSTab(baseName + ".nss");
 
          // Get the left side text pane from the split pane
          if (this.panels[0] instanceof JSplitPane) {
@@ -1652,7 +1840,7 @@ public class Decompiler
          }
 
          // Populate round-trip decompiled code panel (NCS -> NSS -> NCS -> NSS)
-         // After compileAndCompare, the recompiled NCS should be _generatedcode.ncs in the working directory
+         // Auto-trigger round-trip on load by saving to temp directory
          try {
             // Get the decomp split pane from panels[0]
             if (this.panels[0] instanceof JSplitPane) {
@@ -1663,31 +1851,61 @@ public class Decompiler
                   if (rightScrollPane.getViewport().getView() instanceof JTextPane) {
                      JTextPane roundTripPane = (JTextPane)rightScrollPane.getViewport().getView();
 
-                     // Check for recompiled NCS file (_generatedcode.ncs) created by compileAndCompare
-                     File recompiledNcs = new File("_generatedcode.ncs").getAbsoluteFile();
-                     System.err.println("DEBUG decompile: Checking for recompiled NCS at: " + recompiledNcs.getAbsolutePath());
-                     System.err.println("DEBUG decompile: Recompiled NCS exists: " + recompiledNcs.exists());
+                     // Auto-trigger round-trip validation on load using temp directory
+                     System.err.println("DEBUG decompile: Auto-triggering round-trip validation on load");
 
-                     if (recompiledNcs.exists()) {
-                        // Decompile the recompiled NCS to show round-trip result
-                        String gameFlag = FileDecompiler.isK2Selected ? "k2" : "k1";
-                        System.err.println("DEBUG decompile: Decompiling recompiled NCS with gameFlag: " + gameFlag);
-                        String roundTripCode = RoundTripUtil.decompileNcsToNss(recompiledNcs, gameFlag);
-                        System.err.println("DEBUG decompile: Round-trip code result: " + (roundTripCode != null ? "not null, length=" + roundTripCode.length() : "null"));
-
-                        if (roundTripCode != null && !roundTripCode.trim().isEmpty()) {
-                           System.err.println("DEBUG decompile: Setting round-trip code in right panel");
-                           NWScriptSyntaxHighlighter.setSkipHighlighting(roundTripPane, true);
-                           roundTripPane.setText(roundTripCode);
-                           NWScriptSyntaxHighlighter.setSkipHighlighting(roundTripPane, false);
-                           NWScriptSyntaxHighlighter.applyHighlightingImmediate(roundTripPane);
-                        } else {
-                           System.err.println("DEBUG decompile: Round-trip code is null or empty, showing placeholder");
-                           roundTripPane.setText("// Round-trip decompiled code not available.\n// The recompiled NCS could not be decompiled.");
+                     try {
+                        // Create temp directory for round-trip
+                        File tempDir = new File(System.getProperty("java.io.tmpdir"), "ncsdecomp_roundtrip");
+                        if (!tempDir.exists()) {
+                           tempDir.mkdirs();
                         }
-                     } else {
-                        System.err.println("DEBUG decompile: Recompiled NCS not found, showing placeholder");
-                        roundTripPane.setText("// Round-trip decompiled code not available.\n// Save the file to trigger round-trip validation and decompilation.");
+
+                        // Save decompiled code to temp file
+                        String baseName2 = file.getName().substring(0, file.getName().length() - 4);
+                        File tempNssFile = new File(tempDir, baseName2 + ".nss");
+
+                        // Write the generated code to temp file
+                        java.nio.file.Files.write(tempNssFile.toPath(), generatedCode.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                        System.err.println("DEBUG decompile: Saved temp NSS to: " + tempNssFile.getAbsolutePath());
+
+                        // Compile and compare using the temp file
+                        int compileResult = this.fileDecompiler.compileAndCompare(file, tempNssFile);
+                        System.err.println("DEBUG decompile: compileAndCompare result: " + compileResult);
+
+                        // Check for recompiled NCS file (_generatedcode.ncs) created by compileAndCompare
+                        File recompiledNcs = new File("_generatedcode.ncs").getAbsoluteFile();
+                        System.err.println("DEBUG decompile: Checking for recompiled NCS at: " + recompiledNcs.getAbsolutePath());
+                        System.err.println("DEBUG decompile: Recompiled NCS exists: " + recompiledNcs.exists());
+
+                        if (recompiledNcs.exists()) {
+                           // Decompile the recompiled NCS to show round-trip result
+                           String gameFlag = FileDecompiler.isK2Selected ? "k2" : "k1";
+                           System.err.println("DEBUG decompile: Decompiling recompiled NCS with gameFlag: " + gameFlag);
+                           String roundTripCode = RoundTripUtil.decompileNcsToNss(recompiledNcs, gameFlag);
+                           System.err.println("DEBUG decompile: Round-trip code result: " + (roundTripCode != null ? "not null, length=" + roundTripCode.length() : "null"));
+
+                           if (roundTripCode != null && !roundTripCode.trim().isEmpty()) {
+                              System.err.println("DEBUG decompile: Setting round-trip code in right panel");
+                              NWScriptSyntaxHighlighter.setSkipHighlighting(roundTripPane, true);
+                              roundTripPane.setText(roundTripCode);
+                              NWScriptSyntaxHighlighter.setSkipHighlighting(roundTripPane, false);
+                              NWScriptSyntaxHighlighter.applyHighlightingImmediate(roundTripPane);
+                           } else {
+                              System.err.println("DEBUG decompile: Round-trip code is null or empty, showing placeholder");
+                              roundTripPane.setText("// Round-trip decompiled code not available.\n// The recompiled NCS could not be decompiled.");
+                           }
+                        } else {
+                           System.err.println("DEBUG decompile: Recompiled NCS not found after auto-trigger");
+                           roundTripPane.setText("// Round-trip decompiled code not available.\n// Compilation failed or compiler not configured.");
+                        }
+
+                        // Clean up temp file (optional - can leave for debugging)
+                        // tempNssFile.delete();
+                     } catch (Exception ex) {
+                        System.err.println("DEBUG decompile: Error during auto-trigger round-trip: " + ex.getMessage());
+                        ex.printStackTrace();
+                        roundTripPane.setText("// Round-trip validation error: " + ex.getMessage() + "\n// Check that nwnnsscomp.exe is configured in Settings.");
                      }
                   }
                }
@@ -2083,35 +2301,48 @@ public class Decompiler
 
       this.file = this.hash_TabComponent2File.get(tabComponent);
 
-      // Determine output file path
+      // Show file chooser dialog starting in the NCS file's directory
       File newFile;
+      JFileChooser fileChooser = new JFileChooser();
+      fileChooser.setDialogTitle("Save NSS File");
+
+      // Set initial directory to NCS file's directory if available, otherwise use output directory setting
+      File initialDir = null;
       if (this.file != null && this.file.exists()) {
-         // File exists - use its directory as the save location (preserve original path)
          File parentDir = this.file.getParentFile();
          if (parentDir != null && parentDir.exists()) {
-            newFile = new File(parentDir, buildOutputFilename(fileName));
-         } else {
-            // Fallback to default output directory
-            String outputDir = settings.getProperty("Output Directory");
-            if (outputDir == null || outputDir.isEmpty()) {
-               outputDir = System.getProperty("user.dir");
-            }
-            newFile = new File(outputDir, buildOutputFilename(fileName));
+            initialDir = parentDir;
          }
-      } else {
-         // File doesn't exist (created from scratch) - save to default output directory
+      }
+      if (initialDir == null) {
          String outputDir = settings.getProperty("Output Directory");
-         if (outputDir == null || outputDir.isEmpty()) {
-            outputDir = System.getProperty("user.dir");
+         if (outputDir != null && !outputDir.isEmpty()) {
+            initialDir = new File(outputDir);
          }
-         newFile = new File(outputDir, buildOutputFilename(fileName));
-         // Ensure output directory exists
-         File outputDirFile = newFile.getParentFile();
-         if (outputDirFile != null && !outputDirFile.exists()) {
-            if (!outputDirFile.mkdirs()) {
-               this.status.append("Warning: Could not create output directory: " + outputDirFile.getAbsolutePath() + "\n");
-            }
-         }
+      }
+      if (initialDir == null) {
+         initialDir = new File(System.getProperty("user.dir"));
+      }
+      fileChooser.setCurrentDirectory(initialDir);
+
+      // Set default filename
+      fileChooser.setSelectedFile(new File(initialDir, buildOutputFilename(fileName)));
+
+      // Show save dialog
+      int result = fileChooser.showSaveDialog(this);
+      if (result != JFileChooser.APPROVE_OPTION) {
+         // User cancelled
+         return;
+      }
+
+      newFile = fileChooser.getSelectedFile();
+      if (newFile == null) {
+         return;
+      }
+
+      // Ensure file has .nss extension
+      if (!newFile.getName().toLowerCase().endsWith(".nss")) {
+         newFile = new File(newFile.getParentFile(), newFile.getName() + ".nss");
       }
 
       newFile = this.saveBuffer(textArea, newFile.getAbsolutePath());
@@ -2136,15 +2367,15 @@ public class Decompiler
       // Only do round-trip validation if the original file exists
       if (unsavedFiles.contains(this.file)) {
          this.status.append("Recompiling..." + this.file.getName() + ": ");
-         int result = 2;
+         int result2 = 2;
 
          try {
-            result = this.fileDecompiler.compileAndCompare(this.file, newFile);
+            result2 = this.fileDecompiler.compileAndCompare(this.file, newFile);
          } catch (DecompilerException var5) {
             JOptionPane.showMessageDialog(null, var5.getMessage());
          }
 
-         switch (result) {
+         switch (result2) {
             case 0:
                this.status.append("failure\n");
                break;
@@ -2487,22 +2718,22 @@ public class Decompiler
             this.hash_TabComponent2File.put(tabComponent, file);
          }
 
-         int result = 2;
+         int compileResult = 2;
 
          // Only do round-trip validation if the original file exists
          if (file != null && file.exists()) {
             try {
-               result = this.fileDecompiler.compileAndCompare(file, newFile);
+               compileResult = this.fileDecompiler.compileAndCompare(file, newFile);
             } catch (DecompilerException var6) {
                JOptionPane.showMessageDialog(null, var6.getMessage());
                newFile.renameTo(new File(this.getShortName(newFile) + "_failed.nss"));
             }
          } else {
             // File was created from scratch - just mark as saved
-            result = 1; // SUCCESS
+            compileResult = 1; // SUCCESS
          }
 
-         switch (result) {
+         switch (compileResult) {
             case 0:
                newFile.renameTo(new File(this.getShortName(newFile) + "_failed.nss"));
                break;
