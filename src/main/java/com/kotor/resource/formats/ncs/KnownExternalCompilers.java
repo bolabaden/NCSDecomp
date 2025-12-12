@@ -44,7 +44,7 @@ public enum KnownExternalCompilers {
       "KOTOR Tool",
       LocalDate.of(2005, 1, 1),
       "Fred Tetra",
-      new String[]{"-c", "--outputdir", "{output_dir}", "-o", "{output_name}", "-g", "{game_value}", "{source}"},
+      new String[]{"-c", "--outputdir", "{output_dir}", "-o", "{output_name}", "-g", "{game_value}", "{includes}", "{source}"},
       new String[]{"-d", "--outputdir", "{output_dir}", "-o", "{output_name}", "-g", "{game_value}", "{source}"}
    ),
 
@@ -68,20 +68,8 @@ public enum KnownExternalCompilers {
       "KOTOR Scripting Tool",
       LocalDate.of(2016, 5, 18),
       "James Goad", // TODO: double check
-      new String[]{"-c", "--outputdir", "{output_dir}", "-o", "{output_name}", "-g", "{game_value}", "{source}"},
+      new String[]{"-c", "--outputdir", "{output_dir}", "-o", "{output_name}", "-g", "{game_value}", "{includes}", "{source}"},
       new String[]{"-d", "--outputdir", "{output_dir}", "-o", "{output_name}", "-g", "{game_value}", "{source}"}
-   ),
-
-   /**
-    * NCSDecomp compiler (same hash as TSLPATCHER in original Python code).
-    */
-   DENCS(
-      "539EB689D2E0D3751AEED273385865278BEF6696C46BC0CAB116B40C3B2FE820",
-      "NCSDecomp",
-      LocalDate.of(2006, 5, 30),
-      "todo",
-      new String[]{"-c", "{source}", "-o", "{output}"},
-      new String[]{"-d", "{source}", "-o", "{output}"}
    ),
 
    /**

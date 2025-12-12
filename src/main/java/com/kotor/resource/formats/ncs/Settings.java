@@ -782,8 +782,6 @@ public class Settings extends Properties implements ActionListener {
             return "📦";
          case KOTOR_SCRIPTING_TOOL:
             return "⚙️";
-         case DENCS:
-            return "🔨";
          case XOREOS:
             return "🌐";
          case KNSSCOMP:
