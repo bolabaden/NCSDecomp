@@ -36,9 +36,11 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.Vector;
 import java.net.URI;
 import javax.swing.JButton;
@@ -137,6 +139,7 @@ public class Decompiler
    private transient Map<JComponent, Hashtable<String, Vector<Variable>>> hash_TabComponent2Func2VarVec;
    private transient Map<JComponent, TreeModel> hash_TabComponent2TreeModel;
    protected static List<File> unsavedFiles;
+   private static Set<File> filesBeingLoaded = new HashSet<>();
    private transient FileDecompiler fileDecompiler = new FileDecompiler();
    private JToolBar commandBar;
    private JTextField treeFilterField;
@@ -1002,7 +1005,7 @@ public class Decompiler
                   }
                }
                Thread openThread = new Thread(() -> {
-                  Decompiler.this.open(list.toArray(new File[0]));
+                     Decompiler.this.open(list.toArray(new File[0]));
                });
                openThread.setDaemon(true);
                openThread.setName("FileOpen-" + System.currentTimeMillis());
@@ -1426,7 +1429,8 @@ public class Decompiler
             JComponent tabComponent = Decompiler.this.getSelectedTabComponent();
             if (tabComponent != null) {
                File file = Decompiler.this.hash_TabComponent2File.get(tabComponent);
-               if (file != null && !Decompiler.unsavedFiles.contains(file)) {
+               // Don't mark as dirty if file is currently being loaded
+               if (file != null && !Decompiler.filesBeingLoaded.contains(file) && !Decompiler.unsavedFiles.contains(file)) {
                   Decompiler.unsavedFiles.add(file);
                   if (tabComponent instanceof JPanel) {
                      Decompiler.this.updateTabLabel((JPanel)tabComponent, true);
@@ -1578,8 +1582,10 @@ public class Decompiler
          return;
       }
 
-      // Create tab and display content (keep .nss extension in tab name)
+      // Create tab and display content (keep original filename in tab name)
       String fileName = file.getName();
+      // Mark file as being loaded to prevent marking as dirty during initial setText
+      filesBeingLoaded.add(file);
       this.panels = this.newNCSTab(fileName);
 
       // Get the left side text pane from the split pane
@@ -1603,6 +1609,9 @@ public class Decompiler
                NWScriptSyntaxHighlighter.setSkipHighlighting(textPane, false);
                NWScriptSyntaxHighlighter.applyHighlightingImmediate(textPane);
             }
+
+            // File is now loaded, remove from loading set
+            filesBeingLoaded.remove(file);
 
             // Populate round-trip decompiled code panel (NSS -> NCS -> NSS)
             // For NSS files, we need to compile them first, then decompile the result
@@ -1785,9 +1794,11 @@ public class Decompiler
 
       // Now we're guaranteed to have code - always show it
       {
-         // Create tab with .nss extension (base name + .nss)
-         String baseName = file.getName().substring(0, file.getName().length() - 4);
-         this.panels = this.newNCSTab(baseName + ".nss");
+         // Create tab with original filename (keep .ncs extension for NCS files)
+         String fileName = file.getName();
+         // Mark file as being loaded to prevent marking as dirty during initial setText
+         filesBeingLoaded.add(file);
+         this.panels = this.newNCSTab(fileName);
 
          // Get the left side text pane from the split pane
          if (this.panels[0] instanceof JSplitPane) {
@@ -1810,6 +1821,9 @@ public class Decompiler
                   NWScriptSyntaxHighlighter.setSkipHighlighting(textPane, false);
                   NWScriptSyntaxHighlighter.applyHighlightingImmediate(textPane);
                }
+
+               // File is now loaded, remove from loading set
+               filesBeingLoaded.remove(file);
             }
          }
 
@@ -2159,7 +2173,7 @@ public class Decompiler
             final File[] files = jFC.getSelectedFiles();
             settings.setProperty("Open Directory", files[0].getParent());
             Thread openThread = new Thread(() -> {
-               Decompiler.this.open(files);
+                  Decompiler.this.open(files);
             });
             openThread.setDaemon(true);
             openThread.setName("FileOpenDialog-" + System.currentTimeMillis());
@@ -2177,18 +2191,18 @@ public class Decompiler
          File fileToOpen = files[j];
          String fileName = fileToOpen.getName().toLowerCase();
 
-         // Ensure we use the absolute path of the dropped/opened file
-         File absoluteFile = fileToOpen.getAbsoluteFile();
-         if (!absoluteFile.exists()) {
-            this.status.append("Warning: File does not exist: " + absoluteFile.getAbsolutePath() + "\n");
-            continue;
-         }
+            // Ensure we use the absolute path of the dropped/opened file
+            File absoluteFile = fileToOpen.getAbsoluteFile();
+            if (!absoluteFile.exists()) {
+               this.status.append("Warning: File does not exist: " + absoluteFile.getAbsolutePath() + "\n");
+               continue;
+            }
 
-         // Update Open Directory setting to the file's parent directory
-         File parentDir = absoluteFile.getParentFile();
-         if (parentDir != null && parentDir.exists()) {
-            settings.setProperty("Open Directory", parentDir.getAbsolutePath());
-         }
+            // Update Open Directory setting to the file's parent directory
+            File parentDir = absoluteFile.getParentFile();
+            if (parentDir != null && parentDir.exists()) {
+               settings.setProperty("Open Directory", parentDir.getAbsolutePath());
+            }
 
          if (fileName.endsWith(".ncs")) {
             // Decompile NCS file
