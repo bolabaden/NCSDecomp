@@ -1745,6 +1745,9 @@ public class Decompiler
 
       // Update workspace visibility after adding a file
       this.updateWorkspaceCard();
+
+      // NSS files: default to "View Decompiled Code" (source view)
+      this.setTabComponentPanel(0);
    }
 
    private void decompile(File file) {
@@ -1961,6 +1964,9 @@ public class Decompiler
 
       // Update workspace visibility after adding a file
       this.updateWorkspaceCard();
+
+      // NCS files: default to "View Byte Code" (bytecode view)
+      this.setTabComponentPanel(1);
    }
 
    public static void exit() {
