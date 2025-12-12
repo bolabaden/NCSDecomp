@@ -764,15 +764,25 @@ public class FileDecompiler {
    /**
     * Finds the compiler executable by trying multiple filenames in multiple locations.
     * Tries in order:
-    * 1. Configured path (if set) - all 3 filenames
-    * 2. tools/ directory - all 3 filenames
-    * 3. Current working directory - all 3 filenames
-    * 4. NCSDecomp installation directory - all 3 filenames
+    * 1. Configured path (if set) - all compiler filenames
+    * 2. tools/ directory - all compiler filenames
+    * 3. Current working directory - all compiler filenames
+    * 4. NCSDecomp installation directory - all compiler filenames
     *
-    * Filenames tried in order: nwnnsscomp.exe, nwnnsscomp_kscript.exe, nwnnsscomp_tslpatcher.exe
+    * Filenames tried in priority order:
+    * 1. nwnnsscomp.exe (primary - generic name)
+    * 2. nwnnsscomp_kscript.exe (secondary - KOTOR Scripting Tool)
+    * 3. nwnnsscomp_tslpatcher.exe (TSLPatcher variant)
+    * 4. nwnnsscomp_v1.exe (v1.3 first public release)
     */
    private File getCompilerFile() {
-      String[] compilerNames = {"nwnnsscomp.exe", "nwnnsscomp_kscript.exe", "nwnnsscomp_tslpatcher.exe"};
+      // Priority order: primary first, then secondary, then others
+      String[] compilerNames = {
+         "nwnnsscomp.exe",              // Primary - generic name (highest priority)
+         "nwnnsscomp_kscript.exe",      // Secondary - KOTOR Scripting Tool
+         "nwnnsscomp_tslpatcher.exe",   // TSLPatcher variant
+         "nwnnsscomp_v1.exe"            // v1.3 first public release
+      };
 
       // 1. Try configured path (if set) - all 3 filenames
       if (nwnnsscompPath != null && !nwnnsscompPath.trim().isEmpty()) {

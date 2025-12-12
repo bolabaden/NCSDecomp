@@ -97,16 +97,26 @@ public class NCSDecompCLIRoundTripTest {
   /**
    * Finds the compiler executable by trying multiple filenames in multiple locations.
    * Tries in order:
-   * 1. tools/ directory - all 3 filenames
-   * 2. Current working directory - all 3 filenames
-   * 3. NCSDecomp installation directory - all 3 filenames
+   * 1. tools/ directory - all compiler filenames
+   * 2. Current working directory - all compiler filenames
+   * 3. NCSDecomp installation directory - all compiler filenames
    *
-   * Filenames tried in order: nwnnsscomp.exe, nwnnsscomp_kscript.exe, nwnnsscomp_tslpatcher.exe
+   * Filenames tried in priority order:
+   * 1. nwnnsscomp.exe (primary - generic name)
+   * 2. nwnnsscomp_kscript.exe (secondary - KOTOR Scripting Tool)
+   * 3. nwnnsscomp_tslpatcher.exe (TSLPatcher variant)
+   * 4. nwnnsscomp_v1.exe (v1.3 first public release)
    *
    * @return Path to the found compiler, or default path if not found
    */
   private static Path findCompiler() {
-     String[] compilerNames = {"nwnnsscomp.exe", "nwnnsscomp_kscript.exe", "nwnnsscomp_tslpatcher.exe"};
+     // Priority order: primary first, then secondary, then others
+     String[] compilerNames = {
+        "nwnnsscomp.exe",              // Primary - generic name (highest priority)
+        "nwnnsscomp_kscript.exe",      // Secondary - KOTOR Scripting Tool
+        "nwnnsscomp_tslpatcher.exe",   // TSLPatcher variant
+        "nwnnsscomp_v1.exe"            // v1.3 first public release
+     };
 
      // 1. Try tools/ directory - all 3 filenames
      Path toolsDir = REPO_ROOT.resolve("tools");
