@@ -85,6 +85,9 @@ public class Settings extends Properties implements ActionListener {
    // UI Settings
    private JCheckBox linkScrollBarsCheckBox;
 
+   // Flag to prevent combobox action listener from saving during programmatic changes
+   private boolean isUpdatingComboBox = false;
+
    public static void main(String[] args) {
    }
 
@@ -179,25 +182,39 @@ public class Settings extends Properties implements ActionListener {
       // Save the full path to the selected compiler (from combobox selection)
       String selectedCompiler = (String) this.nwnnsscompComboBox.getSelectedItem();
       String folderPath = this.nwnnsscompPathField.getText().trim();
-      if (!folderPath.isEmpty() && selectedCompiler != null && !selectedCompiler.isEmpty()) {
+
+      // Always prioritize combobox selection if available
+      if (selectedCompiler != null && !selectedCompiler.isEmpty() && !folderPath.isEmpty()) {
          File folder = new File(folderPath);
          if (folder.isFile()) {
             folder = folder.getParentFile();
          }
          if (folder != null && folder.isDirectory()) {
             File compilerFile = new File(folder, selectedCompiler);
-            String fullPath = compilerFile.getAbsolutePath();
-            this.setProperty("nwnnsscomp Path", fullPath);
-            FileDecompiler.nwnnsscompPath = fullPath;
-         } else {
-            // Fallback: just save the folder path
+            if (compilerFile.exists() && compilerFile.isFile()) {
+               String fullPath = compilerFile.getAbsolutePath();
+               this.setProperty("nwnnsscomp Path", fullPath);
+               FileDecompiler.nwnnsscompPath = fullPath;
+            } else {
+               // Compiler file doesn't exist, but save the path anyway
+               String fullPath = compilerFile.getAbsolutePath();
+               this.setProperty("nwnnsscomp Path", fullPath);
+               FileDecompiler.nwnnsscompPath = fullPath;
+            }
+         } else if (!folderPath.isEmpty()) {
+            // Folder doesn't exist or is invalid, but save what we have
             this.setProperty("nwnnsscomp Path", folderPath);
             FileDecompiler.nwnnsscompPath = folderPath;
+         } else {
+            this.remove("nwnnsscomp Path");
+            FileDecompiler.nwnnsscompPath = null;
          }
       } else if (!folderPath.isEmpty()) {
+         // No compiler selected, but folder path exists - save folder path
          this.setProperty("nwnnsscomp Path", folderPath);
          FileDecompiler.nwnnsscompPath = folderPath;
       } else {
+         // Nothing to save
          this.remove("nwnnsscomp Path");
          FileDecompiler.nwnnsscompPath = null;
       }
@@ -223,9 +240,7 @@ public class Settings extends Properties implements ActionListener {
          FileDecompiler.isK2Selected = true;
       }
 
-      // Apply nwnnsscomp path to FileDecompiler
-      String nwnnsscompPathValue = this.nwnnsscompPathField.getText().trim();
-      FileDecompiler.nwnnsscompPath = nwnnsscompPathValue.isEmpty() ? null : nwnnsscompPathValue;
+      // nwnnsscomp path is already set above from combobox selection
 
       // Decompilation Options
       this.setProperty("Prefer Switches", String.valueOf(this.preferSwitchesCheckBox.isSelected()));
@@ -281,7 +296,7 @@ public class Settings extends Properties implements ActionListener {
       // Populate combobox and update compiler info after setting the path
       File folder = new File(nwnnsscompPath);
       File actualFolder = null;
-      
+
       if (folder.exists() && folder.isDirectory()) {
          actualFolder = folder;
       } else if (folder.exists() && folder.isFile()) {
@@ -297,20 +312,26 @@ public class Settings extends Properties implements ActionListener {
             actualFolder = folder;
          }
       }
-      
+
       if (actualFolder != null) {
          populateCompilerComboBox(actualFolder);
          // If we had a specific compiler selected, try to select it in the combobox
          if (selectedCompilerName != null && !selectedCompilerName.isEmpty()) {
-            SwingUtilities.invokeLater(() -> {
+            this.isUpdatingComboBox = true;
+            try {
                for (int i = 0; i < this.nwnnsscompComboBox.getItemCount(); i++) {
                   String item = (String) this.nwnnsscompComboBox.getItemAt(i);
                   if (item.equals(selectedCompilerName)) {
                      this.nwnnsscompComboBox.setSelectedIndex(i);
+                     // Update FileDecompiler with the restored path
+                     File compilerFile = new File(actualFolder, selectedCompilerName);
+                     FileDecompiler.nwnnsscompPath = compilerFile.getAbsolutePath();
                      break;
                   }
                }
-            });
+            } finally {
+               this.isUpdatingComboBox = false;
+            }
          }
       }
       updateCompilerInfo();
@@ -556,6 +577,10 @@ public class Settings extends Properties implements ActionListener {
       this.nwnnsscompComboBox = new JComboBox<>();
       this.nwnnsscompComboBox.setToolTipText("Select which nwnnsscomp.exe to use");
       this.nwnnsscompComboBox.addActionListener(e -> {
+         // Only process if this is a user-initiated change (not programmatic)
+         if (this.isUpdatingComboBox) {
+            return;
+         }
          if (e.getSource() == this.nwnnsscompComboBox && this.nwnnsscompComboBox.getSelectedItem() != null) {
             String selectedCompiler = (String) this.nwnnsscompComboBox.getSelectedItem();
             String folderPath = this.nwnnsscompPathField.getText().trim();
@@ -569,10 +594,12 @@ public class Settings extends Properties implements ActionListener {
                   File compilerFile = new File(folder, selectedCompiler);
                   // Save the full path to the compiler file
                   String fullPath = compilerFile.getAbsolutePath();
-                  // Update FileDecompiler to use this specific compiler
+                  // Update FileDecompiler to use this specific compiler immediately
                   FileDecompiler.nwnnsscompPath = fullPath;
-                  // Save to settings
+                  // Save to settings immediately so it persists
                   this.setProperty("nwnnsscomp Path", fullPath);
+                  // Save to disk immediately
+                  this.save();
                   updateCompilerInfo();
                }
             }
@@ -987,7 +1014,12 @@ public class Settings extends Properties implements ActionListener {
     */
    private void populateCompilerComboBox(File folder) {
       if (folder == null || !folder.isDirectory()) {
-         this.nwnnsscompComboBox.removeAllItems();
+         this.isUpdatingComboBox = true;
+         try {
+            this.nwnnsscompComboBox.removeAllItems();
+         } finally {
+            this.isUpdatingComboBox = false;
+         }
          return;
       }
 
@@ -998,30 +1030,35 @@ public class Settings extends Properties implements ActionListener {
       });
 
       String currentSelection = (String) this.nwnnsscompComboBox.getSelectedItem();
-      this.nwnnsscompComboBox.removeAllItems();
+      this.isUpdatingComboBox = true;
+      try {
+         this.nwnnsscompComboBox.removeAllItems();
 
-      if (files != null && files.length > 0) {
-         // Sort files by name for consistent display
-         java.util.Arrays.sort(files, (a, b) -> a.getName().compareToIgnoreCase(b.getName()));
+         if (files != null && files.length > 0) {
+            // Sort files by name for consistent display
+            java.util.Arrays.sort(files, (a, b) -> a.getName().compareToIgnoreCase(b.getName()));
 
-         for (File file : files) {
-            this.nwnnsscompComboBox.addItem(file.getName());
-         }
+            for (File file : files) {
+               this.nwnnsscompComboBox.addItem(file.getName());
+            }
 
-         // Try to restore previous selection if it still exists
-         if (currentSelection != null) {
-            for (int i = 0; i < this.nwnnsscompComboBox.getItemCount(); i++) {
-               if (this.nwnnsscompComboBox.getItemAt(i).equals(currentSelection)) {
-                  this.nwnnsscompComboBox.setSelectedIndex(i);
-                  return;
+            // Try to restore previous selection if it still exists
+            if (currentSelection != null) {
+               for (int i = 0; i < this.nwnnsscompComboBox.getItemCount(); i++) {
+                  if (this.nwnnsscompComboBox.getItemAt(i).equals(currentSelection)) {
+                     this.nwnnsscompComboBox.setSelectedIndex(i);
+                     return;
+                  }
                }
             }
-         }
 
-         // If no previous selection or it doesn't exist, select the first item
-         if (this.nwnnsscompComboBox.getItemCount() > 0) {
-            this.nwnnsscompComboBox.setSelectedIndex(0);
+            // If no previous selection or it doesn't exist, select the first item
+            if (this.nwnnsscompComboBox.getItemCount() > 0) {
+               this.nwnnsscompComboBox.setSelectedIndex(0);
+            }
          }
+      } finally {
+         this.isUpdatingComboBox = false;
       }
    }
 
