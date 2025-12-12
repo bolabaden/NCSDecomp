@@ -1749,39 +1749,102 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
                            // Include the source file's parent directory for relative #include resolution
                            java.util.List<File> includeDirs = new java.util.ArrayList<>();
                            includeDirs.add(file.getParentFile());
-                           String[] cmd = config.getCompileArgs(compiler.getAbsolutePath(), includeDirs);
-
-                           System.err.println("DEBUG loadNssFile: Running compiler: " + java.util.Arrays.toString(cmd));
-                           ProcessBuilder pb = new ProcessBuilder(cmd);
-                           pb.directory(file.getParentFile());
-                           pb.redirectErrorStream(true);
-                           Process proc = pb.start();
-
-                           // Read output
+                           
+                           // For KOTOR Tool, copy include files to source directory (it doesn't support -i flag)
+                           java.util.List<File> copiedIncludeFiles = new java.util.ArrayList<>();
+                           if (config.getChosenCompiler() == KnownExternalCompilers.KOTOR_TOOL && !includeDirs.isEmpty()) {
+                              File sourceDir = file.getParentFile();
+                              
+                              // Parse source file to find which includes are needed
+                              java.util.Set<String> neededIncludes = new java.util.HashSet<>();
+                              try {
+                                 String sourceContent = new String(java.nio.file.Files.readAllBytes(file.toPath()), java.nio.charset.StandardCharsets.UTF_8);
+                                 java.util.regex.Pattern includePattern = java.util.regex.Pattern.compile("#include\\s+[\"<]([^\">]+)[\">]");
+                                 java.util.regex.Matcher matcher = includePattern.matcher(sourceContent);
+                                 while (matcher.find()) {
+                                    String includeName = matcher.group(1);
+                                    // Normalize: add .nss extension if missing
+                                    if (!includeName.endsWith(".nss") && !includeName.endsWith(".h")) {
+                                       includeName = includeName + ".nss";
+                                    }
+                                    neededIncludes.add(includeName);
+                                 }
+                              } catch (Exception e) {
+                                 System.err.println("DEBUG loadNssFile: Failed to parse includes from source: " + e.getMessage());
+                              }
+                              
+                              // Copy needed include files from include directories to source directory
+                              for (String includeName : neededIncludes) {
+                                 File destFile = new File(sourceDir, includeName);
+                                 // Skip if already exists in source directory
+                                 if (destFile.exists()) {
+                                    continue;
+                                 }
+                                 
+                                 // Search for include file in include directories
+                                 boolean found = false;
+                                 for (File includeDir : includeDirs) {
+                                    if (includeDir != null && includeDir.exists()) {
+                                       File includeFile = new File(includeDir, includeName);
+                                       if (includeFile.exists() && includeFile.isFile()) {
+                                          try {
+                                             java.nio.file.Files.copy(includeFile.toPath(), destFile.toPath(),
+                                                   java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                                             copiedIncludeFiles.add(destFile);
+                                             System.err.println("DEBUG loadNssFile: Copied include file for KOTOR Tool: " + includeName + " from " + includeFile.getAbsolutePath());
+                                             found = true;
+                                             break;
+                                          } catch (java.io.IOException e) {
+                                             System.err.println("DEBUG loadNssFile: Failed to copy include file " + includeName + ": " + e.getMessage());
+                                          }
+                                       }
+                                    }
+                                 }
+                                 
+                                 if (!found) {
+                                    System.err.println("DEBUG loadNssFile: Warning: Include file not found: " + includeName);
+                                 }
+                              }
+                           }
+                           
+                           // Declare variables outside try block so they're accessible in finally
                            StringBuilder output = new StringBuilder();
-                           try (java.io.BufferedReader reader = new java.io.BufferedReader(
-                                 new java.io.InputStreamReader(proc.getInputStream()))) {
-                              String line;
-                              while ((line = reader.readLine()) != null) {
-                                 output.append(line).append("\n");
-                              }
-                           }
+                           boolean finished = false;
+                           Process proc = null;
+                           
+                           try {
+                              String[] cmd = config.getCompileArgs(compiler.getAbsolutePath(), includeDirs);
 
-                           boolean finished = proc.waitFor(25, java.util.concurrent.TimeUnit.SECONDS);
-                           if (!finished) {
-                              proc.destroyForcibly();
-                              System.err.println("DEBUG loadNssFile: Compiler timed out");
-                           } else {
-                              int exitCode = proc.exitValue();
-                              System.err.println("DEBUG loadNssFile: Compiler exit code: " + exitCode);
-                              // Always print compiler output for debugging
-                              String compilerOutput = output.toString().trim();
-                              if (!compilerOutput.isEmpty()) {
-                                 System.err.println("DEBUG loadNssFile: Compiler output:\n" + compilerOutput);
-                              }
-                           }
+                              System.err.println("DEBUG loadNssFile: Running compiler: " + java.util.Arrays.toString(cmd));
+                              ProcessBuilder pb = new ProcessBuilder(cmd);
+                              pb.directory(file.getParentFile());
+                              pb.redirectErrorStream(true);
+                              proc = pb.start();
 
-                           System.err.println("DEBUG loadNssFile: Checking for compiled NCS at: " + compiledNcs.getAbsolutePath());
+                              // Read output
+                              try (java.io.BufferedReader reader = new java.io.BufferedReader(
+                                    new java.io.InputStreamReader(proc.getInputStream()))) {
+                                 String line;
+                                 while ((line = reader.readLine()) != null) {
+                                    output.append(line).append("\n");
+                                 }
+                              }
+
+                              finished = proc.waitFor(25, java.util.concurrent.TimeUnit.SECONDS);
+                              if (!finished) {
+                                 proc.destroyForcibly();
+                                 System.err.println("DEBUG loadNssFile: Compiler timed out");
+                              } else {
+                                 int exitCode = proc.exitValue();
+                                 System.err.println("DEBUG loadNssFile: Compiler exit code: " + exitCode);
+                                 // Always print compiler output for debugging
+                                 String compilerOutput = output.toString().trim();
+                                 if (!compilerOutput.isEmpty()) {
+                                    System.err.println("DEBUG loadNssFile: Compiler output:\n" + compilerOutput);
+                                 }
+                              }
+
+                              System.err.println("DEBUG loadNssFile: Checking for compiled NCS at: " + compiledNcs.getAbsolutePath());
                            if (compiledNcs.exists()) {
                               System.err.println(
                                     "DEBUG loadNssFile: Compiled NCS exists at: " + compiledNcs.getAbsolutePath());
@@ -1861,13 +1924,26 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
                                  }
                               } else {
                                  errorMsg.append("// No compiler output available.\n");
-                                 if (finished) {
+                                 if (proc != null && finished) {
                                     errorMsg.append("// Exit code: ").append(proc.exitValue()).append("\n");
                                  } else {
-                                    errorMsg.append("// Compiler timed out.\n");
+                                    errorMsg.append("// Compiler timed out or process not started.\n");
                                  }
                               }
                               roundTripPane.setText(errorMsg.toString());
+                           }
+                           } finally {
+                              // Clean up copied include files (for KOTOR Tool) - always run
+                              for (File copiedFile : copiedIncludeFiles) {
+                                 try {
+                                    if (copiedFile.exists()) {
+                                       copiedFile.delete();
+                                       System.err.println("DEBUG loadNssFile: Cleaned up copied include file: " + copiedFile.getName());
+                                    }
+                                 } catch (Exception e) {
+                                    System.err.println("DEBUG loadNssFile: Failed to clean up copied include file " + copiedFile.getName() + ": " + e.getMessage());
+                                 }
+                              }
                            }
                         } else {
                            System.err.println("DEBUG loadNssFile: Compiler not found");

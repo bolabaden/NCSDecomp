@@ -82,14 +82,21 @@ public class NwnnsscompConfig {
     */
    public String[] getCompileArgs(String executable, java.util.List<File> includeDirs) {
       // Build include arguments array for {includes} placeholder
+      // Note: KOTOR Tool doesn't support -i flag - it expects includes in same directory as source
       java.util.List<String> includeArgs = new java.util.ArrayList<>();
       if (includeDirs != null && !includeDirs.isEmpty()) {
-         for (File dir : includeDirs) {
-            if (dir != null && dir.exists()) {
-               includeArgs.add("-i");
-               includeArgs.add(dir.getAbsolutePath());
+         // Only add -i flags if compiler supports them (not KOTOR Tool)
+         boolean supportsIncludeFlag = (chosenCompiler != KnownExternalCompilers.KOTOR_TOOL);
+         if (supportsIncludeFlag) {
+            for (File dir : includeDirs) {
+               if (dir != null && dir.exists()) {
+                  includeArgs.add("-i");
+                  includeArgs.add(dir.getAbsolutePath());
+               }
             }
          }
+         // For KOTOR Tool, include files must be in the same directory as the source file
+         // The caller should copy include files to the source directory if needed
       }
 
       // Get base template args
