@@ -857,11 +857,39 @@ public class FileDecompiler {
     * Returns null if no compiler is configured.
     */
    private File getCompilerFile() {
-      // GUI MODE: Try to get compiler from Settings (EXCLUSIVE - NO FALLBACKS)
+      // GUI MODE: Try to get compiler from Settings
       try {
          File settingsCompiler = CompilerUtil.getCompilerFromSettings();
          if (settingsCompiler != null) {
-            System.err.println("DEBUG FileDecompiler.getCompilerFile: Using Settings compiler: "
+            // If Settings compiler exists, use it
+            if (settingsCompiler.exists() && settingsCompiler.isFile()) {
+               System.err.println("DEBUG FileDecompiler.getCompilerFile: Using Settings compiler: "
+                     + settingsCompiler.getAbsolutePath());
+               return settingsCompiler;
+            }
+            // Settings compiler doesn't exist - try fallback to JAR/EXE directory's tools folder
+            System.err.println("DEBUG FileDecompiler.getCompilerFile: Settings compiler not found: "
+                  + settingsCompiler.getAbsolutePath() + ", trying fallback to JAR directory");
+            
+            // Try JAR/EXE directory's tools folder with all known compiler names
+            File ncsDecompDir = CompilerUtil.getNCSDecompDirectory();
+            if (ncsDecompDir != null) {
+               File jarToolsDir = new File(ncsDecompDir, "tools");
+               String[] compilerNames = CompilerUtil.getCompilerNames();
+               for (String name : compilerNames) {
+                  File fallbackCompiler = new File(jarToolsDir, name);
+                  if (fallbackCompiler.exists() && fallbackCompiler.isFile()) {
+                     System.err.println("DEBUG FileDecompiler.getCompilerFile: Found fallback compiler in JAR directory: "
+                           + fallbackCompiler.getAbsolutePath());
+                     return fallbackCompiler;
+                  }
+               }
+               System.err.println("DEBUG FileDecompiler.getCompilerFile: No fallback compiler found in JAR directory: "
+                     + jarToolsDir.getAbsolutePath());
+            }
+            
+            // Fallback failed, but return the Settings path anyway (caller will handle error)
+            System.err.println("DEBUG FileDecompiler.getCompilerFile: Using Settings compiler (not found): "
                   + settingsCompiler.getAbsolutePath());
             return settingsCompiler;
          }
