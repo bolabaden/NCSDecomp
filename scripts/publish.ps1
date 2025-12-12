@@ -74,27 +74,7 @@ New-Item -ItemType Directory -Path $publishDir -Force | Out-Null
 Write-Host ""
 Write-Host "Step 3: Packaging distribution files..." -ForegroundColor Yellow
 
-# Copy single-file executables first (preferred)
-$singleFileDir = Join-Path $targetDir (Join-Path "dist" "singlefile")
-if (Test-Path $singleFileDir) {
-    $singleFileExes = Get-ChildItem $singleFileDir -Filter "*.exe" -ErrorAction SilentlyContinue
-    if ($IsWindows) {
-        $singleFileExes += Get-ChildItem $singleFileDir -Filter "*.AppImage" -ErrorAction SilentlyContinue
-    }
-    if ($IsLinux) {
-        $singleFileExes += Get-ChildItem $singleFileDir -Filter "*.AppImage" -ErrorAction SilentlyContinue
-    }
-    if ($IsMacOS) {
-        $singleFileExes += Get-ChildItem $singleFileDir -Filter "*.app" -ErrorAction SilentlyContinue
-    }
-
-    foreach ($exe in $singleFileExes) {
-        Copy-Item $exe.FullName $publishDir
-        Write-Host "  - Copied single-file executable: $($exe.Name)" -ForegroundColor Cyan
-    }
-}
-
-# Copy CLI executable folder (NCSDecompCLI) as fallback
+# Copy CLI executable folder (NCSDecompCLI)
 $cliAppImageDir = Join-Path $targetDir (Join-Path "dist" "NCSDecompCLI")
 $cliAppDest = Join-Path $publishDir "NCSDecompCLI"
 
@@ -108,7 +88,7 @@ if (Test-Path $cliAppImageDir) {
     Write-Host "  Warning: NCSDecompCLI folder not found, skipping..." -ForegroundColor Yellow
 }
 
-# Copy GUI executable folder (NCSDecomp) as fallback
+# Copy GUI executable folder (NCSDecomp)
 $guiAppImageDir = Join-Path $targetDir (Join-Path "dist" "NCSDecomp")
 $guiAppDest = Join-Path $publishDir "NCSDecomp"
 
