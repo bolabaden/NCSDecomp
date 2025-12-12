@@ -1869,16 +1869,13 @@ public class Decompiler
                         java.nio.file.Files.write(tempNssFile.toPath(), generatedCode.getBytes(java.nio.charset.StandardCharsets.UTF_8));
                         System.err.println("DEBUG decompile: Saved temp NSS to: " + tempNssFile.getAbsolutePath());
 
-                        // Compile and compare using the temp file
-                        int compileResult = this.fileDecompiler.compileAndCompare(file, tempNssFile);
-                        System.err.println("DEBUG decompile: compileAndCompare result: " + compileResult);
+                        // Compile the temp NSS file directly (without cleanup) for round-trip display
+                        // Use tempDir explicitly to ensure output is in temp
+                        File recompiledNcs = this.fileDecompiler.compileNssToNcs(tempNssFile, tempDir);
+                        System.err.println("DEBUG decompile: Compilation result: " + (recompiledNcs != null ? recompiledNcs.getAbsolutePath() : "null"));
+                        System.err.println("DEBUG decompile: Recompiled NCS exists: " + (recompiledNcs != null && recompiledNcs.exists()));
 
-                        // Check for recompiled NCS file (_generatedcode.ncs) created by compileAndCompare
-                        File recompiledNcs = new File("_generatedcode.ncs").getAbsoluteFile();
-                        System.err.println("DEBUG decompile: Checking for recompiled NCS at: " + recompiledNcs.getAbsolutePath());
-                        System.err.println("DEBUG decompile: Recompiled NCS exists: " + recompiledNcs.exists());
-
-                        if (recompiledNcs.exists()) {
+                        if (recompiledNcs != null && recompiledNcs.exists()) {
                            // Decompile the recompiled NCS to show round-trip result
                            String gameFlag = FileDecompiler.isK2Selected ? "k2" : "k1";
                            System.err.println("DEBUG decompile: Decompiling recompiled NCS with gameFlag: " + gameFlag);
@@ -1896,12 +1893,23 @@ public class Decompiler
                               roundTripPane.setText("// Round-trip decompiled code not available.\n// The recompiled NCS could not be decompiled.");
                            }
                         } else {
-                           System.err.println("DEBUG decompile: Recompiled NCS not found after auto-trigger");
+                           String errorPath = recompiledNcs != null ? recompiledNcs.getAbsolutePath() : "null";
+                           System.err.println("DEBUG decompile: Recompiled NCS not found after auto-trigger at: " + errorPath);
                            roundTripPane.setText("// Round-trip decompiled code not available.\n// Compilation failed or compiler not configured.");
                         }
 
-                        // Clean up temp file (optional - can leave for debugging)
-                        // tempNssFile.delete();
+                        // Clean up temp files after use (they're only needed for round-trip validation)
+                        try {
+                           if (recompiledNcs.exists()) {
+                              // Keep the NCS temporarily in case user wants to inspect it
+                              // Will be cleaned up on next load or can be manually deleted
+                              // recompiledNcs.delete();
+                           }
+                           // Keep temp NSS for now in case of errors, can be cleaned up later
+                           // tempNssFile.delete();
+                        } catch (Exception cleanupEx) {
+                           // Ignore cleanup errors
+                        }
                      } catch (Exception ex) {
                         System.err.println("DEBUG decompile: Error during auto-trigger round-trip: " + ex.getMessage());
                         ex.printStackTrace();

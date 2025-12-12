@@ -365,6 +365,18 @@ public class FileDecompiler {
    }
 
    /**
+    * Compiles an NSS file to NCS without performing comparison or cleanup.
+    * This is useful for round-trip display where the compiled NCS needs to persist.
+    *
+    * @param nssFile The NSS file to compile
+    * @param outputDir The output directory for the compiled NCS file. If null, uses temp directory.
+    * @return The compiled NCS file, or null if compilation failed
+    */
+   public File compileNssToNcs(File nssFile, File outputDir) {
+      return this.externalCompile(nssFile, isK2Selected, outputDir);
+   }
+
+   /**
     * Compiles an NSS file and captures the resulting bytecode; does not compare.
     *
     * @param nssFile Source to compile
@@ -731,47 +743,6 @@ public class FileDecompiler {
    }
 
    /**
-    * Returns the expected nwnnsscomp executable location.
-    * Checks configured path first, then tools/ directory, then current working directory.
-    */
-   /**
-    * Gets the NCSDecomp installation directory (where the jar/exe is located).
-    * @return File representing the installation directory, or null if cannot be determined
-    */
-   private File getNCSDecompDirectory() {
-      try {
-         // Try to get the location of the jar/exe file
-         java.net.URL location = FileDecompiler.class.getProtectionDomain().getCodeSource().getLocation();
-         if (location != null) {
-            String path = location.getPath();
-            if (path != null) {
-               // Handle URL-encoded paths
-               if (path.startsWith("file:")) {
-                  path = path.substring(5);
-               }
-               // Decode URL encoding
-               try {
-                  path = java.net.URLDecoder.decode(path, "UTF-8");
-               } catch (java.io.UnsupportedEncodingException e) {
-                  // Fall through with original path
-               }
-               File jarFile = new File(path);
-               if (jarFile.exists()) {
-                  File parent = jarFile.getParentFile();
-                  if (parent != null) {
-                     return parent;
-                  }
-               }
-            }
-         }
-      } catch (Exception e) {
-         // Fall through to user.dir
-      }
-      // Fallback to user.dir if we can't determine jar location
-      return new File(System.getProperty("user.dir"));
-   }
-
-   /**
     * Returns the compiler executable location.
     * <p>
     * For GUI mode: Uses CompilerUtil.getCompilerFromSettings() EXCLUSIVELY - NO FALLBACKS.
@@ -813,14 +784,6 @@ public class FileDecompiler {
    private boolean checkCompilerExists() {
       File compiler = getCompilerFile();
       return compiler != null && compiler.exists();
-   }
-
-   /**
-    * Strips the extension from a file path to produce a base name used by nwnnsscomp.
-    */
-   private String getShortName(File in) {
-      int i = in.getAbsolutePath().lastIndexOf(46);
-      return i == -1 ? in.getAbsolutePath() : in.getAbsolutePath().substring(0, i);
    }
 
    /**
@@ -1011,25 +974,6 @@ public class FileDecompiler {
          e.printStackTrace();
          return null;
       }
-   }
-
-   private List<File> buildIncludeDirs(boolean k2) {
-      List<File> dirs = new ArrayList<>();
-      File base = new File("test-work" + File.separator + "Vanilla_KOTOR_Script_Source");
-      File gameDir = new File(base, k2 ? "TSL" : "K1");
-      File scriptsBif = new File(gameDir, "Data" + File.separator + "scripts.bif");
-      if (scriptsBif.exists()) {
-         dirs.add(scriptsBif);
-      }
-      File rootOverride = new File(gameDir, "Override");
-      if (rootOverride.exists()) {
-         dirs.add(rootOverride);
-      }
-      // Fallback: allow includes relative to the game dir root.
-      if (gameDir.exists()) {
-         dirs.add(gameDir);
-      }
-      return dirs;
    }
 
    private void ensureActionsLoaded() throws DecompilerException {
