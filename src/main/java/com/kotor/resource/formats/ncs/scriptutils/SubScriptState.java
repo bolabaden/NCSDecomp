@@ -736,7 +736,68 @@ public class SubScriptState {
                      areturn = new AReturnStatement();
                   }
 
-                  this.current.addChild(areturn);
+                  // If we're inside a switch case, ensure the return is added to the case, not the parent
+                  // The return JMP might be at the end of a switch case, but checkEnd from the previous
+                  // instruction may have already moved this.current up. We need to find the switch case
+                  // that ends at nodePos (or just before it) and add the return to that case.
+                  ScriptRootNode targetNode = this.current;
+                  ASwitchCase switchCase = null;
+                  
+                  // First check if current is a switch case
+                  if (ASwitchCase.class.isInstance(this.current)) {
+                     System.err.println("DEBUG transformJump: current is ASwitchCase, adding return to case");
+                     targetNode = this.current;
+                     switchCase = (ASwitchCase) this.current;
+                  } else {
+                     // Walk up the parent chain to find a switch case
+                     ScriptRootNode curr = this.current;
+                     while (curr != null && !ASub.class.isInstance(curr)) {
+                        if (ASwitchCase.class.isInstance(curr)) {
+                           System.err.println("DEBUG transformJump: found ASwitchCase in parent chain");
+                           switchCase = (ASwitchCase) curr;
+                           break;
+                        }
+                        ScriptNode parent = curr.parent();
+                        curr = parent instanceof ScriptRootNode ? (ScriptRootNode) parent : null;
+                     }
+                     
+                     // If we found a switch case, check if nodePos is at or just after its end
+                     // (the return JMP is typically the last instruction in a case)
+                     if (switchCase != null) {
+                        int caseEnd = switchCase.getEnd();
+                        System.err.println("DEBUG transformJump: switchCase end=" + caseEnd + ", nodePos=" + nodePos);
+                        // The return JMP is typically at the end of the case, or the case end might be
+                        // set to the position just before the return. Check if nodePos matches caseEnd
+                        // or if caseEnd is just before nodePos (within a few bytes).
+                        if (nodePos == caseEnd || (caseEnd > 0 && nodePos >= caseEnd - 6 && nodePos <= caseEnd + 6)) {
+                           System.err.println("DEBUG transformJump: nodePos matches switchCase end, adding return to case");
+                           targetNode = switchCase;
+                        } else {
+                           System.err.println("DEBUG transformJump: nodePos does not match switchCase end, using current");
+                        }
+                     } else {
+                        // Check if there's a switch in the children that has a case ending at nodePos
+                        if (this.current.hasChildren()) {
+                           ScriptNode lastChild = this.current.getLastChild();
+                           if (ASwitch.class.isInstance(lastChild)) {
+                              ASwitch aswitch = (ASwitch) lastChild;
+                              // Check all cases to see if any end at nodePos
+                              ASwitchCase acase = null;
+                              while ((acase = aswitch.getNextCase(acase)) != null) {
+                                 int caseEnd = acase.getEnd();
+                                 System.err.println("DEBUG transformJump: checking case end=" + caseEnd + " vs nodePos=" + nodePos);
+                                 if (nodePos == caseEnd || (caseEnd > 0 && nodePos >= caseEnd - 6 && nodePos <= caseEnd + 6)) {
+                                    System.err.println("DEBUG transformJump: found case ending at nodePos, adding return to case");
+                                    targetNode = acase;
+                                    break;
+                                 }
+                              }
+                           }
+                        }
+                     }
+                  }
+
+                  targetNode.addChild(areturn);
                } else if (destPos >= nodePos) {
                   System.err.println("DEBUG transformJump: forward jump (destPos >= nodePos), checking for break/continue");
                   ScriptRootNode loop = this.getBreakable();
