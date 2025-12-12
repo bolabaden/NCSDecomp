@@ -74,7 +74,27 @@ New-Item -ItemType Directory -Path $publishDir -Force | Out-Null
 Write-Host ""
 Write-Host "Step 3: Packaging distribution files..." -ForegroundColor Yellow
 
-# Copy CLI executable folder (NCSDecompCLI)
+# Copy single-file executables first (preferred)
+$singleFileDir = Join-Path $targetDir (Join-Path "dist" "singlefile")
+if (Test-Path $singleFileDir) {
+    $singleFileExes = Get-ChildItem $singleFileDir -Filter "*.exe" -ErrorAction SilentlyContinue
+    if ($IsWindows) {
+        $singleFileExes += Get-ChildItem $singleFileDir -Filter "*.AppImage" -ErrorAction SilentlyContinue
+    }
+    if ($IsLinux) {
+        $singleFileExes += Get-ChildItem $singleFileDir -Filter "*.AppImage" -ErrorAction SilentlyContinue
+    }
+    if ($IsMacOS) {
+        $singleFileExes += Get-ChildItem $singleFileDir -Filter "*.app" -ErrorAction SilentlyContinue
+    }
+
+    foreach ($exe in $singleFileExes) {
+        Copy-Item $exe.FullName $publishDir
+        Write-Host "  - Copied single-file executable: $($exe.Name)" -ForegroundColor Cyan
+    }
+}
+
+# Copy CLI executable folder (NCSDecompCLI) as fallback
 $cliAppImageDir = Join-Path $targetDir (Join-Path "dist" "NCSDecompCLI")
 $cliAppDest = Join-Path $publishDir "NCSDecompCLI"
 
@@ -88,7 +108,7 @@ if (Test-Path $cliAppImageDir) {
     Write-Host "  Warning: NCSDecompCLI folder not found, skipping..." -ForegroundColor Yellow
 }
 
-# Copy GUI executable folder (NCSDecomp) if it exists
+# Copy GUI executable folder (NCSDecomp) as fallback
 $guiAppImageDir = Join-Path $targetDir (Join-Path "dist" "NCSDecomp")
 $guiAppDest = Join-Path $publishDir "NCSDecomp"
 
@@ -307,7 +327,8 @@ try {
     $compressionLevel = [System.IO.Compression.CompressionLevel]::Optimal
 
     $publishDirResolved = (Resolve-Path $publishDir).Path
-    $zipPathResolved = Join-Path (Get-Location).Path $zipFileName
+    $zipPathResolved = (Resolve-Path $targetDir).Path
+    $zipPathResolved = Join-Path $zipPathResolved $zipFileName
 
     # Create ZIP from publish directory
     [System.IO.Compression.ZipFile]::CreateFromDirectory(
@@ -342,14 +363,5 @@ Write-Host ""
 Write-Host "Distribution package ready in: target/assembly" -ForegroundColor Cyan
 if (Test-Path $zipPath) {
     Write-Host "ZIP archive created: target/$zipFileName" -ForegroundColor Green
-}
-Write-Host ""
-Write-Host "Package contents:" -ForegroundColor Yellow
-$publishDirResolved = (Resolve-Path $publishDir).Path
-$pathSeparator = if ($IsWindows) { "\" } else { "/" }
-Get-ChildItem $publishDir -Recurse | ForEach-Object {
-    $relativePath = $_.FullName.Replace($publishDirResolved + $pathSeparator, "")
-    $size = if ($_.PSIsContainer) { "<DIR>" } else { "$([math]::Round($_.Length / 1KB, 2)) KB" }
-    Write-Host "  $relativePath ($size)" -ForegroundColor Gray
 }
 
