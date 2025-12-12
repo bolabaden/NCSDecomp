@@ -32,9 +32,11 @@ public class FloatConst extends Const {
       df.setMinimumFractionDigits(0);
       df.setGroupingUsed(false);
       String result = df.format(this.value);
-      // Ensure we have at least one digit after the decimal point for very small numbers
-      if (result.indexOf('.') == -1 && Math.abs(this.value) < 1.0 && this.value != 0.0) {
-         result = "0." + result;
+      // Ensure we have at least one digit after the decimal point for whole-number floats
+      // This is critical: 5.0 must be output as "5.0" not "5" so the compiler knows it's a float
+      if (result.indexOf('.') == -1) {
+         // Whole number - add .0 suffix to ensure it's treated as a float
+         result = result + ".0";
       }
       return result;
    }
