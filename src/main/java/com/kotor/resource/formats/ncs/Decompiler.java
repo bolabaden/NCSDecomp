@@ -1610,8 +1610,7 @@ public class Decompiler
                NWScriptSyntaxHighlighter.applyHighlightingImmediate(textPane);
             }
 
-            // File is now loaded, remove from loading set
-            filesBeingLoaded.remove(file);
+            // NOTE: Do NOT remove from filesBeingLoaded yet - keep file protected until fully loaded
 
             // Populate round-trip decompiled code panel (NSS -> NCS -> NSS)
             // For NSS files, we need to compile them first, then decompile the result
@@ -1750,6 +1749,10 @@ public class Decompiler
          }
       }
 
+      // NOW remove file from filesBeingLoaded - AFTER all setup is complete
+      // This prevents the file from being marked as dirty during initial load
+      filesBeingLoaded.remove(file);
+
       this.status.append("loaded successfully\n");
 
       // Update workspace visibility after adding a file
@@ -1793,6 +1796,8 @@ public class Decompiler
       }
 
       // Now we're guaranteed to have code - always show it
+      // CRITICAL: Store generatedCode in final variable to prevent any overwrites
+      final String finalGeneratedCode = generatedCode;
       {
          // Create tab with original filename (keep .ncs extension for NCS files)
          String fileName = file.getName();
@@ -1801,23 +1806,26 @@ public class Decompiler
          this.panels = this.newNCSTab(fileName);
 
          // Get the left side text pane from the split pane
+         // CRITICAL: Make final so it can be used in lambda expressions for error recovery
+         final JTextComponent[] leftCodeAreaRef = new JTextComponent[1];
          if (this.panels[0] instanceof JSplitPane) {
             JSplitPane decompSplitPane = (JSplitPane)this.panels[0];
             java.awt.Component leftComp = decompSplitPane.getLeftComponent();
             if (leftComp instanceof JScrollPane) {
                JScrollPane leftScrollPane = (JScrollPane)leftComp;
-               JTextComponent codeArea = (JTextComponent)leftScrollPane.getViewport().getView();
+               leftCodeAreaRef[0] = (JTextComponent)leftScrollPane.getViewport().getView();
 
                // Disable highlighting during setText to prevent freeze
-               if (codeArea instanceof JTextPane) {
-                  NWScriptSyntaxHighlighter.setSkipHighlighting((JTextPane)codeArea, true);
+               if (leftCodeAreaRef[0] instanceof JTextPane) {
+                  NWScriptSyntaxHighlighter.setSkipHighlighting((JTextPane)leftCodeAreaRef[0], true);
                }
 
-               codeArea.setText(generatedCode);
+               // CRITICAL: Set decompiled code ONCE - this should NEVER be overwritten
+               leftCodeAreaRef[0].setText(finalGeneratedCode);
 
                // Re-enable highlighting and apply immediately
-               if (codeArea instanceof JTextPane) {
-                  JTextPane textPane = (JTextPane)codeArea;
+               if (leftCodeAreaRef[0] instanceof JTextPane) {
+                  JTextPane textPane = (JTextPane)leftCodeAreaRef[0];
                   NWScriptSyntaxHighlighter.setSkipHighlighting(textPane, false);
                   NWScriptSyntaxHighlighter.applyHighlightingImmediate(textPane);
                }
@@ -1859,6 +1867,7 @@ public class Decompiler
 
          // Populate round-trip decompiled code panel (NCS -> NSS -> NCS -> NSS)
          // Auto-trigger round-trip on load by saving to temp directory
+         // CRITICAL: All round-trip code is wrapped in try-catch to ensure it NEVER affects the left pane
          try {
             // Get the decomp split pane from panels[0]
             if (this.panels[0] instanceof JSplitPane) {
@@ -1880,11 +1889,12 @@ public class Decompiler
                         }
 
                         // Save decompiled code to temp file
+                        // CRITICAL: Use finalGeneratedCode to ensure we use the original decompiled code
                         String baseName2 = file.getName().substring(0, file.getName().length() - 4);
                         File tempNssFile = new File(tempDir, baseName2 + ".nss");
 
                         // Write the generated code to temp file
-                        java.nio.file.Files.write(tempNssFile.toPath(), generatedCode.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                        java.nio.file.Files.write(tempNssFile.toPath(), finalGeneratedCode.getBytes(java.nio.charset.StandardCharsets.UTF_8));
                         System.err.println("DEBUG decompile: Saved temp NSS to: " + tempNssFile.getAbsolutePath());
 
                         // Compile the temp NSS file directly (without cleanup) for round-trip display
@@ -1931,7 +1941,29 @@ public class Decompiler
                      } catch (Exception ex) {
                         System.err.println("DEBUG decompile: Error during auto-trigger round-trip: " + ex.getMessage());
                         ex.printStackTrace();
+                        // CRITICAL: Only set error message in RIGHT pane (round-trip panel), NEVER touch left pane
                         roundTripPane.setText("// Round-trip validation error: " + ex.getMessage() + "\n// Check that nwnnsscomp.exe is configured in Settings.");
+                        // CRITICAL: Ensure left pane still has decompiled code - restore if somehow lost
+                        if (leftCodeAreaRef[0] != null) {
+                           final JTextComponent leftCodeArea = leftCodeAreaRef[0];
+                           if (leftCodeArea.getDocument().getLength() == 0 ||
+                               leftCodeArea.getText().trim().isEmpty() ||
+                               leftCodeArea.getText().contains("// Round-trip") ||
+                               leftCodeArea.getText().contains("// Error")) {
+                              System.err.println("DEBUG decompile: WARNING - Left pane appears empty or contains error, restoring decompiled code");
+                              SwingUtilities.invokeLater(() -> {
+                                 if (leftCodeArea.getDocument().getLength() == 0 ||
+                                     leftCodeArea.getText().trim().isEmpty() ||
+                                     leftCodeArea.getText().contains("// Round-trip") ||
+                                     leftCodeArea.getText().contains("// Error")) {
+                                    leftCodeArea.setText(finalGeneratedCode);
+                                    if (leftCodeArea instanceof JTextPane) {
+                                       NWScriptSyntaxHighlighter.applyHighlightingImmediate((JTextPane)leftCodeArea);
+                                    }
+                                 }
+                              });
+                           }
+                        }
                      }
                   }
                }
@@ -1939,6 +1971,27 @@ public class Decompiler
          } catch (Exception e) {
             System.err.println("DEBUG decompile: Error populating round-trip panel: " + e.getMessage());
             e.printStackTrace();
+            // CRITICAL: Ensure left pane still has decompiled code even if outer catch fires
+            if (leftCodeAreaRef[0] != null) {
+               final JTextComponent leftCodeArea = leftCodeAreaRef[0];
+               if (leftCodeArea.getDocument().getLength() == 0 ||
+                   leftCodeArea.getText().trim().isEmpty() ||
+                   leftCodeArea.getText().contains("// Round-trip") ||
+                   leftCodeArea.getText().contains("// Error")) {
+                  System.err.println("DEBUG decompile: WARNING - Left pane appears empty or contains error after outer catch, restoring decompiled code");
+                  SwingUtilities.invokeLater(() -> {
+                     if (leftCodeArea.getDocument().getLength() == 0 ||
+                         leftCodeArea.getText().trim().isEmpty() ||
+                         leftCodeArea.getText().contains("// Round-trip") ||
+                         leftCodeArea.getText().contains("// Error")) {
+                        leftCodeArea.setText(finalGeneratedCode);
+                        if (leftCodeArea instanceof JTextPane) {
+                           NWScriptSyntaxHighlighter.applyHighlightingImmediate((JTextPane)leftCodeArea);
+                        }
+                     }
+                  });
+               }
+            }
          }
 
          if (vars != null) {
