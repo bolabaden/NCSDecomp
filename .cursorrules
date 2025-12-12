@@ -40,3 +40,15 @@ Please do not create .md documentation unless it delivers public-facing informat
 - Always place within `scripts`
 - Should be idempotent and flexible enough to be used for a plethora of scenarios, not just whatever the task you're working on involves.
 - Do not delete helper .py/.ps1/.sh scripts when you are finished with them; keep them in scripts folder
+
+## Tooling & Testing
+
+**CLI Usage**: Main class is `com.kotor.resource.formats.ncs.NCSDecompCLI` (NOT `NCSDecomp`). Run via: `java -cp "target/classes;lib/*" com.kotor.resource.formats.ncs.NCSDecompCLI -i <input.ncs> -o <output.nss> -g k1|k2`
+
+**Test Data**: Round-trip tests use `test-work/Vanilla_KOTOR_Script_Source/` (cloned repo, NOT `test_data/`). Test artifacts in `roundtrip-work/`. Original sources: `test-work/Vanilla_KOTOR_Script_Source/K1/Data/scripts.bif/*.nss` or `K2/Data/scripts.bif/*.nss`.
+
+**Running Tests**: Use `scripts/run_tests_with_timeout.ps1` (PowerShell) or `scripts/run_tests_with_timeout.sh` (bash). Tests compile original `.nss`→`.ncs`, decompile `.ncs`→`.nss`, recompile decompiled `.nss`→`.ncs`, then compare bytecode. Fast-fail stops on first mismatch.
+
+**Action Opcodes**: Action definitions in `src/main/resources/*_nwscript.nss` or `tools/*_nwscript.nss`. Format: `// N:` comment followed by function signature. Action index N maps to opcode N in bytecode. Search pattern: `^// (N):` where N is decimal action ID. Example: `// 120:` = `EffectDamageIncrease`, `// 57:` = `PauseGame`.
+
+**Common Mistakes**: Don't search for "action 120" in source files—look for `// 120:` comments. Don't assume `test_data/` exists—use `test-work/`. Don't use `NCSDecomp` class—use `NCSDecompCLI`. When bytecode mismatches, inspect decompiled output structure (missing spaces, malformed blocks) not just opcodes—structural issues cause wrong actions to be emitted.
