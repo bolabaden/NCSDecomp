@@ -720,165 +720,6 @@ public class NCSDecompCLIRoundTripTest {
    }
 
    /**
-    * ⚠️ REMOVED: Original implementation that was fixing decompiler output.
-    *
-    * Original function body removed - it was declaring missing variables which is FORBIDDEN.
-    * If you need variable declarations, fix the decompiler to produce them correctly.
-    */
-   private static String declareMissingVariables_REMOVED(String content) {
-      // Find all __unknown_param_* usages
-      java.util.regex.Pattern unknownParamPattern = java.util.regex.Pattern.compile(
-            "__unknown_param_(\\d+)");
-      java.util.Set<String> unknownParams = new java.util.HashSet<>();
-      java.util.regex.Matcher unknownMatcher = unknownParamPattern.matcher(content);
-      while (unknownMatcher.find()) {
-         unknownParams.add(unknownMatcher.group(0));
-      }
-
-      // Find all variable declarations
-      java.util.Set<String> declaredVars = new java.util.HashSet<>();
-      java.util.regex.Pattern varDeclPattern = java.util.regex.Pattern.compile(
-            "\\b(int|float|string|object|vector|location|effect|itemproperty|talent|action|event)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*[=;]");
-      java.util.regex.Matcher declMatcher = varDeclPattern.matcher(content);
-      while (declMatcher.find()) {
-         declaredVars.add(declMatcher.group(2));
-      }
-
-      // Find all function names (both user-defined and nwscript) to avoid declaring them as variables
-      java.util.Set<String> functionNames = new java.util.HashSet<>();
-      // Find user function definitions
-      java.util.regex.Pattern funcDefPattern = java.util.regex.Pattern.compile(
-            "(void|int|float|string|object|vector|location|effect|itemproperty|talent|action|event)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(");
-      java.util.regex.Matcher funcDefMatcher = funcDefPattern.matcher(content);
-      while (funcDefMatcher.find()) {
-         functionNames.add(funcDefMatcher.group(2));
-      }
-      // Also check for function calls - if something is followed by (, it's likely a function
-      java.util.regex.Pattern funcCallPattern = java.util.regex.Pattern.compile(
-            "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(");
-      java.util.regex.Matcher funcCallMatcher = funcCallPattern.matcher(content);
-      while (funcCallMatcher.find()) {
-         String funcName = funcCallMatcher.group(1);
-         // Check if it's not already a declared variable and not a reserved word
-         if (!declaredVars.contains(funcName) && !isReservedName(funcName) &&
-             !funcName.matches("^(int|float|string|object|vector|location|effect|itemproperty|talent|action|event)\\d+$")) {
-            functionNames.add(funcName);
-         }
-      }
-
-      // Find all variable usages that aren't declared
-      // Use a simpler, more aggressive approach: find all identifiers and filter
-      java.util.Set<String> usedVars = new java.util.HashSet<>();
-      java.util.regex.Pattern usagePattern = java.util.regex.Pattern.compile(
-            "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\b");
-      java.util.regex.Matcher usageMatcher = usagePattern.matcher(content);
-      while (usageMatcher.find()) {
-         String varName = usageMatcher.group(1);
-         int pos = usageMatcher.start();
-
-         // Skip if it's a reserved word, already declared, or a function name
-         if (isReservedName(varName) || declaredVars.contains(varName) || functionNames.contains(varName)) {
-            continue;
-         }
-
-         // Skip known patterns
-         if (varName.matches("^(int|float|string|object|vector|location|effect|itemproperty|talent|action|event)\\d+$") ||
-             varName.startsWith("intGLOB_") || varName.startsWith("objectGLOB_") ||
-             varName.startsWith("stringGLOB_") || varName.startsWith("floatGLOB_") ||
-             varName.startsWith("__unknown_param_")) {
-            continue;
-         }
-
-         // Check if it's a function definition (type name varName(...))
-         boolean isFunctionDef = false;
-         if (pos > 5) {
-            String beforeContext = content.substring(Math.max(0, pos - 30), pos);
-            if (beforeContext.matches(".*\\b(void|int|float|string|object|vector|location|effect|itemproperty|talent|action|event)\\s+$")) {
-               isFunctionDef = true;
-            }
-         }
-
-         if (isFunctionDef) {
-            continue;
-         }
-
-         // Check if it's followed by ( - could be a function call
-         char after = pos + varName.length() < content.length() ? content.charAt(pos + varName.length()) : ' ';
-         if (after == '(') {
-            // Check context - if it's in an assignment or as a function argument, it might still be a variable
-            // But typically if followed by (, it's a function call
-            // However, we want to catch cases like: GetDistanceToObject2D(nRandom) where nRandom is a variable
-            // So we need to look at the broader context
-            String beforeStr = pos > 100 ? content.substring(pos - 100, pos) : content.substring(0, pos);
-            // If we see it's being passed as an argument (after comma, opening paren, etc.), it's a variable
-            if (beforeStr.matches(".*[,(=]\\s*$")) {
-               // It's being used as a variable in a function call or assignment
-               usedVars.add(varName);
-            }
-            // Otherwise, it's likely a function call, skip it
-         } else {
-            // Not followed by (, definitely a variable usage
-            usedVars.add(varName);
-         }
-      }
-
-      // Find insertion point (after globals, before first function)
-      String[] lines = content.split("\n", -1);
-      int insertLine = -1;
-      for (int i = 0; i < lines.length; i++) {
-         String line = lines[i].trim();
-         if (line.matches("^(void|int|float|string|object|vector|location|effect|itemproperty|talent|action|event)\\s+[a-zA-Z_][a-zA-Z0-9_]*\\s*\\(")) {
-            insertLine = i;
-            break;
-         }
-      }
-
-      if (insertLine == -1) {
-         insertLine = lines.length;
-      }
-
-      // Build fixed content with variable declarations
-      StringBuilder fixed = new StringBuilder();
-      for (int i = 0; i < insertLine; i++) {
-         fixed.append(lines[i]).append("\n");
-      }
-
-      // Add declarations for __unknown_param_* (as int, default to 0)
-      for (String param : unknownParams) {
-         fixed.append("\tint ").append(param).append(" = 0;\n");
-      }
-
-      // Add declarations for used but undeclared variables
-      for (String var : usedVars) {
-         // Infer type from name
-         if (var.startsWith("int") || var.matches("^int\\d+$")) {
-            fixed.append("\tint ").append(var).append(" = 0;\n");
-         } else if (var.startsWith("string") || var.matches("^string\\d+$")) {
-            fixed.append("\tstring ").append(var).append(" = \"\";\n");
-         } else if (var.startsWith("object") || var.matches("^object\\d+$") || var.startsWith("o")) {
-            fixed.append("\tobject ").append(var).append(";\n");
-         } else if (var.startsWith("float") || var.matches("^float\\d+$")) {
-            fixed.append("\tfloat ").append(var).append(" = 0.0;\n");
-         } else if (var.startsWith("talent") || var.matches("^talent\\d+$")) {
-            fixed.append("\ttalent ").append(var).append(";\n");
-         } else {
-            // Default to int
-            fixed.append("\tint ").append(var).append(" = 0;\n");
-         }
-      }
-
-      // Add rest of content
-      for (int i = insertLine; i < lines.length; i++) {
-         fixed.append(lines[i]);
-         if (i < lines.length - 1) {
-            fixed.append("\n");
-         }
-      }
-
-      return fixed.toString();
-   }
-
-   /**
     * Loads nwscript function signatures for type inference.
     */
    private static java.util.Map<String, String[]> loadNwscriptSignatures(String gameFlag) {
@@ -1485,7 +1326,7 @@ public class NCSDecompCLIRoundTripTest {
       java.util.regex.Matcher matcher = funcPattern.matcher(code);
       while (matcher.find()) {
          String returnType = matcher.group(2);
-         String funcName = matcher.group(3);
+         //String funcName = matcher.group(3);
          String fullMatch = matcher.group(0);
          // Count parameters by counting commas + 1 (if not empty)
          int paramCount = 0;
@@ -1658,121 +1499,6 @@ public class NCSDecompCLIRoundTripTest {
       }
 
       return functions;
-   }
-
-   /**
-    * Filters functions from code, keeping only the same number of functions per signature
-    * as exist in the decompiled output. This handles cases where multiple functions share
-    * the same signature but only some are actually in the NCS.
-    */
-   private static String filterFunctionsBySignatures(String code, Map<String, Integer> decompiledSignatureCounts) {
-      String[] lines = code.split("\n");
-      List<String> result = new ArrayList<>();
-      StringBuilder currentFunction = new StringBuilder();
-      boolean inFunction = false;
-      int depth = 0;
-      boolean keepFunction = false;
-      String currentSignature = null;
-
-      // Track how many functions of each signature we've kept so far
-      Map<String, Integer> keptCounts = new HashMap<>();
-
-      // Pattern to match function signature
-      java.util.regex.Pattern funcPattern = java.util.regex.Pattern.compile(
-            "^(\\s*)(\\w+)\\s+(\\w+)\\s*\\([^)]*\\)\\s*\\{");
-
-      for (String line : lines) {
-         java.util.regex.Matcher matcher = funcPattern.matcher(line);
-         boolean isFunctionStart = matcher.find();
-
-         if (!inFunction && isFunctionStart) {
-            // Starting a new function
-            String returnType = matcher.group(2);
-            String funcName = matcher.group(3);
-            String fullMatch = matcher.group(0);
-            int paramCount = 0;
-            int paramStart = fullMatch.indexOf('(');
-            int paramEnd = fullMatch.indexOf(')', paramStart);
-            if (paramStart >= 0 && paramEnd > paramStart) {
-               String paramList = fullMatch.substring(paramStart + 1, paramEnd).trim();
-               if (!paramList.isEmpty()) {
-                  paramCount = paramList.split(",").length;
-               }
-            }
-            // Match by returnType/paramCount (ignoring function name)
-            currentSignature = returnType.toLowerCase() + "/" + paramCount;
-            int maxAllowed = decompiledSignatureCounts.getOrDefault(currentSignature, 0);
-            int alreadyKept = keptCounts.getOrDefault(currentSignature, 0);
-            // Only keep if we haven't exceeded the count for this signature
-            keepFunction = alreadyKept < maxAllowed;
-            inFunction = true;
-            depth = 0;
-            currentFunction.setLength(0);
-         }
-
-         if (inFunction) {
-            currentFunction.append(line).append("\n");
-            int openBraces = countChar(line, '{');
-            int closeBraces = countChar(line, '}');
-            depth += openBraces - closeBraces;
-
-            if (depth <= 0) {
-               // Function ended
-               if (keepFunction) {
-                  result.add(currentFunction.toString());
-                  // Increment the count for this signature
-                  keptCounts.put(currentSignature, keptCounts.getOrDefault(currentSignature, 0) + 1);
-               }
-               currentFunction.setLength(0);
-               inFunction = false;
-               keepFunction = false;
-               currentSignature = null;
-            }
-         } else {
-            // Not in a function - keep all non-function lines (comments, prototypes, etc.)
-            // But filter out function prototypes for functions not in decompiled output
-            if (line.trim().endsWith(";") && line.contains("(") && line.contains(")")) {
-               // Might be a function prototype
-               java.util.regex.Pattern protoPattern = java.util.regex.Pattern.compile(
-                     "^(\\s*)(\\w+)\\s+(\\w+)\\s*\\([^)]*\\)\\s*;");
-               java.util.regex.Matcher protoMatcher = protoPattern.matcher(line);
-               if (protoMatcher.find()) {
-                  String returnType = protoMatcher.group(2);
-                  String funcName = protoMatcher.group(3);
-                  String fullMatch = protoMatcher.group(0);
-                  int paramCount = 0;
-                  int paramStart = fullMatch.indexOf('(');
-                  int paramEnd = fullMatch.indexOf(')', paramStart);
-                  if (paramStart >= 0 && paramEnd > paramStart) {
-                     String paramList = fullMatch.substring(paramStart + 1, paramEnd).trim();
-                     if (!paramList.isEmpty()) {
-                        paramCount = paramList.split(",").length;
-                     }
-                  }
-                  // Match by returnType/paramCount (ignoring function name)
-                  String protoSignature = returnType.toLowerCase() + "/" + paramCount;
-                  // Only keep prototype if we haven't exceeded the count for this signature
-                  int maxAllowed = decompiledSignatureCounts.getOrDefault(protoSignature, 0);
-                  int alreadyKept = keptCounts.getOrDefault(protoSignature, 0);
-                  if (alreadyKept < maxAllowed) {
-                     result.add(line);
-                     keptCounts.put(protoSignature, alreadyKept + 1);
-                  }
-                  // Skip prototype if function not in decompiled output
-                  continue;
-               }
-            }
-            result.add(line);
-         }
-      }
-
-      // Handle any remaining function
-      if (inFunction && keepFunction) {
-         result.add(currentFunction.toString());
-         keptCounts.put(currentSignature, keptCounts.getOrDefault(currentSignature, 0) + 1);
-      }
-
-      return String.join("\n", result);
    }
 
    /**
@@ -3222,6 +2948,7 @@ public class NCSDecompCLIRoundTripTest {
    }
 
    private static class FunctionBlock {
+      @SuppressWarnings("unused")
       int startLine;
       String content;
 
@@ -3490,28 +3217,45 @@ public class NCSDecompCLIRoundTripTest {
    }
 
    /**
-    * Test a single file by name (searches in Vanilla_KOTOR_Script_Source).
+    * Test a single file by name (searches in Vanilla_KOTOR_Script_Source) or by full path.
     * Returns 0 on success, 1 on failure.
     */
    private int testSingleFile(String filename, String gameFlag) {
       try {
-         Path searchDir = "k1".equals(gameFlag) || "K1".equals(gameFlag)
-            ? VANILLA_REPO_DIR.resolve("K1")
-            : VANILLA_REPO_DIR.resolve("TSL");
-
          Path foundFile = null;
-         try (java.util.stream.Stream<Path> stream = Files.walk(searchDir)) {
-            foundFile = stream
-               .filter(Files::isRegularFile)
-               .filter(p -> p.getFileName().toString().equals(filename))
-               .findFirst()
-               .orElse(null);
-         }
 
-         if (foundFile == null) {
-            System.err.println("ERROR: File not found: " + filename);
-            System.err.println("Searched in: " + searchDir);
-            return 1;
+         // Check if input is a full path (contains path separators or is absolute)
+         Path inputPath = Paths.get(filename);
+         if (inputPath.isAbsolute() || filename.contains(File.separator) || filename.contains("/") || filename.contains("\\")) {
+            // It's a full path - use it directly
+            foundFile = inputPath.normalize();
+            if (!Files.exists(foundFile)) {
+               System.err.println("ERROR: File not found: " + filename);
+               return 1;
+            }
+            if (!Files.isRegularFile(foundFile)) {
+               System.err.println("ERROR: Path is not a regular file: " + filename);
+               return 1;
+            }
+         } else {
+            // It's just a filename - do recursive search
+            Path searchDir = "k1".equals(gameFlag) || "K1".equals(gameFlag)
+               ? VANILLA_REPO_DIR.resolve("K1")
+               : VANILLA_REPO_DIR.resolve("TSL");
+
+            try (java.util.stream.Stream<Path> stream = Files.walk(searchDir)) {
+               foundFile = stream
+                  .filter(Files::isRegularFile)
+                  .filter(p -> p.getFileName().toString().equals(filename))
+                  .findFirst()
+                  .orElse(null);
+            }
+
+            if (foundFile == null) {
+               System.err.println("ERROR: File not found: " + filename);
+               System.err.println("Searched in: " + searchDir);
+               return 1;
+            }
          }
 
          System.out.println("=== Testing Single File ===");
@@ -3593,10 +3337,6 @@ public class NCSDecompCLIRoundTripTest {
       } catch (IOException e) {
          // Ignore - resume file doesn't exist or can't be deleted
       }
-   }
-
-   private int runRoundTripSuite() {
-      return runRoundTripSuite(true); // Default to using resume
    }
 
    private int runRoundTripSuite(boolean useResume) {

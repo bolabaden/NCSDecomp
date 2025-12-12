@@ -38,15 +38,13 @@ public enum KnownExternalCompilers {
 
    /**
     * KOTOR Tool compiler version.
-    * Usage: nwnnsscomp_ktool.exe {-c|-d} [--outputdir <path>] [-o <name>] [-g <game>] [--optimize] <file>
-    * No -i include support - nwscript.nss must be in source file directory.
     */
    KOTOR_TOOL(
       "E36AA3172173B654AE20379888EDDC9CF45C62FBEB7AB05061C57B52961C824D",
       "KOTOR Tool",
       LocalDate.of(2005, 1, 1),
       "Fred Tetra",
-      new String[]{"-c", "--outputdir", "{output_dir}", "-o", "{output_name}", "-g", "{game_value}", "{source}"},
+      new String[]{"-c", "--outputdir", "{output_dir}", "-o", "{output_name}", "-g", "{game_value}", "{includes}", "{source}"},
       new String[]{"-d", "--outputdir", "{output_dir}", "-o", "{output_name}", "-g", "{game_value}", "{source}"}
    ),
 
@@ -64,15 +62,13 @@ public enum KnownExternalCompilers {
 
    /**
     * KOTOR Scripting Tool compiler.
-    * Usage: nwnnsscomp_kscript.exe {-c|-d} [--outputdir <path>] [-o <name>] [-g <game>] [--optimize] <file>
-    * No -i include support - nwscript.nss must be in source file directory.
     */
    KOTOR_SCRIPTING_TOOL(
       "B7344408A47BE8780816CF68F5A171A09640AB47AD1A905B7F87DE30A50A0A92",
       "KOTOR Scripting Tool",
       LocalDate.of(2016, 5, 18),
-      "James Goad",
-      new String[]{"-c", "--outputdir", "{output_dir}", "-o", "{output_name}", "-g", "{game_value}", "{source}"},
+      "James Goad", // TODO: double check
+      new String[]{"-c", "--outputdir", "{output_dir}", "-o", "{output_name}", "-g", "{game_value}", "{includes}", "{source}"},
       new String[]{"-d", "--outputdir", "{output_dir}", "-o", "{output_name}", "-g", "{game_value}", "{source}"}
    ),
 

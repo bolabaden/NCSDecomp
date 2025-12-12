@@ -74,18 +74,50 @@ public class NwnnsscompConfig {
    }
 
    /**
-    * Gets the formatted compile command-line arguments.
-    * Note: includeDirs parameter is ignored - no known nwnnsscomp version supports -i.
-    * Include files (nwscript.nss, etc.) must be in the same directory as the source file.
+    * Gets the formatted compile command-line arguments and appends include paths.
     *
     * @param executable Path to the nwnnsscomp executable
-    * @param includeDirs Ignored - no compiler supports -i include directories
+    * @param includeDirs Optional include directories to append via {@code -i}
     * @return Array of command-line arguments
     */
    public String[] getCompileArgs(String executable, java.util.List<File> includeDirs) {
-      // Note: includeDirs is ignored - no known nwnnsscomp version supports -i.
-      // All require nwscript.nss and include files to be in the source file directory.
-      return getCompileArgs(executable);
+      // Build include arguments array for {includes} placeholder
+      java.util.List<String> includeArgs = new java.util.ArrayList<>();
+      if (includeDirs != null && !includeDirs.isEmpty()) {
+         for (File dir : includeDirs) {
+            if (dir != null && dir.exists()) {
+               includeArgs.add("-i");
+               includeArgs.add(dir.getAbsolutePath());
+            }
+         }
+      }
+
+      // Get base template args
+      String[] template = chosenCompiler.getCompileArgs();
+      java.util.List<String> args = new java.util.ArrayList<>();
+
+      // Process template and expand {includes} placeholder
+      for (String arg : template) {
+         if (arg.equals("{includes}")) {
+            // Insert include arguments at this position
+            args.addAll(includeArgs);
+         } else {
+            // Format the argument (replacing other placeholders)
+            String formatted = arg
+               .replace("{source}", sourceFile.getAbsolutePath())
+               .replace("{output}", outputFile.getAbsolutePath())
+               .replace("{output_dir}", outputDir != null ? outputDir.getAbsolutePath() : "")
+               .replace("{output_name}", outputName)
+               .replace("{game_value}", isK2 ? "2" : "1");
+            args.add(formatted);
+         }
+      }
+
+      // Prepend the executable path
+      String[] result = new String[args.size() + 1];
+      result[0] = executable;
+      System.arraycopy(args.toArray(new String[0]), 0, result, 1, args.size());
+      return result;
    }
 
    /**
@@ -108,24 +140,29 @@ public class NwnnsscompConfig {
     *
     * @param argsList The argument template array
     * @param executable The executable path
-    * @return Formatted argument array where placeholders ({@code {source}}, {@code {output}},
-    *         {@code {output_dir}}, {@code {output_name}}, {@code {game_value}}) are replaced
+   * @return Formatted argument array where placeholders ({@code {source}}, {@code {output}},
+   * {@code {output_dir}}, {@code {output_name}}, {@code {game_value}}, {@code {includes}}) are replaced
     */
    private String[] formatArgs(String[] argsList, String executable) {
-      String[] formatted = new String[argsList.length];
-      for (int i = 0; i < argsList.length; i++) {
-         formatted[i] = argsList[i]
+      java.util.List<String> formatted = new java.util.ArrayList<>();
+      for (String arg : argsList) {
+         String replaced = arg
             .replace("{source}", sourceFile.getAbsolutePath())
             .replace("{output}", outputFile.getAbsolutePath())
             .replace("{output_dir}", outputDir != null ? outputDir.getAbsolutePath() : "")
             .replace("{output_name}", outputName)
-            .replace("{game_value}", isK2 ? "2" : "1");
+            .replace("{game_value}", isK2 ? "2" : "1")
+            .replace("{includes}", ""); // Remove {includes} placeholder when no includes provided
+         // Only add non-empty arguments
+         if (!replaced.isEmpty()) {
+            formatted.add(replaced);
+         }
       }
 
       // Prepend the executable path
-      String[] result = new String[formatted.length + 1];
+      String[] result = new String[formatted.size() + 1];
       result[0] = executable;
-      System.arraycopy(formatted, 0, result, 1, formatted.length);
+      System.arraycopy(formatted.toArray(new String[0]), 0, result, 1, formatted.size());
       return result;
    }
 
