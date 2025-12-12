@@ -1262,13 +1262,6 @@ public class Decompiler
             }
             
             this.decompile(absoluteFile);
-            JComponent tabComponent = this.getSelectedTabComponent();
-            if (tabComponent != null) {
-               File file = this.hash_TabComponent2File.get(tabComponent);
-               if (file != null && !unsavedFiles.contains(file)) {
-                  unsavedFiles.add(file);
-               }
-            }
          }
       }
    }
