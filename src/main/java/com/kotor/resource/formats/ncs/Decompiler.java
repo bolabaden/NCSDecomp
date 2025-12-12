@@ -1580,12 +1580,12 @@ public class Decompiler
          case 0:
             final File[] files = jFC.getSelectedFiles();
             settings.setProperty("Open Directory", files[0].getParent());
-            (new Thread() {
-               @Override
-               public void run() {
-                  Decompiler.this.open(files);
-               }
-            }).start();
+            Thread openThread = new Thread(() -> {
+               Decompiler.this.open(files);
+            });
+            openThread.setDaemon(true);
+            openThread.setName("FileOpenDialog-" + System.currentTimeMillis());
+            openThread.start();
             break;
          case 1:
             break;
