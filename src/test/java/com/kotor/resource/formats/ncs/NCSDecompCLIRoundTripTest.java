@@ -3488,15 +3488,15 @@ public class NCSDecompCLIRoundTripTest {
 
             try {
                roundTripSingle(testCase.item.path, testCase.item.gameFlag, testCase.item.scratchRoot);
-               System.out.println("  Result: ✓ PASSED");
+               System.out.println("  ✓ PASSED - Round-trip successful (bytecode matches)");
                System.out.println();
             } catch (SourceCompilationException ex) {
                // Original source file has compilation errors - skip this test (not a decompiler issue)
-               System.out.println("  Result: ⊘ SKIPPED (original source file has compilation errors)");
+               System.out.println("  ⊘ SKIPPED (original source file has compilation errors)");
                System.out.println();
                // Continue to next test - this is not a failure
             } catch (Exception ex) {
-               System.out.println("  Result: ✗ FAILED");
+               System.out.println("  ✗ FAILED");
                System.out.println();
                System.out.println("═══════════════════════════════════════════════════════════");
                System.out.println("FAILURE: " + testCase.displayName);
@@ -3569,15 +3569,15 @@ public class NCSDecompCLIRoundTripTest {
 
             try {
                roundTripSingle(testCase.item.path, testCase.item.gameFlag, testCase.item.scratchRoot);
-               System.out.println("  Result: ✓ PASSED");
+               System.out.println("  ✓ PASSED - Round-trip successful (bytecode matches)");
                System.out.println();
             } catch (SourceCompilationException ex) {
                // Original source file has compilation errors - skip this test (not a decompiler issue)
-               System.out.println("  Result: ⊘ SKIPPED (original source file has compilation errors)");
+               System.out.println("  ⊘ SKIPPED (original source file has compilation errors)");
                System.out.println();
                // Continue to next test - this is not a failure
             } catch (Exception ex) {
-               System.out.println("  Result: ✗ FAILED");
+               System.out.println("  ✗ FAILED");
                System.out.println();
                System.out.println("═══════════════════════════════════════════════════════════");
                System.out.println("BYTECODE FAILURE: " + testCase.displayName);

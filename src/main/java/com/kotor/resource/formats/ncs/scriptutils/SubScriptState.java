@@ -689,12 +689,16 @@ public class SubScriptState {
          }
 
          act.stackentry(var);
-         AVarDecl vardec = new AVarDecl(var);
+         // Check if variable is already declared to prevent duplicates
+         AVarDecl vardec = this.vardecs.get(var);
+         if (vardec == null) {
+            vardec = new AVarDecl(var);
+            this.updateVarCount(var);
+            this.current.addChild(vardec);
+            this.vardecs.put(var, vardec);
+         }
          vardec.isFcnReturn(true);
          vardec.initializeExp(act);
-         this.updateVarCount(var);
-         this.current.addChild(vardec);
-         this.vardecs.put(var, vardec);
       } else {
          this.current.addChild(act);
       }
@@ -836,10 +840,14 @@ public class SubScriptState {
    public void transformRSAdd(ARsaddCommand node) {
       this.checkStart(node);
       Variable var = (Variable) this.stack.get(1);
-      AVarDecl vardec = new AVarDecl(var);
-      this.updateVarCount(var);
-      this.current.addChild(vardec);
-      this.vardecs.put(var, vardec);
+      // Check if variable is already declared to prevent duplicates
+      AVarDecl existingVardec = this.vardecs.get(var);
+      if (existingVardec == null) {
+         AVarDecl vardec = new AVarDecl(var);
+         this.updateVarCount(var);
+         this.current.addChild(vardec);
+         this.vardecs.put(var, vardec);
+      }
       this.checkEnd(node);
    }
 
