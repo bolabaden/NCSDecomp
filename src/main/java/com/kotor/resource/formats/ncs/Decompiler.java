@@ -885,11 +885,19 @@ public class Decompiler
                      JScrollPane scrollPane = (JScrollPane)panel.getComponent(0);
                      if (scrollPane.getViewport().getView() instanceof JTextComponent) {
                         this.jTA = (JTextComponent)scrollPane.getViewport().getView();
+                        // Disable highlighting during setText to prevent freeze
+                        if (this.jTA instanceof JTextPane) {
+                           NWScriptSyntaxHighlighter.setSkipHighlighting((JTextPane)this.jTA, true);
+                        }
+
                         this.jTA.setText(this.fileDecompiler.getGeneratedCode(file));
                         this.jTA.setCaretPosition(0);
-                        // Apply syntax highlighting if it's a JTextPane (defer to avoid document mutation errors)
+
+                        // Re-enable highlighting and apply immediately
                         if (this.jTA instanceof JTextPane) {
-                           SwingUtilities.invokeLater(() -> NWScriptSyntaxHighlighter.applyHighlighting((JTextPane)this.jTA));
+                           JTextPane textPane = (JTextPane)this.jTA;
+                           NWScriptSyntaxHighlighter.setSkipHighlighting(textPane, false);
+                           NWScriptSyntaxHighlighter.applyHighlightingImmediate(textPane);
                         }
                      }
                   }
@@ -910,11 +918,19 @@ public class Decompiler
                               JScrollPane scrollPane = (JScrollPane)panel.getComponent(0);
                               if (scrollPane.getViewport().getView() instanceof JTextComponent) {
                                  this.jTA = (JTextComponent)scrollPane.getViewport().getView();
+                                 // Disable highlighting during setText to prevent freeze
+                                 if (this.jTA instanceof JTextPane) {
+                                    NWScriptSyntaxHighlighter.setSkipHighlighting((JTextPane)this.jTA, true);
+                                 }
+
                                  this.jTA.setText(this.fileDecompiler.regenerateCode(file));
                                  this.jTA.setCaretPosition(0);
-                                 // Apply syntax highlighting if it's a JTextPane (defer to avoid document mutation errors)
+
+                                 // Re-enable highlighting and apply immediately
                                  if (this.jTA instanceof JTextPane) {
-                                    SwingUtilities.invokeLater(() -> NWScriptSyntaxHighlighter.applyHighlighting((JTextPane)this.jTA));
+                                    JTextPane textPane = (JTextPane)this.jTA;
+                                    NWScriptSyntaxHighlighter.setSkipHighlighting(textPane, false);
+                                    NWScriptSyntaxHighlighter.applyHighlightingImmediate(textPane);
                                  }
                               }
                            }
@@ -1293,10 +1309,19 @@ public class Decompiler
       {
          this.panels = this.newNCSTab(file.getName().substring(0, file.getName().length() - 4));
          JTextComponent codeArea = (JTextComponent)((JScrollPane)((JPanel)this.panels[0]).getComponent(0)).getViewport().getView();
-         codeArea.setText(generatedCode);
-         // Apply syntax highlighting if it's a JTextPane (defer to avoid document mutation errors)
+
+         // Disable highlighting during setText to prevent freeze
          if (codeArea instanceof JTextPane) {
-            SwingUtilities.invokeLater(() -> NWScriptSyntaxHighlighter.applyHighlighting((JTextPane)codeArea));
+            NWScriptSyntaxHighlighter.setSkipHighlighting((JTextPane)codeArea, true);
+         }
+
+         codeArea.setText(generatedCode);
+
+         // Re-enable highlighting and apply immediately
+         if (codeArea instanceof JTextPane) {
+            JTextPane textPane = (JTextPane)codeArea;
+            NWScriptSyntaxHighlighter.setSkipHighlighting(textPane, false);
+            NWScriptSyntaxHighlighter.applyHighlightingImmediate(textPane);
          }
 
          // Try to get bytecode if available

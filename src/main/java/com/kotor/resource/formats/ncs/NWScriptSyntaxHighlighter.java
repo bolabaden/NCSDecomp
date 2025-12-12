@@ -6,8 +6,11 @@ package com.kotor.resource.formats.ncs;
 
 import javax.swing.JTextPane;
 import javax.swing.SwingUtilities;
+import javax.swing.Timer;
 import javax.swing.text.*;
 import java.awt.Color;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -202,30 +205,102 @@ public class NWScriptSyntaxHighlighter {
       }
    }
 
+   // Debounce delay in milliseconds (300ms = highlight after user stops typing for 300ms)
+   private static final int HIGHLIGHT_DELAY_MS = 300;
+
+   // Client property key to track if we're doing a programmatic update
+   private static final String PROP_SKIP_HIGHLIGHTING = "NWScriptSyntaxHighlighter.skipHighlighting";
+
    /**
     * Creates a DocumentListener that re-applies highlighting when the document changes.
-    * Uses SwingUtilities.invokeLater to defer highlighting until after document mutations complete.
+    * Uses debouncing to avoid excessive highlighting operations that could freeze the UI.
+    * The highlighting is deferred and only runs after the user stops making changes.
     */
    public static javax.swing.event.DocumentListener createHighlightingListener(JTextPane textPane) {
+      // Use a Timer for debouncing - restart timer on each change
+      Timer[] debounceTimer = new Timer[1];
+
+      ActionListener highlightAction = new ActionListener() {
+         @Override
+         public void actionPerformed(ActionEvent e) {
+            // Only highlight if the text pane is still valid and visible, and not in programmatic update
+            if (textPane != null && textPane.isDisplayable()) {
+               Boolean skipHighlighting = (Boolean)textPane.getClientProperty(PROP_SKIP_HIGHLIGHTING);
+               if (skipHighlighting == null || !skipHighlighting) {
+                  SwingUtilities.invokeLater(() -> {
+                     try {
+                        applyHighlighting(textPane);
+                     } catch (Exception ex) {
+                        // Silently ignore errors during highlighting to prevent UI freeze
+                        System.err.println("DEBUG NWScriptSyntaxHighlighter: Error during highlighting: " + ex.getMessage());
+                     }
+                  });
+               }
+            }
+         }
+      };
+
       return new javax.swing.event.DocumentListener() {
          @Override
          public void insertUpdate(javax.swing.event.DocumentEvent e) {
-            // Defer highlighting to avoid "Attempt to mutate in notification" error
-            SwingUtilities.invokeLater(() -> applyHighlighting(textPane));
+            scheduleHighlighting();
          }
 
          @Override
          public void removeUpdate(javax.swing.event.DocumentEvent e) {
-            // Defer highlighting to avoid "Attempt to mutate in notification" error
-            SwingUtilities.invokeLater(() -> applyHighlighting(textPane));
+            scheduleHighlighting();
          }
 
          @Override
          public void changedUpdate(javax.swing.event.DocumentEvent e) {
-            // Defer highlighting to avoid "Attempt to mutate in notification" error
-            SwingUtilities.invokeLater(() -> applyHighlighting(textPane));
+            scheduleHighlighting();
+         }
+
+         private void scheduleHighlighting() {
+            // Skip if we're in a programmatic update
+            Boolean skipHighlighting = (Boolean)textPane.getClientProperty(PROP_SKIP_HIGHLIGHTING);
+            if (skipHighlighting != null && skipHighlighting) {
+               return;
+            }
+
+            // Cancel existing timer if any
+            if (debounceTimer[0] != null) {
+               debounceTimer[0].stop();
+            }
+
+            // Create new timer that will fire after delay
+            debounceTimer[0] = new Timer(HIGHLIGHT_DELAY_MS, highlightAction);
+            debounceTimer[0].setRepeats(false);
+            debounceTimer[0].start();
          }
       };
+   }
+
+   /**
+    * Applies highlighting immediately without debouncing.
+    * Use this for programmatic updates like setText().
+    */
+   public static void applyHighlightingImmediate(JTextPane textPane) {
+      if (textPane != null && textPane.isDisplayable()) {
+         SwingUtilities.invokeLater(() -> {
+            try {
+               applyHighlighting(textPane);
+            } catch (Exception ex) {
+               // Silently ignore errors during highlighting to prevent UI freeze
+               System.err.println("DEBUG NWScriptSyntaxHighlighter: Error during immediate highlighting: " + ex.getMessage());
+            }
+         });
+      }
+   }
+
+   /**
+    * Sets a flag to temporarily disable highlighting during programmatic updates.
+    * Call this before setText() and clear it after.
+    */
+   public static void setSkipHighlighting(JTextPane textPane, boolean skip) {
+      if (textPane != null) {
+         textPane.putClientProperty(PROP_SKIP_HIGHLIGHTING, skip ? Boolean.TRUE : null);
+      }
    }
 }
 
