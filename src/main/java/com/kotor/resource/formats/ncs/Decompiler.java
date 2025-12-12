@@ -59,7 +59,9 @@ import javax.swing.JTabbedPane;
 import javax.swing.JTextField;
 import javax.swing.JToolBar;
 import javax.swing.JTextArea;
+import javax.swing.JTextPane;
 import javax.swing.JTree;
+import javax.swing.text.JTextComponent;
 import javax.swing.KeyStroke;
 import javax.swing.SwingConstants;
 import javax.swing.border.EmptyBorder;
@@ -80,7 +82,6 @@ import javax.swing.tree.TreePath;
 import javax.swing.SwingUtilities;
 import java.io.PrintStream;
 import java.io.OutputStream;
-import java.io.IOException;
 
 /**
  * Swing GUI application for decompiling NCS scripts and viewing results.
@@ -112,7 +113,7 @@ public class Decompiler
    private JScrollPane jTreeScrollPane;
    private JTree jTree;
    private JTabbedPane jTB;
-   private JTextArea jTA;
+   private JTextComponent jTA; // Changed to JTextComponent to support both JTextArea and JTextPane
    private DropTarget dropTarget;
    private JPanel leftPanel;
    private JTextArea status;
@@ -317,7 +318,7 @@ public class Decompiler
          this.original = original;
          this.guiLog = guiLog;
       }
-      
+
       /**
        * Thread-safe method to append text to the GUI log area.
        * Uses SwingUtilities.invokeLater to ensure updates happen on the EDT.
@@ -882,10 +883,14 @@ public class Decompiler
                   JPanel panel = (JPanel)panels[0];
                   if (panel.getComponentCount() > 0 && panel.getComponent(0) instanceof JScrollPane) {
                      JScrollPane scrollPane = (JScrollPane)panel.getComponent(0);
-                     if (scrollPane.getViewport().getView() instanceof JTextArea) {
-                        this.jTA = (JTextArea)scrollPane.getViewport().getView();
+                     if (scrollPane.getViewport().getView() instanceof JTextComponent) {
+                        this.jTA = (JTextComponent)scrollPane.getViewport().getView();
                         this.jTA.setText(this.fileDecompiler.getGeneratedCode(file));
                         this.jTA.setCaretPosition(0);
+                        // Apply syntax highlighting if it's a JTextPane
+                        if (this.jTA instanceof JTextPane) {
+                           NWScriptSyntaxHighlighter.applyHighlighting((JTextPane)this.jTA);
+                        }
                      }
                   }
                }
@@ -903,10 +908,14 @@ public class Decompiler
                            JPanel panel = (JPanel)panels[0];
                            if (panel.getComponentCount() > 0 && panel.getComponent(0) instanceof JScrollPane) {
                               JScrollPane scrollPane = (JScrollPane)panel.getComponent(0);
-                              if (scrollPane.getViewport().getView() instanceof JTextArea) {
-                                 this.jTA = (JTextArea)scrollPane.getViewport().getView();
+                              if (scrollPane.getViewport().getView() instanceof JTextComponent) {
+                                 this.jTA = (JTextComponent)scrollPane.getViewport().getView();
                                  this.jTA.setText(this.fileDecompiler.regenerateCode(file));
                                  this.jTA.setCaretPosition(0);
+                                 // Apply syntax highlighting if it's a JTextPane
+                                 if (this.jTA instanceof JTextPane) {
+                                    NWScriptSyntaxHighlighter.applyHighlighting((JTextPane)this.jTA);
+                                 }
                               }
                            }
                         }
@@ -918,7 +927,7 @@ public class Decompiler
             if (changedPath != null) {
                this.currentNodeString = changedPath.getLastPathComponent().toString();
             }
-         } else if (arg0.getSource() instanceof JTextArea) {
+         } else if (arg0.getSource() instanceof JTextComponent) {
             File file = this.hash_TabComponent2File.get(tabComponent);
             if (file != null && !unsavedFiles.contains(file)) {
                unsavedFiles.add(file);
@@ -1112,7 +1121,7 @@ public class Decompiler
          return; // Invalid border type
       }
 
-      this.jTA = (JTextArea)arg0.getSource();
+      this.jTA = (JTextComponent)arg0.getSource();
       this.mark = this.jTA.getCaretPosition();
       this.rootElement = this.jTA.getDocument().getDefaultRootElement();
       this.titledBorder = (TitledBorder)panel.getBorder();
@@ -1133,28 +1142,33 @@ public class Decompiler
       border.setTitlePosition(5);
       border.setTitleJustification(4);
       decompPanel.setBorder(border);
-      JTextArea textArea = new JTextArea();
-      textArea.addCaretListener(this);
-      textArea.addKeyListener(this);
-      this.dropTarget = new DropTarget(textArea, this);
-      textArea.putClientProperty("dropTarget", this.dropTarget);
-      JScrollPane scrollPane = new JScrollPane(textArea);
+      JTextPane textPane = new JTextPane();
+      textPane.setFont(new Font("Monospaced", 0, 12));
+      textPane.setEditable(true);
+      textPane.addCaretListener(this);
+      textPane.addKeyListener(this);
+      this.dropTarget = new DropTarget(textPane, this);
+      textPane.putClientProperty("dropTarget", this.dropTarget);
+
+      // Apply syntax highlighting
+      textPane.getDocument().addDocumentListener(NWScriptSyntaxHighlighter.createHighlightingListener(textPane));
+      JScrollPane scrollPane = new JScrollPane(textPane);
       decompPanel.add(scrollPane, "Center");
       JPopupMenu panelSwitchPopup = new JPopupMenu();
       JMenuItem menuItem = new JMenuItem("View Byte Code");
       menuItem.addActionListener(this);
       panelSwitchPopup.add(menuItem);
-      textArea.setComponentPopupMenu(panelSwitchPopup);
+      textPane.setComponentPopupMenu(panelSwitchPopup);
       tabComponents[0] = decompPanel;
       JSplitPane byteCodePane = new JSplitPane(1);
       byteCodePane.setDividerLocation(320);
       byteCodePane.setDividerSize(5);
-      textArea = new JTextArea();
-      textArea.setFont(new Font("Monospaced", 0, 12));
-      textArea.setEditable(false);
-      this.dropTarget = new DropTarget(textArea, this);
-      textArea.putClientProperty("dropTarget", this.dropTarget);
-      scrollPane = new JScrollPane(textArea);
+      JTextArea origByteCodeArea = new JTextArea();
+      origByteCodeArea.setFont(new Font("Monospaced", 0, 12));
+      origByteCodeArea.setEditable(false);
+      this.dropTarget = new DropTarget(origByteCodeArea, this);
+      origByteCodeArea.putClientProperty("dropTarget", this.dropTarget);
+      scrollPane = new JScrollPane(origByteCodeArea);
       scrollPane.setBorder(new TitledBorder("Original Byte Code"));
       scrollPane.getVerticalScrollBar().addAdjustmentListener(this);
       byteCodePane.setLeftComponent(scrollPane);
@@ -1166,17 +1180,17 @@ public class Decompiler
       jCBMI.setSelected(Boolean.parseBoolean(settings.getProperty("Link Scroll Bars")));
       jCBMI.addActionListener(this);
       panelSwitchPopup.add(jCBMI);
-      textArea.setComponentPopupMenu(panelSwitchPopup);
-      textArea = new JTextArea();
-      textArea.setFont(new Font("Monospaced", 0, 12));
-      textArea.setEditable(false);
-      this.dropTarget = new DropTarget(textArea, this);
-      textArea.putClientProperty("dropTarget", this.dropTarget);
-      scrollPane = new JScrollPane(textArea);
+      origByteCodeArea.setComponentPopupMenu(panelSwitchPopup);
+      JTextArea newByteCodeArea = new JTextArea();
+      newByteCodeArea.setFont(new Font("Monospaced", 0, 12));
+      newByteCodeArea.setEditable(false);
+      this.dropTarget = new DropTarget(newByteCodeArea, this);
+      newByteCodeArea.putClientProperty("dropTarget", this.dropTarget);
+      scrollPane = new JScrollPane(newByteCodeArea);
       scrollPane.setBorder(new TitledBorder("Recompiled Byte Code"));
       scrollPane.getVerticalScrollBar().addAdjustmentListener(this);
       byteCodePane.setRightComponent(scrollPane);
-      textArea.setComponentPopupMenu(panelSwitchPopup);
+      newByteCodeArea.setComponentPopupMenu(panelSwitchPopup);
       tabComponents[1] = byteCodePane;
       JPanel panel = new JPanel(new BorderLayout());
       this.jTB.insertTab(null, null, tabComponents[0], null, index);
@@ -1232,8 +1246,12 @@ public class Decompiler
       // Now we're guaranteed to have code - always show it
       {
          this.panels = this.newNCSTab(file.getName().substring(0, file.getName().length() - 4));
-         JTextArea codeArea = (JTextArea)((JScrollPane)((JPanel)this.panels[0]).getComponent(0)).getViewport().getView();
-         codeArea.append(generatedCode);
+         JTextComponent codeArea = (JTextComponent)((JScrollPane)((JPanel)this.panels[0]).getComponent(0)).getViewport().getView();
+         codeArea.setText(generatedCode);
+         // Apply syntax highlighting if it's a JTextPane
+         if (codeArea instanceof JTextPane) {
+            NWScriptSyntaxHighlighter.applyHighlighting((JTextPane)codeArea);
+         }
 
          // Try to get bytecode if available
          try {
@@ -1315,7 +1333,7 @@ public class Decompiler
       }
    }
 
-   private File saveBuffer(JTextArea buffer, String canonicalPath) {
+   private File saveBuffer(JTextComponent buffer, String canonicalPath) {
       try {
          // Get encoding from settings, default to Windows-1252 (standard for KotOR/TSL)
          String encodingName = settings.getProperty("Encoding", "Windows-1252");
@@ -1602,11 +1620,11 @@ public class Decompiler
       }
 
       JScrollPane scrollPane = (JScrollPane)panel.getComponent(0);
-      if (!(scrollPane.getViewport().getView() instanceof JTextArea)) {
+      if (!(scrollPane.getViewport().getView() instanceof JTextComponent)) {
          return; // Invalid view type
       }
 
-      JTextArea textArea = (JTextArea)scrollPane.getViewport().getView();
+      JTextComponent textArea = (JTextComponent)scrollPane.getViewport().getView();
       if (!(tabComponent instanceof JPanel)) {
          return; // Tab component is not a panel
       }
@@ -1879,7 +1897,7 @@ public class Decompiler
             }
          }
 
-         JTextArea textArea = (JTextArea)((JScrollPane)((JComponent[])this.jTB.getClientProperty(tabComponent))[0].getComponent(0)).getViewport().getView();
+         JTextComponent textArea = (JTextComponent)((JScrollPane)((JComponent[])this.jTB.getClientProperty(tabComponent))[0].getComponent(0)).getViewport().getView();
          newFile = this.saveBuffer(textArea, newFile.getAbsolutePath());
          if (newFile == null) {
             continue; // saveBuffer failed
