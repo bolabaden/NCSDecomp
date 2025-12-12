@@ -30,7 +30,7 @@ public class BytecodeSyntaxHighlighter {
 
    // Bytecode instruction patterns
    private static final String[] INSTRUCTIONS = {
-      "CPDOWNSP", "RSADD", "CPTOPSP", "CONST", "CONSTI", "CONSTF", "CONSTS", "ACTION",
+      "CPDOWNSP", "RSADD", "RSADDI", "CPTOPSP", "CONST", "CONSTI", "CONSTF", "CONSTS", "ACTION",
       "LOGANDII", "LOGORII", "INCORII", "EXCORII", "BOOLANDII",
       "EQUAL", "NEQUAL", "GEQ", "GT", "LT", "LEQ",
       "SHLEFTII", "SHRIGHTII", "USHRIGHTII",
@@ -129,10 +129,14 @@ public class BytecodeSyntaxHighlighter {
          }
 
          if (!alreadyStyled) {
-            doc.setCharacterAttributes(start, end - start, style, false);
-            // Mark as styled
-            for (int i = start; i < end && i < styled.length; i++) {
-               styled[i] = true;
+            try {
+               doc.setCharacterAttributes(start, end - start, style, false);
+               // Mark as styled
+               for (int i = start; i < end && i < styled.length; i++) {
+                  styled[i] = true;
+               }
+            } catch (Exception e) {
+               // Ignore errors for individual pattern matches
             }
          }
       }
@@ -141,15 +145,29 @@ public class BytecodeSyntaxHighlighter {
    /**
     * Applies highlighting immediately without debouncing.
     * Use this for programmatic updates like setText().
+    * Applies synchronously if on EDT, otherwise defers to EDT.
     */
    public static void applyHighlightingImmediate(JTextPane textPane) {
-      if (textPane != null && textPane.isDisplayable()) {
+      if (textPane == null || !textPane.isDisplayable()) {
+         return;
+      }
+
+      // If we're already on the EDT, apply immediately
+      if (SwingUtilities.isEventDispatchThread()) {
+         try {
+            applyHighlighting(textPane);
+         } catch (Exception ex) {
+            System.err.println("DEBUG BytecodeSyntaxHighlighter: Error during highlighting: " + ex.getMessage());
+            ex.printStackTrace();
+         }
+      } else {
+         // Otherwise defer to EDT
          SwingUtilities.invokeLater(() -> {
             try {
                applyHighlighting(textPane);
             } catch (Exception ex) {
-               // Silently ignore errors during highlighting to prevent UI freeze
                System.err.println("DEBUG BytecodeSyntaxHighlighter: Error during highlighting: " + ex.getMessage());
+               ex.printStackTrace();
             }
          });
       }

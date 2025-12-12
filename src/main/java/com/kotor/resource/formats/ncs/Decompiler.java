@@ -1329,14 +1329,20 @@ public class Decompiler
             String origByteCode = this.fileDecompiler.getOriginalByteCode(file);
             if (origByteCode != null && !origByteCode.trim().isEmpty()) {
                this.origByteCodeJTA = (JTextPane)((JScrollPane)((JSplitPane)this.panels[1]).getLeftComponent()).getViewport().getView();
-               this.origByteCodeJTA.setText(origByteCode);
-               BytecodeSyntaxHighlighter.applyHighlightingImmediate(this.origByteCodeJTA);
+               if (this.origByteCodeJTA != null) {
+                  this.origByteCodeJTA.setText(origByteCode);
+                  // Apply highlighting after text is set
+                  SwingUtilities.invokeLater(() -> BytecodeSyntaxHighlighter.applyHighlighting(this.origByteCodeJTA));
+               }
             }
             String newByteCode = this.fileDecompiler.getNewByteCode(file);
             if (newByteCode != null && !newByteCode.trim().isEmpty()) {
                this.newByteCodeJTA = (JTextPane)((JScrollPane)((JSplitPane)this.panels[1]).getRightComponent()).getViewport().getView();
-               this.newByteCodeJTA.setText(newByteCode);
-               BytecodeSyntaxHighlighter.applyHighlightingImmediate(this.newByteCodeJTA);
+               if (this.newByteCodeJTA != null) {
+                  this.newByteCodeJTA.setText(newByteCode);
+                  // Apply highlighting after text is set
+                  SwingUtilities.invokeLater(() -> BytecodeSyntaxHighlighter.applyHighlighting(this.newByteCodeJTA));
+               }
                if (this.origByteCodeJTA != null && this.origByteCodeJTA.getDocument().getLength() >= this.newByteCodeJTA.getDocument().getLength()) {
                   this.jTB.putClientProperty(this.panels[1], "left");
                } else {
