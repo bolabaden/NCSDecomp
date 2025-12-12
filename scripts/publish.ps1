@@ -84,6 +84,12 @@ if (Test-Path $cliAppImageDir) {
     $exeName = if ($IsWindows) { "NCSDecompCLI.exe" } else { "NCSDecompCLI" }
     $runPath = Join-Path "NCSDecompCLI" $exeName
     Write-Host "    Run: $runPath" -ForegroundColor Gray
+    
+    # Copy JAR next to executable for alternative usage
+    if (Test-Path $cliJarSource) {
+        Copy-Item $cliJarSource (Join-Path $cliAppDest "NCSDecomp-CLI.jar")
+        Write-Host "  - Copied NCSDecomp-CLI.jar to NCSDecompCLI folder" -ForegroundColor Cyan
+    }
 } else {
     Write-Host "  Warning: NCSDecompCLI folder not found, skipping..." -ForegroundColor Yellow
 }
@@ -98,6 +104,12 @@ if (Test-Path $guiAppImageDir) {
     $guiExeName = if ($IsWindows) { "NCSDecomp.exe" } else { "NCSDecomp" }
     $guiRunPath = Join-Path "NCSDecomp" $guiExeName
     Write-Host "    Run: $guiRunPath" -ForegroundColor Gray
+    
+    # Copy JAR next to executable for alternative usage
+    if (Test-Path $guiJarSource) {
+        Copy-Item $guiJarSource (Join-Path $guiAppDest "NCSDecomp.jar")
+        Write-Host "  - Copied NCSDecomp.jar to NCSDecomp folder" -ForegroundColor Cyan
+    }
 } else {
     Write-Host "  Note: NCSDecomp folder (GUI) not found, skipping..." -ForegroundColor Gray
 }
@@ -131,21 +143,37 @@ $k1Tools = Join-Path $toolsDir "k1_nwscript.nss"
 $tslTools = Join-Path $toolsDir "tsl_nwscript.nss"
 
 # Copy compiler tools from tools/ directory
+# Priority order based on KnownExternalCompilers.java:
+# 1. nwnnsscomp.exe (primary - generic name)
+# 2. nwnnsscomp_kscript.exe (secondary - KOTOR Scripting Tool)
+# 3. nwnnsscomp_tslpatcher.exe (TSLPatcher variant)
+# 4. nwnnsscomp_v1.exe (v1.3 first public release)
 $toolsPublishDir = Join-Path $publishDir "tools"
 New-Item -ItemType Directory -Path $toolsPublishDir -Force | Out-Null
 
+# Compiler tools in priority order (primary first, then secondary, then others)
 $compilerTools = @(
-    "nwnnsscomp_kscript.exe",
-    "nwnnsscomp_tslpatcher.exe"
+    "nwnnsscomp.exe",              # Primary - generic name (highest priority)
+    "nwnnsscomp_kscript.exe",      # Secondary - KOTOR Scripting Tool
+    "nwnnsscomp_tslpatcher.exe",   # TSLPatcher variant
+    "nwnnsscomp_v1.exe"            # v1.3 first public release
 )
 
+$copiedCount = 0
 foreach ($tool in $compilerTools) {
     $toolPath = Join-Path $toolsDir $tool
     if (Test-Path $toolPath) {
         Copy-Item $toolPath (Join-Path $toolsPublishDir $tool)
-        Write-Host "  - Copied $tool to tools/" -ForegroundColor Cyan
+        $priority = if ($copiedCount -eq 0) { " (primary)" } elseif ($copiedCount -eq 1) { " (secondary)" } else { "" }
+        Write-Host "  - Copied $tool to tools/$priority" -ForegroundColor Cyan
+        $copiedCount++
     } else {
-        Write-Host "  Warning: $tool not found at $toolPath" -ForegroundColor Yellow
+        if ($tool -eq "nwnnsscomp.exe" -or $tool -eq "nwnnsscomp_v1.exe") {
+            # These are optional - only warn if they're missing
+            Write-Host "  Note: $tool not found (optional)" -ForegroundColor Gray
+        } else {
+            Write-Host "  Warning: $tool not found at $toolPath" -ForegroundColor Yellow
+        }
     }
 }
 
