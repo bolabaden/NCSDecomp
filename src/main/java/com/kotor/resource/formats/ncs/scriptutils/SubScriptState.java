@@ -759,8 +759,29 @@ public class SubScriptState {
                }
             } else if (AVarDecl.class.isInstance(last) && ((AVarDecl) last).isFcnReturn() && ((AVarDecl) last).exp() != null) {
                // Function return value - extract the expression and convert to statement
-               expr = ((AVarDecl) last).removeExp();
-               this.current.removeLastChild(); // Remove the AVarDecl
+               // However, don't extract function calls (AActionExp) as standalone statements
+               // when in assignment context, as they're almost always part of a larger expression
+               // (e.g., GetGlobalNumber("X") == value, or function calls in binary operations).
+               AExpression funcExp = ((AVarDecl) last).exp();
+               if (AActionExp.class.isInstance(funcExp)) {
+                  // Don't extract function calls as statements in assignment context
+                  // They're almost always part of a larger expression being built
+                  // Leave the AVarDecl in place - it will be used by EQUAL/other operations
+                  // Check if we're at the last command - if not, there are more operations coming
+                  // and the function call is definitely part of a larger expression
+                  if (!this.atLastCommand(node)) {
+                     // More operations coming - definitely part of larger expression
+                     expr = null; // Don't extract as statement
+                  } else {
+                     // At last command - still don't extract in assignment context
+                     // Function calls in assignments are almost never standalone
+                     expr = null; // Don't extract as statement
+                  }
+               } else {
+                  // Non-function-call expressions can be extracted
+                  expr = ((AVarDecl) last).removeExp();
+                  this.current.removeLastChild(); // Remove the AVarDecl
+               }
             } else {
                System.out.println("uh-oh... not a modify exp at " + this.nodedata.getPos(node) + ", " + last);
             }
