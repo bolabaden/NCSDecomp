@@ -621,6 +621,7 @@ public class Decompiler
       registerShortcut(inputMap, actionMap, "ctrl shift S", "SaveAll", e -> saveAll());
       registerShortcut(inputMap, actionMap, "ctrl W", "Close", e -> { int idx = jTB.getSelectedIndex(); if (idx >= 0) close(idx); });
       registerShortcut(inputMap, actionMap, "ctrl shift W", "CloseAll", e -> closeAll());
+      registerShortcut(inputMap, actionMap, "ctrl F4", "CloseTab", e -> { int idx = jTB.getSelectedIndex(); if (idx >= 0) close(idx); });
       registerShortcut(inputMap, actionMap, "ctrl Q", "Exit", e -> exit());
 
       // Tab navigation
@@ -1257,17 +1258,23 @@ public class Decompiler
 
    @Override
    public void mouseReleased(MouseEvent arg0) {
-      this.panel = (JPanel)((JLabel)arg0.getSource()).getParent();
+      if (!(arg0.getSource() instanceof JLabel)) {
+         return;
+      }
+      JLabel closeLabel = (JLabel)arg0.getSource();
+      if (!(closeLabel.getParent() instanceof JPanel)) {
+         return;
+      }
+      JPanel tabPanel = (JPanel)closeLabel.getParent();
 
+      // Find the tab index that matches this panel
       for (int i = 0; i < this.jTB.getTabCount(); i++) {
-         if (this.jTB.getTabComponentAt(i) == this.panel) {
+         JComponent tabComponent = (JComponent)this.jTB.getTabComponentAt(i);
+         if (tabComponent == tabPanel) {
             this.close(i);
             break;
          }
       }
-
-      ((JLabel)arg0.getSource()).removeMouseListener(this);
-      this.panel = null;
    }
 
    @Override
@@ -1941,28 +1948,15 @@ public class Decompiler
                         System.err.println("DEBUG decompile: Error during auto-trigger round-trip: " + ex.getMessage());
                         ex.printStackTrace();
                         // CRITICAL: Only set error message in RIGHT pane (round-trip panel), NEVER touch left pane
-                        roundTripPane.setText("// Round-trip validation error: " + ex.getMessage() + "\n// Check that nwnnsscomp.exe is configured in Settings.");
-                        // CRITICAL: Ensure left pane still has decompiled code - restore if somehow lost
-                        if (leftCodeAreaRef[0] != null) {
-                           final JTextComponent leftCodeArea = leftCodeAreaRef[0];
-                           if (leftCodeArea.getDocument().getLength() == 0 ||
-                               leftCodeArea.getText().trim().isEmpty() ||
-                               leftCodeArea.getText().contains("// Round-trip") ||
-                               leftCodeArea.getText().contains("// Error")) {
-                              System.err.println("DEBUG decompile: WARNING - Left pane appears empty or contains error, restoring decompiled code");
-                              SwingUtilities.invokeLater(() -> {
-                                 if (leftCodeArea.getDocument().getLength() == 0 ||
-                                     leftCodeArea.getText().trim().isEmpty() ||
-                                     leftCodeArea.getText().contains("// Round-trip") ||
-                                     leftCodeArea.getText().contains("// Error")) {
-                                    leftCodeArea.setText(finalGeneratedCode);
-                                    if (leftCodeArea instanceof JTextPane) {
-                                       NWScriptSyntaxHighlighter.applyHighlightingImmediate((JTextPane)leftCodeArea);
-                                    }
-                                 }
-                              });
-                           }
+                        // Build helpful error message for TSLPatcher elevation errors
+                        String errorMsg = ex.getMessage();
+                        if (errorMsg != null && errorMsg.contains("error=740")) {
+                           errorMsg = "TSLPatcher compiler requires administrator privileges.\n" +
+                                     "Please run NCSDecomp as administrator or use a different compiler variant in Settings.";
                         }
+                        roundTripPane.setText("// Round-trip validation error: " + errorMsg + "\n// Check that nwnnsscomp.exe is configured in Settings.");
+                        // CRITICAL: Left pane is NEVER touched by nwnnsscomp errors - it's completely independent
+                        // The left pane already has the decompiled code set above and should never be modified here
                      }
                   }
                }
@@ -1970,26 +1964,27 @@ public class Decompiler
          } catch (Exception e) {
             System.err.println("DEBUG decompile: Error populating round-trip panel: " + e.getMessage());
             e.printStackTrace();
-            // CRITICAL: Ensure left pane still has decompiled code even if outer catch fires
-            if (leftCodeAreaRef[0] != null) {
-               final JTextComponent leftCodeArea = leftCodeAreaRef[0];
-               if (leftCodeArea.getDocument().getLength() == 0 ||
-                   leftCodeArea.getText().trim().isEmpty() ||
-                   leftCodeArea.getText().contains("// Round-trip") ||
-                   leftCodeArea.getText().contains("// Error")) {
-                  System.err.println("DEBUG decompile: WARNING - Left pane appears empty or contains error after outer catch, restoring decompiled code");
-                  SwingUtilities.invokeLater(() -> {
-                     if (leftCodeArea.getDocument().getLength() == 0 ||
-                         leftCodeArea.getText().trim().isEmpty() ||
-                         leftCodeArea.getText().contains("// Round-trip") ||
-                         leftCodeArea.getText().contains("// Error")) {
-                        leftCodeArea.setText(finalGeneratedCode);
-                        if (leftCodeArea instanceof JTextPane) {
-                           NWScriptSyntaxHighlighter.applyHighlightingImmediate((JTextPane)leftCodeArea);
+            // CRITICAL: Left pane is NEVER touched by nwnnsscomp errors - it's completely independent
+            // The left pane already has the decompiled code set above and should never be modified here
+            // Only set error in right pane if we can access it
+            try {
+               if (this.panels[0] instanceof JSplitPane) {
+                  JSplitPane decompSplitPane = (JSplitPane)this.panels[0];
+                  java.awt.Component rightComp = decompSplitPane.getRightComponent();
+                  if (rightComp instanceof JScrollPane) {
+                     JScrollPane rightScrollPane = (JScrollPane)rightComp;
+                     if (rightScrollPane.getViewport().getView() instanceof JTextPane) {
+                        JTextPane roundTripPane = (JTextPane)rightScrollPane.getViewport().getView();
+                        String errorMsg = e.getMessage();
+                        if (errorMsg != null && errorMsg.contains("error=740")) {
+                           errorMsg = "TSLPatcher compiler requires administrator privileges.";
                         }
+                        roundTripPane.setText("// Round-trip validation error: " + errorMsg + "\n// Left side decompiled code is still available and independent of nwnnsscomp.");
                      }
-                  });
+                  }
                }
+            } catch (Exception ignored) {
+               // Ignore errors in error handling
             }
          }
 
@@ -2035,7 +2030,7 @@ public class Decompiler
       // Update workspace visibility after adding a file
       this.updateWorkspaceCard();
 
-      // NCS files: default to "View Byte Code" (bytecode view)
+      // NCS files: default to "View Byte Code" (bytecode view). DO NOT MODIFY THIS LINE UNDER ANY CIRCUMSTANCES -- THIS IS CORRECT LOGIC
       this.setTabComponentPanel(1);
    }
 
@@ -2130,6 +2125,42 @@ public class Decompiler
       JComponent[] panels = (JComponent[])clientProperty;
       if (index < 0 || index >= panels.length || panels[index] == null) {
          return; // Invalid panel index
+      }
+
+      // If switching to decompiled code view (index 0), ensure left side has decompiled code
+      // This is CRITICAL: The left side decompiled code is independent of nwnnsscomp and should ALWAYS be available
+      if (index == 0 && panels[0] instanceof JSplitPane) {
+         try {
+            File file = this.hash_TabComponent2File.get(tabComponent);
+            if (file != null) {
+               JSplitPane decompSplitPane = (JSplitPane)panels[0];
+               java.awt.Component leftComp = decompSplitPane.getLeftComponent();
+               if (leftComp instanceof JScrollPane) {
+                  JTextPane codePane = (JTextPane)((JScrollPane)leftComp).getViewport().getView();
+                  if (codePane != null) {
+                     // Get the decompiled code - this is independent of nwnnsscomp
+                     String generatedCode = this.fileDecompiler.getGeneratedCode(file);
+                     if (generatedCode != null && !generatedCode.trim().isEmpty()) {
+                        // Only update if the pane is empty or contains error messages
+                        String currentText = codePane.getText();
+                        if (currentText == null || currentText.trim().isEmpty() || 
+                            currentText.contains("// Round-trip") || 
+                            currentText.contains("// Error") ||
+                            currentText.contains("// Unexpected") ||
+                            currentText.contains("// No code")) {
+                           NWScriptSyntaxHighlighter.setSkipHighlighting(codePane, true);
+                           codePane.setText(generatedCode);
+                           NWScriptSyntaxHighlighter.setSkipHighlighting(codePane, false);
+                           NWScriptSyntaxHighlighter.applyHighlightingImmediate(codePane);
+                        }
+                     }
+                  }
+               }
+            }
+         } catch (Exception e) {
+            System.out.println("Error populating decompiled code view: " + e.getMessage());
+            e.printStackTrace();
+         }
       }
 
       // If switching to bytecode view (index 1), populate bytecode data if available
