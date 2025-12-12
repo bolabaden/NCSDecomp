@@ -94,22 +94,15 @@ import java.io.OutputStream;
  * <p>
  * Responsibilities:
  * <ul>
- *   <li>Load/save/open multiple scripts with tabbed views.</li>
- *   <li>Display subroutine/variable tree, generated code, and bytecode diffs.</li>
- *   <li>Wire drag-and-drop, menus, keyboard shortcuts, and scroll/link behavior.</li>
+ * <li>Load/save/open multiple scripts with tabbed views.</li>
+ * <li>Display subroutine/variable tree, generated code, and bytecode
+ * diffs.</li>
+ * <li>Wire drag-and-drop, menus, keyboard shortcuts, and scroll/link
+ * behavior.</li>
  * </ul>
  */
-public class Decompiler
-   extends JFrame
-   implements DropTargetListener,
-   KeyListener,
-   ChangeListener,
-   TreeSelectionListener,
-   ActionListener,
-   WindowListener,
-   MouseListener,
-   AdjustmentListener,
-   CaretListener {
+public class Decompiler extends JFrame implements DropTargetListener, KeyListener, ChangeListener,
+      TreeSelectionListener, ActionListener, WindowListener, MouseListener, AdjustmentListener, CaretListener {
    public static Settings settings = new Settings();
    public static final double screenWidth = Toolkit.getDefaultToolkit().getScreenSize().getWidth();
    public static final double screenHeight = Toolkit.getDefaultToolkit().getScreenSize().getHeight();
@@ -235,9 +228,8 @@ public class Decompiler
       // Workspace cards to show empty state when no files are open
       this.workspaceCards = new JPanel(new CardLayout());
       this.emptyStateLabel = new JLabel(
-         "<html><div style='text-align:center;'><h2>Drop .ncs or .nss files here</h2><div>Or use File → Open to start decompiling</div></div></html>",
-         SwingConstants.CENTER
-      );
+            "<html><div style='text-align:center;'><h2>Drop .ncs or .nss files here</h2><div>Or use File → Open to start decompiling</div></div></html>",
+            SwingConstants.CENTER);
       this.emptyStateLabel.setBorder(new EmptyBorder(32, 16, 32, 16));
       JPanel emptyPanel = new JPanel(new BorderLayout());
       emptyPanel.add(this.emptyStateLabel, BorderLayout.CENTER);
@@ -296,8 +288,8 @@ public class Decompiler
    }
 
    /**
-    * Sets up redirection of System.out and System.err to both the terminal
-    * and the GUI log area. This ensures all debug output appears in both places.
+    * Sets up redirection of System.out and System.err to both the terminal and the
+    * GUI log area. This ensures all debug output appears in both places.
     */
    private void setupStreamRedirection() {
       // Store original streams
@@ -314,8 +306,8 @@ public class Decompiler
    }
 
    /**
-    * A PrintStream that writes to both the original stream (terminal) and the GUI log area.
-    * This ensures all output appears in both places.
+    * A PrintStream that writes to both the original stream (terminal) and the GUI
+    * log area. This ensures all output appears in both places.
     */
    private static class DualOutputPrintStream extends PrintStream {
       private final PrintStream original;
@@ -328,8 +320,8 @@ public class Decompiler
       }
 
       /**
-       * Thread-safe method to append text to the GUI log area.
-       * Uses SwingUtilities.invokeLater to ensure updates happen on the EDT.
+       * Thread-safe method to append text to the GUI log area. Uses
+       * SwingUtilities.invokeLater to ensure updates happen on the EDT.
        */
       private void appendToGui(String text) {
          if (text != null && guiLog != null) {
@@ -342,7 +334,8 @@ public class Decompiler
       }
 
       /**
-       * Custom OutputStream that writes to both the original PrintStream and the GUI log area.
+       * Custom OutputStream that writes to both the original PrintStream and the GUI
+       * log area.
        */
       private static class DualOutputStream extends OutputStream {
          private final PrintStream original;
@@ -600,15 +593,15 @@ public class Decompiler
       item.addActionListener(this);
       if (key > 0) {
          item.setAccelerator(
-            withCtrl ? KeyStroke.getKeyStroke(key, InputEvent.CTRL_DOWN_MASK) : KeyStroke.getKeyStroke(key, 0));
+               withCtrl ? KeyStroke.getKeyStroke(key, InputEvent.CTRL_DOWN_MASK) : KeyStroke.getKeyStroke(key, 0));
          item.setMnemonic(key);
       }
       return item;
    }
 
    /**
-    * Registers comprehensive industry-standard keyboard shortcuts.
-    * These shortcuts work globally across the application.
+    * Registers comprehensive industry-standard keyboard shortcuts. These shortcuts
+    * work globally across the application.
     */
    private void registerKeyboardShortcuts() {
       javax.swing.JRootPane rootPane = this.getRootPane();
@@ -617,31 +610,72 @@ public class Decompiler
 
       // File operations
       registerShortcut(inputMap, actionMap, "ctrl O", "Open", e -> open());
-      registerShortcut(inputMap, actionMap, "ctrl S", "Save", e -> { int idx = jTB.getSelectedIndex(); if (idx >= 0) save(idx); });
+      registerShortcut(inputMap, actionMap, "ctrl S", "Save", e -> {
+         int idx = jTB.getSelectedIndex();
+         if (idx >= 0)
+            save(idx);
+      });
       registerShortcut(inputMap, actionMap, "ctrl shift S", "SaveAll", e -> saveAll());
-      registerShortcut(inputMap, actionMap, "ctrl W", "Close", e -> { int idx = jTB.getSelectedIndex(); if (idx >= 0) close(idx); });
+      registerShortcut(inputMap, actionMap, "ctrl W", "Close", e -> {
+         int idx = jTB.getSelectedIndex();
+         if (idx >= 0)
+            close(idx);
+      });
       registerShortcut(inputMap, actionMap, "ctrl shift W", "CloseAll", e -> closeAll());
-      registerShortcut(inputMap, actionMap, "ctrl F4", "CloseTab", e -> { int idx = jTB.getSelectedIndex(); if (idx >= 0) close(idx); });
+      registerShortcut(inputMap, actionMap, "ctrl F4", "CloseTab", e -> {
+         int idx = jTB.getSelectedIndex();
+         if (idx >= 0)
+            close(idx);
+      });
       registerShortcut(inputMap, actionMap, "ctrl Q", "Exit", e -> exit());
 
       // Tab navigation
-      registerShortcut(inputMap, actionMap, "ctrl TAB", "NextTab", e -> { int count = jTB.getTabCount(); if (count > 0) jTB.setSelectedIndex((jTB.getSelectedIndex() + 1) % count); });
-      registerShortcut(inputMap, actionMap, "ctrl shift TAB", "PrevTab", e -> { int count = jTB.getTabCount(); if (count > 0) jTB.setSelectedIndex((jTB.getSelectedIndex() - 1 + count) % count); });
-      registerShortcut(inputMap, actionMap, "ctrl PAGE_DOWN", "NextTabAlt", e -> { int count = jTB.getTabCount(); if (count > 0) jTB.setSelectedIndex((jTB.getSelectedIndex() + 1) % count); });
-      registerShortcut(inputMap, actionMap, "ctrl PAGE_UP", "PrevTabAlt", e -> { int count = jTB.getTabCount(); if (count > 0) jTB.setSelectedIndex((jTB.getSelectedIndex() - 1 + count) % count); });
+      registerShortcut(inputMap, actionMap, "ctrl TAB", "NextTab", e -> {
+         int count = jTB.getTabCount();
+         if (count > 0)
+            jTB.setSelectedIndex((jTB.getSelectedIndex() + 1) % count);
+      });
+      registerShortcut(inputMap, actionMap, "ctrl shift TAB", "PrevTab", e -> {
+         int count = jTB.getTabCount();
+         if (count > 0)
+            jTB.setSelectedIndex((jTB.getSelectedIndex() - 1 + count) % count);
+      });
+      registerShortcut(inputMap, actionMap, "ctrl PAGE_DOWN", "NextTabAlt", e -> {
+         int count = jTB.getTabCount();
+         if (count > 0)
+            jTB.setSelectedIndex((jTB.getSelectedIndex() + 1) % count);
+      });
+      registerShortcut(inputMap, actionMap, "ctrl PAGE_UP", "PrevTabAlt", e -> {
+         int count = jTB.getTabCount();
+         if (count > 0)
+            jTB.setSelectedIndex((jTB.getSelectedIndex() - 1 + count) % count);
+      });
 
       // Numbered tab access (Ctrl+1 through Ctrl+9)
       for (int i = 1; i <= 9; i++) {
          final int tabIndex = i - 1;
-         registerShortcut(inputMap, actionMap, "ctrl " + i, "GoToTab" + i, e -> { if (tabIndex < jTB.getTabCount()) jTB.setSelectedIndex(tabIndex); });
+         registerShortcut(inputMap, actionMap, "ctrl " + i, "GoToTab" + i, e -> {
+            if (tabIndex < jTB.getTabCount())
+               jTB.setSelectedIndex(tabIndex);
+         });
       }
 
       // View switching
-      registerShortcut(inputMap, actionMap, "F2", "ViewDecompiledCode", e -> { if (jTB.getSelectedIndex() >= 0) setTabComponentPanel(0); });
-      registerShortcut(inputMap, actionMap, "F3", "ViewByteCode", e -> { if (jTB.getSelectedIndex() >= 0) setTabComponentPanel(1); });
+      registerShortcut(inputMap, actionMap, "F2", "ViewDecompiledCode", e -> {
+         if (jTB.getSelectedIndex() >= 0)
+            setTabComponentPanel(0);
+      });
+      registerShortcut(inputMap, actionMap, "F3", "ViewByteCode", e -> {
+         if (jTB.getSelectedIndex() >= 0)
+            setTabComponentPanel(1);
+      });
 
       // Refresh/Recompile
-      registerShortcut(inputMap, actionMap, "F5", "Refresh", e -> { int idx = jTB.getSelectedIndex(); if (idx >= 0) save(idx); });
+      registerShortcut(inputMap, actionMap, "F5", "Refresh", e -> {
+         int idx = jTB.getSelectedIndex();
+         if (idx >= 0)
+            save(idx);
+      });
 
       // Settings
       registerShortcut(inputMap, actionMap, "ctrl COMMA", "Settings", e -> settings.show());
@@ -653,13 +687,15 @@ public class Decompiler
       registerShortcut(inputMap, actionMap, "ctrl G", "GoToLine", e -> showGoToLineDialog());
 
       // Selection and editing (work on current text pane)
-      registerShortcut(inputMap, actionMap, "ctrl A", "SelectAll", e -> getCurrentTextPane().ifPresent(pane -> pane.selectAll()));
+      registerShortcut(inputMap, actionMap, "ctrl A", "SelectAll",
+            e -> getCurrentTextPane().ifPresent(pane -> pane.selectAll()));
       registerShortcut(inputMap, actionMap, "ctrl D", "DuplicateLine", e -> duplicateCurrentLine());
       registerShortcut(inputMap, actionMap, "ctrl SLASH", "ToggleComment", e -> toggleComment());
 
       // Zoom
       registerShortcut(inputMap, actionMap, "ctrl PLUS", "ZoomIn", e -> adjustFontSize(2));
-      registerShortcut(inputMap, actionMap, "ctrl EQUALS", "ZoomInAlt", e -> adjustFontSize(2));  // Ctrl+= (same key as +)
+      registerShortcut(inputMap, actionMap, "ctrl EQUALS", "ZoomInAlt", e -> adjustFontSize(2)); // Ctrl+= (same key as
+                                                                                                 // +)
       registerShortcut(inputMap, actionMap, "ctrl MINUS", "ZoomOut", e -> adjustFontSize(-2));
       registerShortcut(inputMap, actionMap, "ctrl 0", "ResetZoom", e -> resetFontSize());
 
@@ -670,7 +706,8 @@ public class Decompiler
       registerShortcut(inputMap, actionMap, "F1", "Help", e -> showAboutDialog());
    }
 
-   private void registerShortcut(javax.swing.InputMap inputMap, javax.swing.ActionMap actionMap, String keystroke, String actionKey, java.awt.event.ActionListener action) {
+   private void registerShortcut(javax.swing.InputMap inputMap, javax.swing.ActionMap actionMap, String keystroke,
+         String actionKey, java.awt.event.ActionListener action) {
       inputMap.put(javax.swing.KeyStroke.getKeyStroke(keystroke), actionKey);
       actionMap.put(actionKey, new javax.swing.AbstractAction() {
          @Override
@@ -682,39 +719,46 @@ public class Decompiler
 
    private java.util.Optional<javax.swing.text.JTextComponent> getCurrentTextPane() {
       int selectedIndex = jTB.getSelectedIndex();
-      if (selectedIndex < 0) return java.util.Optional.empty();
+      if (selectedIndex < 0)
+         return java.util.Optional.empty();
 
-      javax.swing.JComponent tabComponent = (javax.swing.JComponent)jTB.getTabComponentAt(selectedIndex);
-      if (tabComponent == null) return java.util.Optional.empty();
+      javax.swing.JComponent tabComponent = (javax.swing.JComponent) jTB.getTabComponentAt(selectedIndex);
+      if (tabComponent == null)
+         return java.util.Optional.empty();
 
       Object clientProperty = jTB.getClientProperty(tabComponent);
-      if (!(clientProperty instanceof javax.swing.JComponent[])) return java.util.Optional.empty();
+      if (!(clientProperty instanceof javax.swing.JComponent[]))
+         return java.util.Optional.empty();
 
-      javax.swing.JComponent[] panels = (javax.swing.JComponent[])clientProperty;
-      if (panels.length == 0 || !(panels[0] instanceof javax.swing.JSplitPane)) return java.util.Optional.empty();
+      javax.swing.JComponent[] panels = (javax.swing.JComponent[]) clientProperty;
+      if (panels.length == 0 || !(panels[0] instanceof javax.swing.JSplitPane))
+         return java.util.Optional.empty();
 
-      javax.swing.JSplitPane splitPane = (javax.swing.JSplitPane)panels[0];
+      javax.swing.JSplitPane splitPane = (javax.swing.JSplitPane) panels[0];
       java.awt.Component leftComp = splitPane.getLeftComponent();
       if (leftComp instanceof javax.swing.JScrollPane) {
-         javax.swing.JScrollPane scrollPane = (javax.swing.JScrollPane)leftComp;
+         javax.swing.JScrollPane scrollPane = (javax.swing.JScrollPane) leftComp;
          java.awt.Component view = scrollPane.getViewport().getView();
          if (view instanceof javax.swing.text.JTextComponent) {
-            return java.util.Optional.of((javax.swing.text.JTextComponent)view);
+            return java.util.Optional.of((javax.swing.text.JTextComponent) view);
          }
       }
       return java.util.Optional.empty();
    }
 
    private void showFindDialog() {
-      javax.swing.JOptionPane.showMessageDialog(this, "Find functionality coming soon!", "Find", javax.swing.JOptionPane.INFORMATION_MESSAGE);
+      javax.swing.JOptionPane.showMessageDialog(this, "Find functionality coming soon!", "Find",
+            javax.swing.JOptionPane.INFORMATION_MESSAGE);
    }
 
    private void showReplaceDialog() {
-      javax.swing.JOptionPane.showMessageDialog(this, "Replace functionality coming soon!", "Replace", javax.swing.JOptionPane.INFORMATION_MESSAGE);
+      javax.swing.JOptionPane.showMessageDialog(this, "Replace functionality coming soon!", "Replace",
+            javax.swing.JOptionPane.INFORMATION_MESSAGE);
    }
 
    private void showGoToLineDialog() {
-      javax.swing.JOptionPane.showMessageDialog(this, "Go to Line functionality coming soon!", "Go to Line", javax.swing.JOptionPane.INFORMATION_MESSAGE);
+      javax.swing.JOptionPane.showMessageDialog(this, "Go to Line functionality coming soon!", "Go to Line",
+            javax.swing.JOptionPane.INFORMATION_MESSAGE);
    }
 
    private void duplicateCurrentLine() {
@@ -766,7 +810,7 @@ public class Decompiler
       getCurrentTextPane().ifPresent(pane -> {
          java.awt.Font currentFont = pane.getFont();
          int newSize = Math.max(8, Math.min(72, currentFont.getSize() + delta));
-         pane.setFont(currentFont.deriveFont((float)newSize));
+         pane.setFont(currentFont.deriveFont((float) newSize));
       });
    }
 
@@ -777,8 +821,10 @@ public class Decompiler
    }
 
    private boolean isFullScreen = false;
+
    private void toggleFullScreen() {
-      java.awt.GraphicsDevice device = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice();
+      java.awt.GraphicsDevice device = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment()
+            .getDefaultScreenDevice();
       if (isFullScreen) {
          device.setFullScreenWindow(null);
          isFullScreen = false;
@@ -849,7 +895,7 @@ public class Decompiler
    }
 
    private void updateWorkspaceCard() {
-      CardLayout cl = (CardLayout)this.workspaceCards.getLayout();
+      CardLayout cl = (CardLayout) this.workspaceCards.getLayout();
       if (this.jTB.getTabCount() == 0) {
          cl.show(this.workspaceCards, CARD_EMPTY);
       } else {
@@ -886,8 +932,8 @@ public class Decompiler
       if (this.commandBar != null) {
          for (java.awt.Component comp : this.commandBar.getComponents()) {
             if (comp instanceof JButton) {
-               JButton button = (JButton)comp;
-               String action = (String)button.getClientProperty("action");
+               JButton button = (JButton) comp;
+               String action = (String) button.getClientProperty("action");
                if (action != null) {
                   if (action.equals("Save") || action.equals("Close")) {
                      button.setEnabled(hasSelection);
@@ -908,7 +954,7 @@ public class Decompiler
       }
       java.awt.Component center = tabPanel.getComponent(0);
       if (center instanceof JLabel) {
-         JLabel label = (JLabel)center;
+         JLabel label = (JLabel) center;
          String text = label.getText();
          if (text == null) {
             return;
@@ -920,6 +966,7 @@ public class Decompiler
 
    /**
     * Safely gets the tab component for the currently selected tab.
+    *
     * @return The tab component, or null if no valid tab is selected
     */
    private JComponent getSelectedTabComponent() {
@@ -927,7 +974,7 @@ public class Decompiler
       if (selectedIndex < 0 || selectedIndex >= this.jTB.getTabCount()) {
          return null;
       }
-      return (JComponent)this.jTB.getTabComponentAt(selectedIndex);
+      return (JComponent) this.jTB.getTabComponentAt(selectedIndex);
    }
 
    private void openLink(String url, String statusMessage) {
@@ -950,9 +997,7 @@ public class Decompiler
    }
 
    private void showAboutDialog() {
-      String aboutHtml =
-         "<html>"
-            + "<h2>NCSDecomp</h2>"
+      String aboutHtml = "<html>" + "<h2>NCSDecomp</h2>"
             + "<p>KotOR / TSL NCS script decompiler rebuilt with modern workflows. "
             + "Origins in the classic DeNCS tooling; re-implemented with improved heuristics, UI, and headless/CLI support.</p>"
             + "<ul>"
@@ -960,12 +1005,9 @@ public class Decompiler
             + "<li><b>How</b>: Swing GUI with drag/drop, multi-tab workspaces, and bytecode diffing; CLI for batch/headless runs.</li>"
             + "<li><b>Why</b>: Provide a reliable, transparent pipeline for modders and reverse-engineers working on KotOR/TSL.</li>"
             + "<li><b>When</b>: Use for day-to-day modding, audits, or batch decompilation workflows.</li>"
-            + "<li><b>Links</b>: "
-            + "<a href='https://bolabaden.org'>bolabaden.org</a> · "
+            + "<li><b>Links</b>: " + "<a href='https://bolabaden.org'>bolabaden.org</a> · "
             + "<a href='https://github.com/OldRepublicDevs'>github.com/OldRepublicDevs</a> · "
-            + "<a href='https://github.com/bolabaden'>github.com/bolabaden</a></li>"
-            + "</ul>"
-            + "</html>";
+            + "<a href='https://github.com/bolabaden'>github.com/bolabaden</a></li>" + "</ul>" + "</html>";
 
       JLabel content = new JLabel(aboutHtml);
       content.setBorder(new EmptyBorder(12, 12, 12, 12));
@@ -998,7 +1040,7 @@ public class Decompiler
             if (flavors[i].isFlavorJavaFileListType()) {
                dtde.acceptDrop(3);
                @SuppressWarnings("unchecked")
-               final List<File> rawList = (List<File>)tr.getTransferData(flavors[i]);
+               final List<File> rawList = (List<File>) tr.getTransferData(flavors[i]);
                final List<File> list = new ArrayList<>();
                for (File file : rawList) {
                   if (file != null) {
@@ -1006,7 +1048,7 @@ public class Decompiler
                   }
                }
                Thread openThread = new Thread(() -> {
-                     Decompiler.this.open(list.toArray(new File[0]));
+                  Decompiler.this.open(list.toArray(new File[0]));
                });
                openThread.setDaemon(true);
                openThread.setName("FileOpen-" + System.currentTimeMillis());
@@ -1027,7 +1069,7 @@ public class Decompiler
    public void stateChanged(ChangeEvent arg0) {
       int selectedIndex = this.jTB.getSelectedIndex();
       if (selectedIndex >= 0 && selectedIndex < this.jTB.getTabCount()) {
-         JComponent tabComponent = (JComponent)this.jTB.getTabComponentAt(selectedIndex);
+         JComponent tabComponent = (JComponent) this.jTB.getTabComponentAt(selectedIndex);
          if (tabComponent != null) {
             TreeModel model = this.hash_TabComponent2TreeModel.get(tabComponent);
             if (model != null) {
@@ -1050,13 +1092,13 @@ public class Decompiler
          return; // No valid tab selected
       }
 
-      JComponent tabComponent = (JComponent)this.jTB.getTabComponentAt(selectedIndex);
+      JComponent tabComponent = (JComponent) this.jTB.getTabComponentAt(selectedIndex);
       if (tabComponent == null) {
          return; // Tab component is null
       }
 
       if (arg0.getSource() instanceof JTree) {
-         TreePath changedPath = ((JTree)arg0.getSource()).getSelectionPath();
+         TreePath changedPath = ((JTree) arg0.getSource()).getSelectionPath();
          File file = this.hash_TabComponent2File.get(tabComponent);
          if (file == null) {
             return; // File not found for this tab
@@ -1067,66 +1109,70 @@ public class Decompiler
             return; // Invalid client property
          }
 
-         JComponent[] panels = (JComponent[])clientProperty;
-            if (changedPath != null && changedPath.getPathCount() == 2) {
-               Hashtable<String, Vector<Variable>> func2VarVec = this.fileDecompiler.updateSubName(file, this.currentNodeString, changedPath.getLastPathComponent().toString());
-               this.hash_TabComponent2Func2VarVec.put(tabComponent, func2VarVec);
-               this.hash_TabComponent2TreeModel.put(tabComponent, this.jTree.getModel());
-               if (panels.length > 0 && panels[0] instanceof JSplitPane) {
-                  JSplitPane decompSplitPane = (JSplitPane)panels[0];
-                  java.awt.Component leftComp = decompSplitPane.getLeftComponent();
-                  if (leftComp instanceof JScrollPane) {
-                     JScrollPane scrollPane = (JScrollPane)leftComp;
-                     if (scrollPane.getViewport().getView() instanceof JTextComponent) {
-                        this.jTA = (JTextComponent)scrollPane.getViewport().getView();
-                        // Disable highlighting during setText to prevent freeze
-                        if (this.jTA instanceof JTextPane) {
-                           NWScriptSyntaxHighlighter.setSkipHighlighting((JTextPane)this.jTA, true);
-                        }
+         JComponent[] panels = (JComponent[]) clientProperty;
+         if (changedPath != null && changedPath.getPathCount() == 2) {
+            Hashtable<String, Vector<Variable>> func2VarVec = this.fileDecompiler.updateSubName(file,
+                  this.currentNodeString, changedPath.getLastPathComponent().toString());
+            this.hash_TabComponent2Func2VarVec.put(tabComponent, func2VarVec);
+            this.hash_TabComponent2TreeModel.put(tabComponent, this.jTree.getModel());
+            if (panels.length > 0 && panels[0] instanceof JSplitPane) {
+               JSplitPane decompSplitPane = (JSplitPane) panels[0];
+               java.awt.Component leftComp = decompSplitPane.getLeftComponent();
+               if (leftComp instanceof JScrollPane) {
+                  JScrollPane scrollPane = (JScrollPane) leftComp;
+                  if (scrollPane.getViewport().getView() instanceof JTextComponent) {
+                     this.jTA = (JTextComponent) scrollPane.getViewport().getView();
+                     // Disable highlighting and dirty marking during setText to prevent freeze and false dirty flags
+                     if (this.jTA instanceof JTextPane) {
+                        NWScriptSyntaxHighlighter.setSkipHighlighting((JTextPane) this.jTA, true);
+                        this.jTA.putClientProperty("Decompiler.programmaticUpdate", true);
+                     }
 
-                        this.jTA.setText(this.fileDecompiler.getGeneratedCode(file));
-                        this.jTA.setCaretPosition(0);
+                     this.jTA.setText(this.fileDecompiler.getGeneratedCode(file));
+                     this.jTA.setCaretPosition(0);
 
-                        // Re-enable highlighting and apply immediately
-                        if (this.jTA instanceof JTextPane) {
-                           JTextPane textPane = (JTextPane)this.jTA;
-                           NWScriptSyntaxHighlighter.setSkipHighlighting(textPane, false);
-                           NWScriptSyntaxHighlighter.applyHighlightingImmediate(textPane);
-                        }
+                     // Re-enable highlighting and dirty marking, then apply highlighting immediately
+                     if (this.jTA instanceof JTextPane) {
+                        JTextPane textPane = (JTextPane) this.jTA;
+                        NWScriptSyntaxHighlighter.setSkipHighlighting(textPane, false);
+                        textPane.putClientProperty("Decompiler.programmaticUpdate", false);
+                        NWScriptSyntaxHighlighter.applyHighlightingImmediate(textPane);
                      }
                   }
                }
-            } else if (changedPath != null) {
-               TreeNode subroutineNode = (TreeNode)changedPath.getParentPath().getLastPathComponent();
-               Hashtable<String, Vector<Variable>> func2VarVec = this.hash_TabComponent2Func2VarVec.get(tabComponent);
-               if (func2VarVec != null) {
-                  Vector<Variable> variables = func2VarVec.get(subroutineNode.toString());
-                  if (variables != null) {
-                     int nodeIndex = subroutineNode.getIndex((TreeNode)changedPath.getLastPathComponent());
-                     if (nodeIndex >= 0 && nodeIndex < variables.size()) {
-                        Variable changedVar = variables.get(nodeIndex);
-                        changedVar.name(changedPath.getLastPathComponent().toString());
-                        if (panels.length > 0 && panels[0] instanceof JSplitPane) {
-                           JSplitPane decompSplitPane = (JSplitPane)panels[0];
-                           java.awt.Component leftComp = decompSplitPane.getLeftComponent();
-                           if (leftComp instanceof JScrollPane) {
-                              JScrollPane scrollPane = (JScrollPane)leftComp;
-                              if (scrollPane.getViewport().getView() instanceof JTextComponent) {
-                                 this.jTA = (JTextComponent)scrollPane.getViewport().getView();
-                                 // Disable highlighting during setText to prevent freeze
-                                 if (this.jTA instanceof JTextPane) {
-                                    NWScriptSyntaxHighlighter.setSkipHighlighting((JTextPane)this.jTA, true);
-                                 }
+            }
+         } else if (changedPath != null) {
+            TreeNode subroutineNode = (TreeNode) changedPath.getParentPath().getLastPathComponent();
+            Hashtable<String, Vector<Variable>> func2VarVec = this.hash_TabComponent2Func2VarVec.get(tabComponent);
+            if (func2VarVec != null) {
+               Vector<Variable> variables = func2VarVec.get(subroutineNode.toString());
+               if (variables != null) {
+                  int nodeIndex = subroutineNode.getIndex((TreeNode) changedPath.getLastPathComponent());
+                  if (nodeIndex >= 0 && nodeIndex < variables.size()) {
+                     Variable changedVar = variables.get(nodeIndex);
+                     changedVar.name(changedPath.getLastPathComponent().toString());
+                     if (panels.length > 0 && panels[0] instanceof JSplitPane) {
+                        JSplitPane decompSplitPane = (JSplitPane) panels[0];
+                        java.awt.Component leftComp = decompSplitPane.getLeftComponent();
+                        if (leftComp instanceof JScrollPane) {
+                           JScrollPane scrollPane = (JScrollPane) leftComp;
+                           if (scrollPane.getViewport().getView() instanceof JTextComponent) {
+                              this.jTA = (JTextComponent) scrollPane.getViewport().getView();
+                              // Disable highlighting and dirty marking during setText to prevent freeze and false dirty flags
+                              if (this.jTA instanceof JTextPane) {
+                                 NWScriptSyntaxHighlighter.setSkipHighlighting((JTextPane) this.jTA, true);
+                                 this.jTA.putClientProperty("Decompiler.programmaticUpdate", true);
+                              }
 
-                                 this.jTA.setText(this.fileDecompiler.regenerateCode(file));
-                                 this.jTA.setCaretPosition(0);
+                              this.jTA.setText(this.fileDecompiler.regenerateCode(file));
+                              this.jTA.setCaretPosition(0);
 
-                                 // Re-enable highlighting and apply immediately
-                                 if (this.jTA instanceof JTextPane) {
-                                    JTextPane textPane = (JTextPane)this.jTA;
-                                    NWScriptSyntaxHighlighter.setSkipHighlighting(textPane, false);
-                                    NWScriptSyntaxHighlighter.applyHighlightingImmediate(textPane);
-                                 }
+                              // Re-enable highlighting and dirty marking, then apply highlighting immediately
+                              if (this.jTA instanceof JTextPane) {
+                                 JTextPane textPane = (JTextPane) this.jTA;
+                                 NWScriptSyntaxHighlighter.setSkipHighlighting(textPane, false);
+                                 textPane.putClientProperty("Decompiler.programmaticUpdate", false);
+                                 NWScriptSyntaxHighlighter.applyHighlightingImmediate(textPane);
                               }
                            }
                         }
@@ -1134,19 +1180,20 @@ public class Decompiler
                   }
                }
             }
-
-            if (changedPath != null) {
-               this.currentNodeString = changedPath.getLastPathComponent().toString();
-            }
-         } else if (arg0.getSource() instanceof JTextComponent) {
-            File file = this.hash_TabComponent2File.get(tabComponent);
-            if (file != null && !unsavedFiles.contains(file)) {
-               unsavedFiles.add(file);
-            }
-            if (tabComponent instanceof JPanel) {
-               this.updateTabLabel((JPanel)tabComponent, true);
-            }
          }
+
+         if (changedPath != null) {
+            this.currentNodeString = changedPath.getLastPathComponent().toString();
+         }
+      } else if (arg0.getSource() instanceof JTextComponent) {
+         File file = this.hash_TabComponent2File.get(tabComponent);
+         if (file != null && !unsavedFiles.contains(file)) {
+            unsavedFiles.add(file);
+         }
+         if (tabComponent instanceof JPanel) {
+            this.updateTabLabel((JPanel) tabComponent, true);
+         }
+      }
    }
 
    @Override
@@ -1155,8 +1202,8 @@ public class Decompiler
 
    @Override
    public void valueChanged(TreeSelectionEvent arg0) {
-      if (((JTree)arg0.getSource()).getSelectionPath() != null) {
-         this.currentNodeString = ((JTree)arg0.getSource()).getSelectionPath().getLastPathComponent().toString();
+      if (((JTree) arg0.getSource()).getSelectionPath() != null) {
+         this.currentNodeString = ((JTree) arg0.getSource()).getSelectionPath().getLastPathComponent().toString();
       }
    }
 
@@ -1261,15 +1308,15 @@ public class Decompiler
       if (!(arg0.getSource() instanceof JLabel)) {
          return;
       }
-      JLabel closeLabel = (JLabel)arg0.getSource();
+      JLabel closeLabel = (JLabel) arg0.getSource();
       if (!(closeLabel.getParent() instanceof JPanel)) {
          return;
       }
-      JPanel tabPanel = (JPanel)closeLabel.getParent();
+      JPanel tabPanel = (JPanel) closeLabel.getParent();
 
       // Find the tab index that matches this panel
       for (int i = 0; i < this.jTB.getTabCount(); i++) {
-         JComponent tabComponent = (JComponent)this.jTB.getTabComponentAt(i);
+         JComponent tabComponent = (JComponent) this.jTB.getTabComponentAt(i);
          if (tabComponent == tabPanel) {
             this.close(i);
             break;
@@ -1288,7 +1335,7 @@ public class Decompiler
          return; // No valid component selected
       }
 
-      JSplitPane splitPane = (JSplitPane)selectedComponent;
+      JSplitPane splitPane = (JSplitPane) selectedComponent;
       Object linkProperty = this.jTB.getClientProperty(selectedComponent);
       if (linkProperty == null) {
          return; // No link property set
@@ -1301,8 +1348,8 @@ public class Decompiler
          return; // Invalid component structure
       }
 
-      JScrollPane leftScroll = (JScrollPane)leftComp;
-      JScrollPane rightScroll = (JScrollPane)rightComp;
+      JScrollPane leftScroll = (JScrollPane) leftComp;
+      JScrollPane rightScroll = (JScrollPane) rightComp;
 
       if (linkProperty.equals("left")) {
          rightScroll.getVerticalScrollBar().setValue(leftScroll.getVerticalScrollBar().getValue());
@@ -1318,7 +1365,7 @@ public class Decompiler
          return; // No tab selected or invalid index
       }
 
-      JComponent tabComponent = (JComponent)this.jTB.getTabComponentAt(selectedIndex);
+      JComponent tabComponent = (JComponent) this.jTB.getTabComponentAt(selectedIndex);
       if (tabComponent == null) {
          return; // Tab component is null
       }
@@ -1328,7 +1375,7 @@ public class Decompiler
          return; // Invalid client property
       }
 
-      JComponent[] panels = (JComponent[])clientProperty;
+      JComponent[] panels = (JComponent[]) clientProperty;
       if (panels.length == 0 || !(panels[0] instanceof JPanel)) {
          return; // Invalid panel structure
       }
@@ -1338,21 +1385,22 @@ public class Decompiler
       if (!(panels[0] instanceof JSplitPane)) {
          return;
       }
-      JSplitPane decompSplitPane = (JSplitPane)panels[0];
+      JSplitPane decompSplitPane = (JSplitPane) panels[0];
       java.awt.Component leftComp = decompSplitPane.getLeftComponent();
       if (!(leftComp instanceof JScrollPane)) {
          return;
       }
-      JScrollPane leftScrollPane = (JScrollPane)leftComp;
+      JScrollPane leftScrollPane = (JScrollPane) leftComp;
       if (!(leftScrollPane.getBorder() instanceof TitledBorder)) {
          return; // Invalid border type
       }
 
-      this.jTA = (JTextComponent)arg0.getSource();
+      this.jTA = (JTextComponent) arg0.getSource();
       this.mark = this.jTA.getCaretPosition();
       this.rootElement = this.jTA.getDocument().getDefaultRootElement();
-      this.titledBorder = (TitledBorder)leftScrollPane.getBorder();
-      if (!(this.temp = Integer.toString(this.rootElement.getElementIndex(this.mark) + 1)).equals(this.titledBorder.getTitle())) {
+      this.titledBorder = (TitledBorder) leftScrollPane.getBorder();
+      if (!(this.temp = Integer.toString(this.rootElement.getElementIndex(this.mark) + 1))
+            .equals(this.titledBorder.getTitle())) {
          this.titledBorder.setTitle(this.temp);
          this.repaint();
       }
@@ -1363,14 +1411,18 @@ public class Decompiler
    }
 
    /**
-    * Creates a new tab in the editor for viewing and editing NCS decompiled code and bytecode comparison.
+    * Creates a new tab in the editor for viewing and editing NCS decompiled code
+    * and bytecode comparison.
     *
-    * @param text  The label to display on the tab (usually the filename without extension).
+    * @param text  The label to display on the tab (usually the filename without
+    *              extension).
     * @param index The index at which to insert the new tab.
-    * @return Array of components for this tab: [0]=code panel, [1]=bytecode split pane.
+    * @return Array of components for this tab: [0]=code panel, [1]=bytecode split
+    *         pane.
     */
    private JComponent[] newNCSTab(String text, int index) {
-      // Array for holding the panels: [0] = Decompilation panel, [1] = Bytecode split view
+      // Array for holding the panels: [0] = Decompilation panel, [1] = Bytecode split
+      // view
       JComponent[] tabComponents = new JComponent[2];
 
       // --- Decompiled Code Split Pane ---
@@ -1413,10 +1465,13 @@ public class Decompiler
          }
       });
       // Also support Ctrl+Shift+Z for redo (common alternative)
-      textPane.getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_Z, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK), "redo");
+      textPane.getInputMap()
+            .put(KeyStroke.getKeyStroke(KeyEvent.VK_Z, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK), "redo");
 
       // Add document listener to mark files as dirty when text changes
-      textPane.getDocument().addDocumentListener(new DocumentListener() {
+      // Use a client property to track programmatic changes (similar to syntax highlighter)
+      final String PROP_PROGRAMMATIC_UPDATE = "Decompiler.programmaticUpdate";
+      DocumentListener dirtyMarker = new DocumentListener() {
          @Override
          public void insertUpdate(DocumentEvent e) {
             markFileAsDirty();
@@ -1433,19 +1488,29 @@ public class Decompiler
          }
 
          private void markFileAsDirty() {
+            // Skip if this is a programmatic update (setText, etc.)
+            Boolean isProgrammatic = (Boolean)textPane.getClientProperty(PROP_PROGRAMMATIC_UPDATE);
+            if (isProgrammatic != null && isProgrammatic) {
+               return;
+            }
+
             JComponent tabComponent = Decompiler.this.getSelectedTabComponent();
             if (tabComponent != null) {
                File file = Decompiler.this.hash_TabComponent2File.get(tabComponent);
-               // Don't mark as dirty if file is currently being loaded
+               // Don't mark as dirty if file is currently being loaded OR if it's a programmatic update
                if (file != null && !Decompiler.filesBeingLoaded.contains(file) && !Decompiler.unsavedFiles.contains(file)) {
                   Decompiler.unsavedFiles.add(file);
                   if (tabComponent instanceof JPanel) {
-                     Decompiler.this.updateTabLabel((JPanel)tabComponent, true);
+                     Decompiler.this.updateTabLabel((JPanel) tabComponent, true);
                   }
                }
             }
          }
-      });
+      };
+      textPane.getDocument().addDocumentListener(dirtyMarker);
+      // Store reference to listener for potential removal if needed
+      textPane.putClientProperty("dirtyMarkerListener", dirtyMarker);
+      textPane.putClientProperty(PROP_PROGRAMMATIC_UPDATE, false);
 
       // Syntax highlighting, caret/keyboard event hooks, drag and drop, etc.
       textPane.addCaretListener(this);
@@ -1474,7 +1539,8 @@ public class Decompiler
 
       this.dropTarget = new DropTarget(roundTripTextPane, this);
       roundTripTextPane.putClientProperty("dropTarget", this.dropTarget);
-      roundTripTextPane.getDocument().addDocumentListener(NWScriptSyntaxHighlighter.createHighlightingListener(roundTripTextPane));
+      roundTripTextPane.getDocument()
+            .addDocumentListener(NWScriptSyntaxHighlighter.createHighlightingListener(roundTripTextPane));
 
       JScrollPane roundTripScrollPane = new JScrollPane(roundTripTextPane);
       roundTripScrollPane.setBorder(new TitledBorder("Round-Trip Decompiled Code"));
@@ -1569,7 +1635,8 @@ public class Decompiler
    }
 
    /**
-    * Loads an NSS file directly (it's already source code, no decompilation needed).
+    * Loads an NSS file directly (it's already source code, no decompilation
+    * needed).
     *
     * @param file The NSS file to load
     */
@@ -1582,7 +1649,7 @@ public class Decompiler
       try {
          // Read the file content
          fileContent = new String(java.nio.file.Files.readAllBytes(file.toPath()),
-            java.nio.charset.StandardCharsets.UTF_8);
+               java.nio.charset.StandardCharsets.UTF_8);
       } catch (java.io.IOException e) {
          this.status.append("error reading file: " + e.getMessage() + "\n");
          JOptionPane.showMessageDialog(null, "Error reading NSS file: " + e.getMessage());
@@ -1597,45 +1664,50 @@ public class Decompiler
 
       // Get the left side text pane from the split pane
       if (this.panels[0] instanceof JSplitPane) {
-         JSplitPane decompSplitPane = (JSplitPane)this.panels[0];
+         JSplitPane decompSplitPane = (JSplitPane) this.panels[0];
          java.awt.Component leftComp = decompSplitPane.getLeftComponent();
          if (leftComp instanceof JScrollPane) {
-            JScrollPane leftScrollPane = (JScrollPane)leftComp;
-            JTextComponent codeArea = (JTextComponent)leftScrollPane.getViewport().getView();
+            JScrollPane leftScrollPane = (JScrollPane) leftComp;
+            JTextComponent codeArea = (JTextComponent) leftScrollPane.getViewport().getView();
 
-            // Disable highlighting during setText to prevent freeze
+            // Disable highlighting and dirty marking during setText to prevent freeze and false dirty flags
             if (codeArea instanceof JTextPane) {
-               NWScriptSyntaxHighlighter.setSkipHighlighting((JTextPane)codeArea, true);
+               NWScriptSyntaxHighlighter.setSkipHighlighting((JTextPane) codeArea, true);
+               codeArea.putClientProperty("Decompiler.programmaticUpdate", true);
             }
 
             codeArea.setText(fileContent);
 
-            // Re-enable highlighting and apply immediately
+            // Re-enable highlighting and dirty marking, then apply highlighting immediately
             if (codeArea instanceof JTextPane) {
-               JTextPane textPane = (JTextPane)codeArea;
+               JTextPane textPane = (JTextPane) codeArea;
                NWScriptSyntaxHighlighter.setSkipHighlighting(textPane, false);
+               textPane.putClientProperty("Decompiler.programmaticUpdate", false);
                NWScriptSyntaxHighlighter.applyHighlightingImmediate(textPane);
             }
 
-            // NOTE: Do NOT remove from filesBeingLoaded yet - keep file protected until fully loaded
+            // NOTE: Do NOT remove from filesBeingLoaded yet - keep file protected until
+            // fully loaded
 
             // Populate round-trip decompiled code panel (NSS -> NCS -> NSS)
             // For NSS files, we need to compile them first, then decompile the result
             try {
                java.awt.Component rightComp = decompSplitPane.getRightComponent();
                if (rightComp instanceof JScrollPane) {
-                  JScrollPane rightScrollPane = (JScrollPane)rightComp;
+                  JScrollPane rightScrollPane = (JScrollPane) rightComp;
                   if (rightScrollPane.getViewport().getView() instanceof JTextPane) {
-                     JTextPane roundTripPane = (JTextPane)rightScrollPane.getViewport().getView();
+                     JTextPane roundTripPane = (JTextPane) rightScrollPane.getViewport().getView();
 
-                     System.err.println("DEBUG loadNssFile: Starting round-trip for NSS file: " + file.getAbsolutePath());
+                     System.err
+                           .println("DEBUG loadNssFile: Starting round-trip for NSS file: " + file.getAbsolutePath());
 
                      // Compile the NSS file to NCS, then decompile it
                      File compiledNcs = null;
                      try {
                         // Use CompilerUtil to get compiler from Settings (GUI mode - NO FALLBACKS)
                         File compiler = CompilerUtil.getCompilerFromSettingsOrNull();
-                        System.err.println("DEBUG loadNssFile: Found compiler via CompilerUtil: " + (compiler != null ? compiler.getAbsolutePath() : "null"));
+                        System.err.println("DEBUG loadNssFile: Found compiler via CompilerUtil: "
+                              + (compiler != null ? compiler.getAbsolutePath() : "null"));
 
                         if (compiler != null && compiler.exists()) {
                            // Create output NCS file in same directory as input
@@ -1657,14 +1729,16 @@ public class Decompiler
                            if (compilerDir != null) {
                               File compilerNwscript = new File(compilerDir, "nwscript.nss");
                               File nwscriptSource = isK2
-                                 ? new File(new File(System.getProperty("user.dir"), "tools"), "tsl_nwscript.nss")
-                                 : new File(new File(System.getProperty("user.dir"), "tools"), "k1_nwscript.nss");
-                              if (nwscriptSource.exists() && (!compilerNwscript.exists() || !compilerNwscript.getAbsolutePath().equals(nwscriptSource.getAbsolutePath()))) {
+                                    ? new File(new File(System.getProperty("user.dir"), "tools"), "tsl_nwscript.nss")
+                                    : new File(new File(System.getProperty("user.dir"), "tools"), "k1_nwscript.nss");
+                              if (nwscriptSource.exists() && (!compilerNwscript.exists()
+                                    || !compilerNwscript.getAbsolutePath().equals(nwscriptSource.getAbsolutePath()))) {
                                  try {
                                     java.nio.file.Files.copy(nwscriptSource.toPath(), compilerNwscript.toPath(),
-                                       java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                                          java.nio.file.StandardCopyOption.REPLACE_EXISTING);
                                  } catch (java.io.IOException e) {
-                                    System.err.println("DEBUG loadNssFile: Warning: Could not copy nwscript.nss: " + e.getMessage());
+                                    System.err.println(
+                                          "DEBUG loadNssFile: Warning: Could not copy nwscript.nss: " + e.getMessage());
                                  }
                               }
                            }
@@ -1701,11 +1775,13 @@ public class Decompiler
                            }
 
                            if (compiledNcs.exists()) {
-                              System.err.println("DEBUG loadNssFile: Compiled NCS exists at: " + compiledNcs.getAbsolutePath());
+                              System.err.println(
+                                    "DEBUG loadNssFile: Compiled NCS exists at: " + compiledNcs.getAbsolutePath());
                               // Decompile the compiled NCS
                               String gameFlag = isK2 ? "k2" : "k1";
                               String roundTripCode = RoundTripUtil.decompileNcsToNss(compiledNcs, gameFlag);
-                              System.err.println("DEBUG loadNssFile: Round-trip code result: " + (roundTripCode != null ? "not null, length=" + roundTripCode.length() : "null"));
+                              System.err.println("DEBUG loadNssFile: Round-trip code result: "
+                                    + (roundTripCode != null ? "not null, length=" + roundTripCode.length() : "null"));
 
                               if (roundTripCode != null && !roundTripCode.trim().isEmpty()) {
                                  System.err.println("DEBUG loadNssFile: Setting round-trip code in right panel");
@@ -1715,20 +1791,24 @@ public class Decompiler
                                  NWScriptSyntaxHighlighter.applyHighlightingImmediate(roundTripPane);
                               } else {
                                  System.err.println("DEBUG loadNssFile: Round-trip code is null or empty");
-                                 roundTripPane.setText("// Round-trip decompiled code not available.\n// The compiled NCS could not be decompiled.");
+                                 roundTripPane.setText(
+                                       "// Round-trip decompiled code not available.\n// The compiled NCS could not be decompiled.");
                               }
                            } else {
                               System.err.println("DEBUG loadNssFile: Compiled NCS does not exist after compilation");
-                              roundTripPane.setText("// Round-trip decompiled code not available.\n// Compilation failed or compiler not found.");
+                              roundTripPane.setText(
+                                    "// Round-trip decompiled code not available.\n// Compilation failed or compiler not found.");
                            }
                         } else {
                            System.err.println("DEBUG loadNssFile: Compiler not found");
-                           roundTripPane.setText("// Round-trip decompiled code not available.\n// Compiler (nwnnsscomp.exe) not found.");
+                           roundTripPane.setText(
+                                 "// Round-trip decompiled code not available.\n// Compiler (nwnnsscomp.exe) not found.");
                         }
                      } catch (Exception e) {
                         System.err.println("DEBUG loadNssFile: Error during round-trip: " + e.getMessage());
                         e.printStackTrace();
-                        roundTripPane.setText("// Round-trip decompiled code not available.\n// Error: " + e.getMessage());
+                        roundTripPane
+                              .setText("// Round-trip decompiled code not available.\n// Error: " + e.getMessage());
                      }
                   }
                }
@@ -1747,12 +1827,13 @@ public class Decompiler
       // Map the file to the tab component
       JComponent tabComponent = this.getSelectedTabComponent();
       if (tabComponent != null) {
-         // Store file as absolute path to ensure correct directory resolution in save dialog
+         // Store file as absolute path to ensure correct directory resolution in save
+         // dialog
          this.hash_TabComponent2File.put(tabComponent, file != null ? file.getAbsoluteFile() : null);
          this.hash_TabComponent2Func2VarVec.put(tabComponent, this.hash_Func2VarVec);
          this.hash_TabComponent2TreeModel.put(tabComponent, this.jTree.getModel());
          if (tabComponent instanceof JPanel) {
-            this.updateTabLabel((JPanel)tabComponent, false);
+            this.updateTabLabel((JPanel) tabComponent, false);
          }
       }
 
@@ -1785,20 +1866,18 @@ public class Decompiler
       } catch (Exception unexpected) {
          // Catch any other unexpected exceptions
          this.status.append("unexpected error: " + unexpected.getMessage() + "\n");
-         generatedCode = "// Unexpected Decompilation Error\n" +
-                        "// File: " + file.getName() + "\n" +
-                        "// Error: " + unexpected.getMessage() + "\n" +
-                        "void main() {\n    // Unexpected error occurred\n}\n";
+         generatedCode = "// Unexpected Decompilation Error\n" + "// File: " + file.getName() + "\n" + "// Error: "
+               + unexpected.getMessage() + "\n" + "void main() {\n    // Unexpected error occurred\n}\n";
          result = 2; // PARTIAL_COMPILE - we're showing something
       }
 
-      // ALWAYS show source code - we guarantee generatedCode is never null/empty at this point
+      // ALWAYS show source code - we guarantee generatedCode is never null/empty at
+      // this point
       // If decompilation completely failed, we created a fallback stub above
       if (generatedCode == null || generatedCode.trim().isEmpty()) {
          // Ultimate fallback - should never happen, but ensure we always show something
-         generatedCode = "// No code available\n" +
-                        "// File: " + file.getName() + "\n" +
-                        "void main() {\n    // No decompiled code\n}\n";
+         generatedCode = "// No code available\n" + "// File: " + file.getName() + "\n"
+               + "void main() {\n    // No decompiled code\n}\n";
          result = 2;
       }
 
@@ -1813,31 +1892,35 @@ public class Decompiler
          this.panels = this.newNCSTab(fileName);
 
          // Get the left side text pane from the split pane
-         // CRITICAL: Make final so it can be used in lambda expressions for error recovery
+         // CRITICAL: Make final so it can be used in lambda expressions for error
+         // recovery
          final JTextComponent[] leftCodeAreaRef = new JTextComponent[1];
          if (this.panels[0] instanceof JSplitPane) {
-            JSplitPane decompSplitPane = (JSplitPane)this.panels[0];
+            JSplitPane decompSplitPane = (JSplitPane) this.panels[0];
             java.awt.Component leftComp = decompSplitPane.getLeftComponent();
             if (leftComp instanceof JScrollPane) {
-               JScrollPane leftScrollPane = (JScrollPane)leftComp;
-               leftCodeAreaRef[0] = (JTextComponent)leftScrollPane.getViewport().getView();
+               JScrollPane leftScrollPane = (JScrollPane) leftComp;
+               leftCodeAreaRef[0] = (JTextComponent) leftScrollPane.getViewport().getView();
 
-               // Disable highlighting during setText to prevent freeze
+               // Disable highlighting and dirty marking during setText to prevent freeze and false dirty flags
                if (leftCodeAreaRef[0] instanceof JTextPane) {
-                  NWScriptSyntaxHighlighter.setSkipHighlighting((JTextPane)leftCodeAreaRef[0], true);
+                  NWScriptSyntaxHighlighter.setSkipHighlighting((JTextPane) leftCodeAreaRef[0], true);
+                  leftCodeAreaRef[0].putClientProperty("Decompiler.programmaticUpdate", true);
                }
 
                // CRITICAL: Set decompiled code ONCE - this should NEVER be overwritten
                leftCodeAreaRef[0].setText(finalGeneratedCode);
 
-               // Re-enable highlighting and apply immediately
+               // Re-enable highlighting and dirty marking, then apply highlighting immediately
                if (leftCodeAreaRef[0] instanceof JTextPane) {
-                  JTextPane textPane = (JTextPane)leftCodeAreaRef[0];
+                  JTextPane textPane = (JTextPane) leftCodeAreaRef[0];
                   NWScriptSyntaxHighlighter.setSkipHighlighting(textPane, false);
+                  textPane.putClientProperty("Decompiler.programmaticUpdate", false);
                   NWScriptSyntaxHighlighter.applyHighlightingImmediate(textPane);
                }
 
-               // NOTE: Do NOT remove from filesBeingLoaded yet - keep file protected until fully loaded
+               // NOTE: Do NOT remove from filesBeingLoaded yet - keep file protected until
+               // fully loaded
             }
          }
 
@@ -1845,7 +1928,8 @@ public class Decompiler
          try {
             String origByteCode = this.fileDecompiler.getOriginalByteCode(file);
             if (origByteCode != null && !origByteCode.trim().isEmpty()) {
-               this.origByteCodeJTA = (JTextPane)((JScrollPane)((JSplitPane)this.panels[1]).getLeftComponent()).getViewport().getView();
+               this.origByteCodeJTA = (JTextPane) ((JScrollPane) ((JSplitPane) this.panels[1]).getLeftComponent())
+                     .getViewport().getView();
                if (this.origByteCodeJTA != null) {
                   this.origByteCodeJTA.setText(origByteCode);
                   // Apply highlighting after text is set
@@ -1854,13 +1938,15 @@ public class Decompiler
             }
             String newByteCode = this.fileDecompiler.getNewByteCode(file);
             if (newByteCode != null && !newByteCode.trim().isEmpty()) {
-               this.newByteCodeJTA = (JTextPane)((JScrollPane)((JSplitPane)this.panels[1]).getRightComponent()).getViewport().getView();
+               this.newByteCodeJTA = (JTextPane) ((JScrollPane) ((JSplitPane) this.panels[1]).getRightComponent())
+                     .getViewport().getView();
                if (this.newByteCodeJTA != null) {
                   this.newByteCodeJTA.setText(newByteCode);
                   // Apply highlighting after text is set
                   SwingUtilities.invokeLater(() -> BytecodeSyntaxHighlighter.applyHighlighting(this.newByteCodeJTA));
                }
-               if (this.origByteCodeJTA != null && this.origByteCodeJTA.getDocument().getLength() >= this.newByteCodeJTA.getDocument().getLength()) {
+               if (this.origByteCodeJTA != null && this.origByteCodeJTA.getDocument().getLength() >= this.newByteCodeJTA
+                     .getDocument().getLength()) {
                   this.jTB.putClientProperty(this.panels[1], "left");
                } else {
                   this.jTB.putClientProperty(this.panels[1], "right");
@@ -1873,16 +1959,17 @@ public class Decompiler
 
          // Populate round-trip decompiled code panel (NCS -> NSS -> NCS -> NSS)
          // Auto-trigger round-trip on load by saving to temp directory
-         // CRITICAL: All round-trip code is wrapped in try-catch to ensure it NEVER affects the left pane
+         // CRITICAL: All round-trip code is wrapped in try-catch to ensure it NEVER
+         // affects the left pane
          try {
             // Get the decomp split pane from panels[0]
             if (this.panels[0] instanceof JSplitPane) {
-               JSplitPane decompSplitPane = (JSplitPane)this.panels[0];
+               JSplitPane decompSplitPane = (JSplitPane) this.panels[0];
                java.awt.Component rightComp = decompSplitPane.getRightComponent();
                if (rightComp instanceof JScrollPane) {
-                  JScrollPane rightScrollPane = (JScrollPane)rightComp;
+                  JScrollPane rightScrollPane = (JScrollPane) rightComp;
                   if (rightScrollPane.getViewport().getView() instanceof JTextPane) {
-                     JTextPane roundTripPane = (JTextPane)rightScrollPane.getViewport().getView();
+                     JTextPane roundTripPane = (JTextPane) rightScrollPane.getViewport().getView();
 
                      // Auto-trigger round-trip validation on load using temp directory
                      System.err.println("DEBUG decompile: Auto-triggering round-trip validation on load");
@@ -1895,26 +1982,31 @@ public class Decompiler
                         }
 
                         // Save decompiled code to temp file
-                        // CRITICAL: Use finalGeneratedCode to ensure we use the original decompiled code
+                        // CRITICAL: Use finalGeneratedCode to ensure we use the original decompiled
+                        // code
                         String baseName2 = file.getName().substring(0, file.getName().length() - 4);
                         File tempNssFile = new File(tempDir, baseName2 + ".nss");
 
                         // Write the generated code to temp file
-                        java.nio.file.Files.write(tempNssFile.toPath(), finalGeneratedCode.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                        java.nio.file.Files.write(tempNssFile.toPath(),
+                              finalGeneratedCode.getBytes(java.nio.charset.StandardCharsets.UTF_8));
                         System.err.println("DEBUG decompile: Saved temp NSS to: " + tempNssFile.getAbsolutePath());
 
                         // Compile the temp NSS file directly (without cleanup) for round-trip display
                         // Use tempDir explicitly to ensure output is in temp
                         File recompiledNcs = this.fileDecompiler.compileNssToNcs(tempNssFile, tempDir);
-                        System.err.println("DEBUG decompile: Compilation result: " + (recompiledNcs != null ? recompiledNcs.getAbsolutePath() : "null"));
-                        System.err.println("DEBUG decompile: Recompiled NCS exists: " + (recompiledNcs != null && recompiledNcs.exists()));
+                        System.err.println("DEBUG decompile: Compilation result: "
+                              + (recompiledNcs != null ? recompiledNcs.getAbsolutePath() : "null"));
+                        System.err.println("DEBUG decompile: Recompiled NCS exists: "
+                              + (recompiledNcs != null && recompiledNcs.exists()));
 
                         if (recompiledNcs != null && recompiledNcs.exists()) {
                            // Decompile the recompiled NCS to show round-trip result
                            String gameFlag = FileDecompiler.isK2Selected ? "k2" : "k1";
                            System.err.println("DEBUG decompile: Decompiling recompiled NCS with gameFlag: " + gameFlag);
                            String roundTripCode = RoundTripUtil.decompileNcsToNss(recompiledNcs, gameFlag);
-                           System.err.println("DEBUG decompile: Round-trip code result: " + (roundTripCode != null ? "not null, length=" + roundTripCode.length() : "null"));
+                           System.err.println("DEBUG decompile: Round-trip code result: "
+                                 + (roundTripCode != null ? "not null, length=" + roundTripCode.length() : "null"));
 
                            if (roundTripCode != null && !roundTripCode.trim().isEmpty()) {
                               System.err.println("DEBUG decompile: Setting round-trip code in right panel");
@@ -1923,13 +2015,17 @@ public class Decompiler
                               NWScriptSyntaxHighlighter.setSkipHighlighting(roundTripPane, false);
                               NWScriptSyntaxHighlighter.applyHighlightingImmediate(roundTripPane);
                            } else {
-                              System.err.println("DEBUG decompile: Round-trip code is null or empty, showing placeholder");
-                              roundTripPane.setText("// Round-trip decompiled code not available.\n// The recompiled NCS could not be decompiled.");
+                              System.err
+                                    .println("DEBUG decompile: Round-trip code is null or empty, showing placeholder");
+                              roundTripPane.setText(
+                                    "// Round-trip decompiled code not available.\n// The recompiled NCS could not be decompiled.");
                            }
                         } else {
                            String errorPath = recompiledNcs != null ? recompiledNcs.getAbsolutePath() : "null";
-                           System.err.println("DEBUG decompile: Recompiled NCS not found after auto-trigger at: " + errorPath);
-                           roundTripPane.setText("// Round-trip decompiled code not available.\n// Compilation failed or compiler not configured.");
+                           System.err.println(
+                                 "DEBUG decompile: Recompiled NCS not found after auto-trigger at: " + errorPath);
+                           roundTripPane.setText(
+                                 "// Round-trip decompiled code not available.\n// Compilation failed or compiler not configured.");
                         }
 
                         // Clean up temp files after use (they're only needed for round-trip validation)
@@ -1947,16 +2043,20 @@ public class Decompiler
                      } catch (Exception ex) {
                         System.err.println("DEBUG decompile: Error during auto-trigger round-trip: " + ex.getMessage());
                         ex.printStackTrace();
-                        // CRITICAL: Only set error message in RIGHT pane (round-trip panel), NEVER touch left pane
+                        // CRITICAL: Only set error message in RIGHT pane (round-trip panel), NEVER
+                        // touch left pane
                         // Build helpful error message for TSLPatcher elevation errors
                         String errorMsg = ex.getMessage();
                         if (errorMsg != null && errorMsg.contains("error=740")) {
-                           errorMsg = "TSLPatcher compiler requires administrator privileges.\n" +
-                                     "Please run NCSDecomp as administrator or use a different compiler variant in Settings.";
+                           errorMsg = "TSLPatcher compiler requires administrator privileges.\n"
+                                 + "Please run NCSDecomp as administrator or use a different compiler variant in Settings.";
                         }
-                        roundTripPane.setText("// Round-trip validation error: " + errorMsg + "\n// Check that nwnnsscomp.exe is configured in Settings.");
-                        // CRITICAL: Left pane is NEVER touched by nwnnsscomp errors - it's completely independent
-                        // The left pane already has the decompiled code set above and should never be modified here
+                        roundTripPane.setText("// Round-trip validation error: " + errorMsg
+                              + "\n// Check that nwnnsscomp.exe is configured in Settings.");
+                        // CRITICAL: Left pane is NEVER touched by nwnnsscomp errors - it's completely
+                        // independent
+                        // The left pane already has the decompiled code set above and should never be
+                        // modified here
                      }
                   }
                }
@@ -1964,22 +2064,25 @@ public class Decompiler
          } catch (Exception e) {
             System.err.println("DEBUG decompile: Error populating round-trip panel: " + e.getMessage());
             e.printStackTrace();
-            // CRITICAL: Left pane is NEVER touched by nwnnsscomp errors - it's completely independent
-            // The left pane already has the decompiled code set above and should never be modified here
+            // CRITICAL: Left pane is NEVER touched by nwnnsscomp errors - it's completely
+            // independent
+            // The left pane already has the decompiled code set above and should never be
+            // modified here
             // Only set error in right pane if we can access it
             try {
                if (this.panels[0] instanceof JSplitPane) {
-                  JSplitPane decompSplitPane = (JSplitPane)this.panels[0];
+                  JSplitPane decompSplitPane = (JSplitPane) this.panels[0];
                   java.awt.Component rightComp = decompSplitPane.getRightComponent();
                   if (rightComp instanceof JScrollPane) {
-                     JScrollPane rightScrollPane = (JScrollPane)rightComp;
+                     JScrollPane rightScrollPane = (JScrollPane) rightComp;
                      if (rightScrollPane.getViewport().getView() instanceof JTextPane) {
-                        JTextPane roundTripPane = (JTextPane)rightScrollPane.getViewport().getView();
+                        JTextPane roundTripPane = (JTextPane) rightScrollPane.getViewport().getView();
                         String errorMsg = e.getMessage();
                         if (errorMsg != null && errorMsg.contains("error=740")) {
                            errorMsg = "TSLPatcher compiler requires administrator privileges.";
                         }
-                        roundTripPane.setText("// Round-trip validation error: " + errorMsg + "\n// Left side decompiled code is still available and independent of nwnnsscomp.");
+                        roundTripPane.setText("// Round-trip validation error: " + errorMsg
+                              + "\n// Left side decompiled code is still available and independent of nwnnsscomp.");
                      }
                   }
                }
@@ -1994,12 +2097,13 @@ public class Decompiler
          }
          JComponent tabComponent = this.getSelectedTabComponent();
          if (tabComponent != null) {
-            // Store file as absolute path to ensure correct directory resolution in save dialog
+            // Store file as absolute path to ensure correct directory resolution in save
+            // dialog
             this.hash_TabComponent2File.put(tabComponent, file.getAbsoluteFile());
             this.hash_TabComponent2Func2VarVec.put(tabComponent, this.hash_Func2VarVec);
             this.hash_TabComponent2TreeModel.put(tabComponent, this.jTree.getModel());
             if (tabComponent instanceof JPanel) {
-               this.updateTabLabel((JPanel)tabComponent, false);
+               this.updateTabLabel((JPanel) tabComponent, false);
             }
          }
 
@@ -2010,27 +2114,28 @@ public class Decompiler
 
       // Update status based on result - code is already shown above
       switch (result) {
-         case 0:
-            this.status.append("failure - validation failed\n");
-            break;
-         case 1:
-            this.status.append("success - full round-trip validation passed\n");
-            break;
-         case 2:
-            this.status.append("partial - decompiled successfully (nwnnsscomp validation skipped or failed)\n");
-            break;
-         case 3:
-            this.status.append("partial - decompiled but bytecode comparison showed differences\n");
-            break;
-         default:
-            this.status.append("unknown result code: " + result + "\n");
-            break;
+      case 0:
+         this.status.append("failure - validation failed\n");
+         break;
+      case 1:
+         this.status.append("success - full round-trip validation passed\n");
+         break;
+      case 2:
+         this.status.append("partial - decompiled successfully (nwnnsscomp validation skipped or failed)\n");
+         break;
+      case 3:
+         this.status.append("partial - decompiled but bytecode comparison showed differences\n");
+         break;
+      default:
+         this.status.append("unknown result code: " + result + "\n");
+         break;
       }
 
       // Update workspace visibility after adding a file
       this.updateWorkspaceCard();
 
-      // NCS files: default to "View Byte Code" (bytecode view). DO NOT MODIFY THIS LINE UNDER ANY CIRCUMSTANCES -- THIS IS CORRECT LOGIC
+      // NCS files: default to "View Byte Code" (bytecode view). DO NOT MODIFY THIS
+      // LINE UNDER ANY CIRCUMSTANCES -- THIS IS CORRECT LOGIC
       this.setTabComponentPanel(1);
    }
 
@@ -2042,15 +2147,17 @@ public class Decompiler
       JFileChooser jFC = new JFileChooser(settings.getProperty("Output Directory"));
       jFC.setFileSelectionMode(1);
       switch (jFC.showDialog(null, "Select output directory")) {
-         case 0:
-            try {
-               return jFC.getSelectedFile().getCanonicalPath();
-            } catch (IOException var2) {
-               var2.printStackTrace();
-               return settings.getProperty("Output Directory").equals("") ? System.getProperty("user.dir") : settings.getProperty("Output Directory");
-            }
-         default:
-            return settings.getProperty("Output Directory").equals("") ? System.getProperty("user.dir") : settings.getProperty("Output Directory");
+      case 0:
+         try {
+            return jFC.getSelectedFile().getCanonicalPath();
+         } catch (IOException var2) {
+            var2.printStackTrace();
+            return settings.getProperty("Output Directory").equals("") ? System.getProperty("user.dir")
+                  : settings.getProperty("Output Directory");
+         }
+      default:
+         return settings.getProperty("Output Directory").equals("") ? System.getProperty("user.dir")
+               : settings.getProperty("Output Directory");
       }
    }
 
@@ -2071,17 +2178,14 @@ public class Decompiler
          }
 
          BufferedWriter bw = new BufferedWriter(
-            new java.io.OutputStreamWriter(
-               new java.io.FileOutputStream(canonicalPath),
-               charset
-            )
-         );
+               new java.io.OutputStreamWriter(new java.io.FileOutputStream(canonicalPath), charset));
          bw.write(buffer.getText());
          bw.close();
          return new File(canonicalPath);
       } catch (FileNotFoundException var4) {
          File toDel = new File(canonicalPath);
-         JOptionPane.showMessageDialog(null, "Error saving " + toDel.getName() + "\nOutput directory does not exist; change in settings");
+         JOptionPane.showMessageDialog(null,
+               "Error saving " + toDel.getName() + "\nOutput directory does not exist; change in settings");
          toDel.delete();
       } catch (IOException var5) {
          File toDelx = new File(canonicalPath);
@@ -2112,7 +2216,7 @@ public class Decompiler
          return; // No tab selected or invalid index
       }
 
-      JComponent tabComponent = (JComponent)this.jTB.getTabComponentAt(selectedIndex);
+      JComponent tabComponent = (JComponent) this.jTB.getTabComponentAt(selectedIndex);
       if (tabComponent == null) {
          return; // Tab component is null
       }
@@ -2122,35 +2226,37 @@ public class Decompiler
          return; // Invalid client property
       }
 
-      JComponent[] panels = (JComponent[])clientProperty;
+      JComponent[] panels = (JComponent[]) clientProperty;
       if (index < 0 || index >= panels.length || panels[index] == null) {
          return; // Invalid panel index
       }
 
-      // If switching to decompiled code view (index 0), ensure left side has decompiled code
-      // This is CRITICAL: The left side decompiled code is independent of nwnnsscomp and should ALWAYS be available
+      // If switching to decompiled code view (index 0), ensure left side has
+      // decompiled code
+      // This is CRITICAL: The left side decompiled code is independent of nwnnsscomp
+      // and should ALWAYS be available
       if (index == 0 && panels[0] instanceof JSplitPane) {
          try {
             File file = this.hash_TabComponent2File.get(tabComponent);
             if (file != null) {
-               JSplitPane decompSplitPane = (JSplitPane)panels[0];
+               JSplitPane decompSplitPane = (JSplitPane) panels[0];
                java.awt.Component leftComp = decompSplitPane.getLeftComponent();
                if (leftComp instanceof JScrollPane) {
-                  JTextPane codePane = (JTextPane)((JScrollPane)leftComp).getViewport().getView();
+                  JTextPane codePane = (JTextPane) ((JScrollPane) leftComp).getViewport().getView();
                   if (codePane != null) {
                      // Get the decompiled code - this is independent of nwnnsscomp
                      String generatedCode = this.fileDecompiler.getGeneratedCode(file);
                      if (generatedCode != null && !generatedCode.trim().isEmpty()) {
                         // Only update if the pane is empty or contains error messages
                         String currentText = codePane.getText();
-                        if (currentText == null || currentText.trim().isEmpty() || 
-                            currentText.contains("// Round-trip") || 
-                            currentText.contains("// Error") ||
-                            currentText.contains("// Unexpected") ||
-                            currentText.contains("// No code")) {
+                        if (currentText == null || currentText.trim().isEmpty() || currentText.contains("// Round-trip")
+                              || currentText.contains("// Error") || currentText.contains("// Unexpected")
+                              || currentText.contains("// No code")) {
                            NWScriptSyntaxHighlighter.setSkipHighlighting(codePane, true);
+                           codePane.putClientProperty("Decompiler.programmaticUpdate", true);
                            codePane.setText(generatedCode);
                            NWScriptSyntaxHighlighter.setSkipHighlighting(codePane, false);
+                           codePane.putClientProperty("Decompiler.programmaticUpdate", false);
                            NWScriptSyntaxHighlighter.applyHighlightingImmediate(codePane);
                         }
                      }
@@ -2168,19 +2274,20 @@ public class Decompiler
          try {
             File file = this.hash_TabComponent2File.get(tabComponent);
             if (file != null) {
-               JSplitPane byteCodePane = (JSplitPane)panels[1];
+               JSplitPane byteCodePane = (JSplitPane) panels[1];
 
                // Get left component (original bytecode)
                java.awt.Component leftComp = byteCodePane.getLeftComponent();
                if (leftComp instanceof JScrollPane) {
-                  JTextPane origTextArea = (JTextPane)((JScrollPane)leftComp).getViewport().getView();
+                  JTextPane origTextArea = (JTextPane) ((JScrollPane) leftComp).getViewport().getView();
                   if (origTextArea != null && origTextArea.getText().trim().isEmpty()) {
                      String origByteCode = this.fileDecompiler.getOriginalByteCode(file);
                      if (origByteCode != null && !origByteCode.trim().isEmpty()) {
                         origTextArea.setText(origByteCode);
                         BytecodeSyntaxHighlighter.applyHighlightingImmediate(origTextArea);
                      } else {
-                        origTextArea.setText("// Original bytecode not available.\n// Bytecode is only captured during round-trip validation (save/recompile).");
+                        origTextArea.setText(
+                              "// Original bytecode not available.\n// Bytecode is only captured during round-trip validation (save/recompile).");
                      }
                   }
                }
@@ -2188,7 +2295,7 @@ public class Decompiler
                // Get right component (recompiled bytecode)
                java.awt.Component rightComp = byteCodePane.getRightComponent();
                if (rightComp instanceof JScrollPane) {
-                  JTextPane newTextArea = (JTextPane)((JScrollPane)rightComp).getViewport().getView();
+                  JTextPane newTextArea = (JTextPane) ((JScrollPane) rightComp).getViewport().getView();
                   if (newTextArea != null && newTextArea.getText().trim().isEmpty()) {
                      String newByteCode = this.fileDecompiler.getNewByteCode(file);
                      if (newByteCode != null && !newByteCode.trim().isEmpty()) {
@@ -2196,15 +2303,17 @@ public class Decompiler
                         BytecodeSyntaxHighlighter.applyHighlightingImmediate(newTextArea);
                         // Set focus based on which has more content
                         if (leftComp instanceof JScrollPane) {
-                           JTextPane origTextArea = (JTextPane)((JScrollPane)leftComp).getViewport().getView();
-                           if (origTextArea != null && origTextArea.getDocument().getLength() >= newTextArea.getDocument().getLength()) {
+                           JTextPane origTextArea = (JTextPane) ((JScrollPane) leftComp).getViewport().getView();
+                           if (origTextArea != null
+                                 && origTextArea.getDocument().getLength() >= newTextArea.getDocument().getLength()) {
                               this.jTB.putClientProperty(panels[1], "left");
                            } else {
                               this.jTB.putClientProperty(panels[1], "right");
                            }
                         }
                      } else {
-                        newTextArea.setText("// Recompiled bytecode not available.\n// Save the file to trigger round-trip validation and bytecode capture.");
+                        newTextArea.setText(
+                              "// Recompiled bytecode not available.\n// Save the file to trigger round-trip validation and bytecode capture.");
                      }
                   }
                }
@@ -2214,10 +2323,10 @@ public class Decompiler
             System.out.println("Error populating bytecode view: " + e.getMessage());
             e.printStackTrace();
             try {
-               JSplitPane byteCodePane = (JSplitPane)panels[1];
+               JSplitPane byteCodePane = (JSplitPane) panels[1];
                java.awt.Component leftComp = byteCodePane.getLeftComponent();
                if (leftComp instanceof JScrollPane) {
-                  JTextPane origTextArea = (JTextPane)((JScrollPane)leftComp).getViewport().getView();
+                  JTextPane origTextArea = (JTextPane) ((JScrollPane) leftComp).getViewport().getView();
                   if (origTextArea != null) {
                      origTextArea.setText("// Error loading bytecode: " + e.getMessage());
                   }
@@ -2235,10 +2344,8 @@ public class Decompiler
    private void open() {
       JFileChooser jFC = new JFileChooser();
       jFC.setCurrentDirectory(
-         settings.getProperty("Open Directory").equals("")
-            ? new File(settings.getProperty("Output Directory"))
-            : new File(settings.getProperty("Open Directory"))
-      );
+            settings.getProperty("Open Directory").equals("") ? new File(settings.getProperty("Output Directory"))
+                  : new File(settings.getProperty("Open Directory")));
       jFC.setMultiSelectionEnabled(true);
       jFC.setFileFilter(new FileFilter() {
          @Override
@@ -2256,20 +2363,20 @@ public class Decompiler
          }
       });
       switch (jFC.showDialog(null, "Open")) {
-         case 0:
-            final File[] files = jFC.getSelectedFiles();
-            settings.setProperty("Open Directory", files[0].getParent());
-            Thread openThread = new Thread(() -> {
-                  Decompiler.this.open(files);
-            });
-            openThread.setDaemon(true);
-            openThread.setName("FileOpenDialog-" + System.currentTimeMillis());
-            openThread.start();
-            break;
-         case 1:
-            break;
-         default:
-            JOptionPane.showMessageDialog(null, "Error opening file(s)");
+      case 0:
+         final File[] files = jFC.getSelectedFiles();
+         settings.setProperty("Open Directory", files[0].getParent());
+         Thread openThread = new Thread(() -> {
+            Decompiler.this.open(files);
+         });
+         openThread.setDaemon(true);
+         openThread.setName("FileOpenDialog-" + System.currentTimeMillis());
+         openThread.start();
+         break;
+      case 1:
+         break;
+      default:
+         JOptionPane.showMessageDialog(null, "Error opening file(s)");
       }
    }
 
@@ -2278,18 +2385,18 @@ public class Decompiler
          File fileToOpen = files[j];
          String fileName = fileToOpen.getName().toLowerCase();
 
-            // Ensure we use the absolute path of the dropped/opened file
-            File absoluteFile = fileToOpen.getAbsoluteFile();
-            if (!absoluteFile.exists()) {
-               this.status.append("Warning: File does not exist: " + absoluteFile.getAbsolutePath() + "\n");
-               continue;
-            }
+         // Ensure we use the absolute path of the dropped/opened file
+         File absoluteFile = fileToOpen.getAbsoluteFile();
+         if (!absoluteFile.exists()) {
+            this.status.append("Warning: File does not exist: " + absoluteFile.getAbsolutePath() + "\n");
+            continue;
+         }
 
-            // Update Open Directory setting to the file's parent directory
-            File parentDir = absoluteFile.getParentFile();
-            if (parentDir != null && parentDir.exists()) {
-               settings.setProperty("Open Directory", parentDir.getAbsolutePath());
-            }
+         // Update Open Directory setting to the file's parent directory
+         File parentDir = absoluteFile.getParentFile();
+         if (parentDir != null && parentDir.exists()) {
+            settings.setProperty("Open Directory", parentDir.getAbsolutePath());
+         }
 
          if (fileName.endsWith(".ncs")) {
             // Decompile NCS file
@@ -2308,36 +2415,36 @@ public class Decompiler
          settings.setProperty("Link Scroll Bars", "true");
          java.awt.Component selectedComponent = this.jTB.getSelectedComponent();
          if (selectedComponent != null && selectedComponent instanceof JSplitPane) {
-            JSplitPane splitPane = (JSplitPane)selectedComponent;
+            JSplitPane splitPane = (JSplitPane) selectedComponent;
             java.awt.Component leftComp = splitPane.getLeftComponent();
             java.awt.Component rightComp = splitPane.getRightComponent();
             if (leftComp instanceof JScrollPane) {
-               ((JScrollPane)leftComp).getVerticalScrollBar().setValue(0);
+               ((JScrollPane) leftComp).getVerticalScrollBar().setValue(0);
             }
             if (rightComp instanceof JScrollPane) {
-               ((JScrollPane)rightComp).getVerticalScrollBar().setValue(0);
+               ((JScrollPane) rightComp).getVerticalScrollBar().setValue(0);
             }
          }
       }
    }
 
    private void close(int index) {
-      this.panel = (JPanel)this.jTB.getTabComponentAt(index);
+      this.panel = (JPanel) this.jTB.getTabComponentAt(index);
 
       try {
          this.file = this.hash_TabComponent2File.get(this.panel);
          if (unsavedFiles.contains(this.file)) {
-            switch (JOptionPane.showConfirmDialog(
-               null, (this.temp = this.file.getName()).substring(0, this.temp.length() - 4) + ".nss is unsaved.  Would you like to save it?"
-            )) {
-               case 0:
-                  this.save(index);
-                  break;
-               case 1:
-                  break;
-               case 2:
-               default:
-                  return;
+            switch (JOptionPane.showConfirmDialog(null,
+                  (this.temp = this.file.getName()).substring(0, this.temp.length() - 4)
+                        + ".nss is unsaved.  Would you like to save it?")) {
+            case 0:
+               this.save(index);
+               break;
+            case 1:
+               break;
+            case 2:
+            default:
+               return;
             }
          }
       } catch (HeadlessException var3) {
@@ -2365,7 +2472,7 @@ public class Decompiler
          return; // Invalid index
       }
 
-      JComponent tabComponent = (JComponent)this.jTB.getTabComponentAt(index);
+      JComponent tabComponent = (JComponent) this.jTB.getTabComponentAt(index);
       if (tabComponent == null) {
          return; // Tab component is null
       }
@@ -2375,7 +2482,7 @@ public class Decompiler
          return; // Invalid client property
       }
 
-      JComponent[] panels = (JComponent[])clientProperty;
+      JComponent[] panels = (JComponent[]) clientProperty;
       if (panels.length == 0 || !(panels[0] instanceof JPanel)) {
          return; // Invalid panel structure
       }
@@ -2383,28 +2490,28 @@ public class Decompiler
       if (!(panels[0] instanceof JSplitPane)) {
          return; // Invalid component structure
       }
-      JSplitPane decompSplitPane = (JSplitPane)panels[0];
+      JSplitPane decompSplitPane = (JSplitPane) panels[0];
       java.awt.Component leftComp = decompSplitPane.getLeftComponent();
       if (!(leftComp instanceof JScrollPane)) {
          return; // Invalid component structure
       }
 
-      JScrollPane scrollPane = (JScrollPane)leftComp;
+      JScrollPane scrollPane = (JScrollPane) leftComp;
       if (!(scrollPane.getViewport().getView() instanceof JTextComponent)) {
          return; // Invalid view type
       }
 
-      JTextComponent textArea = (JTextComponent)scrollPane.getViewport().getView();
+      JTextComponent textArea = (JTextComponent) scrollPane.getViewport().getView();
       if (!(tabComponent instanceof JPanel)) {
          return; // Tab component is not a panel
       }
 
-      JPanel tabPanel = (JPanel)tabComponent;
+      JPanel tabPanel = (JPanel) tabComponent;
       if (tabPanel.getComponentCount() == 0 || !(tabPanel.getComponent(0) instanceof JLabel)) {
          return; // Invalid tab label structure
       }
 
-      String fileName = ((JLabel)tabPanel.getComponent(0)).getText();
+      String fileName = ((JLabel) tabPanel.getComponent(0)).getText();
       // Remove unsaved marker if present
       if (fileName.endsWith(" *")) {
          fileName = fileName.substring(0, fileName.length() - 2);
@@ -2425,7 +2532,8 @@ public class Decompiler
       JFileChooser fileChooser = new JFileChooser();
       fileChooser.setDialogTitle("Save NSS File");
 
-      // Set initial directory to NCS file's directory if available, otherwise use output directory setting
+      // Set initial directory to NCS file's directory if available, otherwise use
+      // output directory setting
       File initialDir = null;
       if (this.file != null && this.file.exists()) {
          File parentDir = this.file.getParentFile();
@@ -2473,14 +2581,16 @@ public class Decompiler
          return;
       }
 
-      // If file was null or didn't exist, update the mapping to point to the newly saved file
+      // If file was null or didn't exist, update the mapping to point to the newly
+      // saved file
       if (this.file == null || !this.file.exists()) {
          this.file = newFile.getAbsoluteFile();
          this.hash_TabComponent2File.put(tabComponent, this.file);
-         // File was created from scratch - just mark as saved (no round-trip validation needed)
+         // File was created from scratch - just mark as saved (no round-trip validation
+         // needed)
          unsavedFiles.remove(this.file);
          if (tabComponent instanceof JPanel) {
-            this.updateTabLabel((JPanel)tabComponent, false);
+            this.updateTabLabel((JPanel) tabComponent, false);
          }
          this.status.append("Saved " + newFile.getName() + " to " + newFile.getParent() + "\n");
          return;
@@ -2498,188 +2608,193 @@ public class Decompiler
          }
 
          switch (result2) {
-            case 0:
-               this.status.append("failure\n");
-               break;
-            case 1:
-               this.panels = (JComponent[])this.jTB.getClientProperty((JComponent)this.jTB.getTabComponentAt(index));
-               if (this.panels != null && this.panels.length > 1 && this.panels[1] instanceof JSplitPane) {
-                  try {
-                     String origByteCode = this.fileDecompiler.getOriginalByteCode(this.file);
-                     String newByteCode = this.fileDecompiler.getNewByteCode(this.file);
+         case 0:
+            this.status.append("failure\n");
+            break;
+         case 1:
+            this.panels = (JComponent[]) this.jTB.getClientProperty((JComponent) this.jTB.getTabComponentAt(index));
+            if (this.panels != null && this.panels.length > 1 && this.panels[1] instanceof JSplitPane) {
+               try {
+                  String origByteCode = this.fileDecompiler.getOriginalByteCode(this.file);
+                  String newByteCode = this.fileDecompiler.getNewByteCode(this.file);
 
-                     JSplitPane byteCodePane = (JSplitPane)this.panels[1];
-                     java.awt.Component leftComp1 = byteCodePane.getLeftComponent();
-                     if (leftComp1 instanceof JScrollPane) {
-                        this.origByteCodeJTA = (JTextPane)((JScrollPane)leftComp1).getViewport().getView();
-                        if (this.origByteCodeJTA != null) {
-                           String code = origByteCode != null ? origByteCode : "// Original bytecode not available";
-                           this.origByteCodeJTA.setText(code);
-                           BytecodeSyntaxHighlighter.applyHighlightingImmediate(this.origByteCodeJTA);
-                        }
+                  JSplitPane byteCodePane = (JSplitPane) this.panels[1];
+                  java.awt.Component leftComp1 = byteCodePane.getLeftComponent();
+                  if (leftComp1 instanceof JScrollPane) {
+                     this.origByteCodeJTA = (JTextPane) ((JScrollPane) leftComp1).getViewport().getView();
+                     if (this.origByteCodeJTA != null) {
+                        String code = origByteCode != null ? origByteCode : "// Original bytecode not available";
+                        this.origByteCodeJTA.setText(code);
+                        BytecodeSyntaxHighlighter.applyHighlightingImmediate(this.origByteCodeJTA);
                      }
-
-                     java.awt.Component rightComp1 = byteCodePane.getRightComponent();
-                     if (rightComp1 instanceof JScrollPane) {
-                        this.newByteCodeJTA = (JTextPane)((JScrollPane)rightComp1).getViewport().getView();
-                        if (this.newByteCodeJTA != null) {
-                           String code = newByteCode != null ? newByteCode : "// Recompiled bytecode not available";
-                           this.newByteCodeJTA.setText(code);
-                           BytecodeSyntaxHighlighter.applyHighlightingImmediate(this.newByteCodeJTA);
-                        }
-                     }
-
-                     if (this.origByteCodeJTA != null && this.newByteCodeJTA != null) {
-                        if (this.origByteCodeJTA.getDocument().getLength() >= this.newByteCodeJTA.getDocument().getLength()) {
-                           this.jTB.putClientProperty(this.panels[1], "left");
-                        } else {
-                           this.jTB.putClientProperty(this.panels[1], "right");
-                        }
-                     }
-                  } catch (Exception e) {
-                     System.out.println("Error updating bytecode view: " + e.getMessage());
-                     e.printStackTrace();
                   }
-               }
 
-               this.hash_Func2VarVec = this.fileDecompiler.getVariableData(this.file);
-               this.jTree.setModel(TreeModelFactory.createTreeModel(this.hash_Func2VarVec));
-               this.fileDecompiler.getOriginalByteCode(this.file);
-               JComponent selectedTab = this.getSelectedTabComponent();
-               if (selectedTab != null) {
-                  this.hash_TabComponent2File.put(selectedTab, this.file);
-                  this.hash_TabComponent2Func2VarVec.put(selectedTab, this.hash_Func2VarVec);
-                  this.hash_TabComponent2TreeModel.put(selectedTab, this.jTree.getModel());
-               }
-               this.status.append("success\n");
-               break;
-            case 2:
-               // Refresh bytecode views
-               this.panels = (JComponent[])this.jTB.getClientProperty((JComponent)this.jTB.getTabComponentAt(index));
-               if (this.panels != null && this.panels.length > 1 && this.panels[1] instanceof JSplitPane) {
-                  try {
-                     String origByteCode = this.fileDecompiler.getOriginalByteCode(this.file);
-                     JSplitPane byteCodePane = (JSplitPane)this.panels[1];
-                     java.awt.Component leftComp2 = byteCodePane.getLeftComponent();
-                     if (leftComp2 instanceof JScrollPane) {
-                        this.origByteCodeJTA = (JTextPane)((JScrollPane)leftComp2).getViewport().getView();
-                        if (this.origByteCodeJTA != null) {
-                           String code = origByteCode != null ? origByteCode : "// Original bytecode not available";
-                           this.origByteCodeJTA.setText(code);
-                           BytecodeSyntaxHighlighter.applyHighlightingImmediate(this.origByteCodeJTA);
-                        }
+                  java.awt.Component rightComp1 = byteCodePane.getRightComponent();
+                  if (rightComp1 instanceof JScrollPane) {
+                     this.newByteCodeJTA = (JTextPane) ((JScrollPane) rightComp1).getViewport().getView();
+                     if (this.newByteCodeJTA != null) {
+                        String code = newByteCode != null ? newByteCode : "// Recompiled bytecode not available";
+                        this.newByteCodeJTA.setText(code);
+                        BytecodeSyntaxHighlighter.applyHighlightingImmediate(this.newByteCodeJTA);
                      }
-                     this.jTB.putClientProperty(this.panels[1], "left");
-                  } catch (Exception e) {
-                     System.out.println("Error updating bytecode view: " + e.getMessage());
                   }
-               }
 
-               // Refresh decompiled code view with newly generated code and round-trip code
-               this.refreshDecompiledCodeView(index, newFile);
-
-               this.hash_Func2VarVec = this.fileDecompiler.getVariableData(this.file);
-               this.jTree.setModel(TreeModelFactory.createTreeModel(this.hash_Func2VarVec));
-               this.fileDecompiler.getOriginalByteCode(this.file);
-               JComponent selectedTab2 = this.getSelectedTabComponent();
-               if (selectedTab2 != null) {
-                  this.hash_TabComponent2File.put(selectedTab2, this.file);
-                  this.hash_TabComponent2Func2VarVec.put(selectedTab2, this.hash_Func2VarVec);
-                  this.hash_TabComponent2TreeModel.put(selectedTab2, this.jTree.getModel());
-               }
-
-               // Mark as saved
-               unsavedFiles.remove(this.file);
-               if (tabComponent instanceof JPanel) {
-                  this.updateTabLabel((JPanel)tabComponent, false);
-               }
-
-               this.setTabComponentPanel(1);
-               this.status.append("partial-could not recompile\n");
-               break;
-            case 3:
-               // Refresh bytecode views
-               this.panels = (JComponent[])this.jTB.getClientProperty((JComponent)this.jTB.getTabComponentAt(index));
-               if (this.panels != null && this.panels.length > 1 && this.panels[1] instanceof JSplitPane) {
-                  try {
-                     String origByteCode = this.fileDecompiler.getOriginalByteCode(this.file);
-                     String newByteCode = this.fileDecompiler.getNewByteCode(this.file);
-
-                     JSplitPane byteCodePane = (JSplitPane)this.panels[1];
-                     java.awt.Component leftComp3 = byteCodePane.getLeftComponent();
-                     if (leftComp3 instanceof JScrollPane) {
-                        this.origByteCodeJTA = (JTextPane)((JScrollPane)leftComp3).getViewport().getView();
-                        if (this.origByteCodeJTA != null) {
-                           String code = origByteCode != null ? origByteCode : "// Original bytecode not available";
-                           this.origByteCodeJTA.setText(code);
-                           BytecodeSyntaxHighlighter.applyHighlightingImmediate(this.origByteCodeJTA);
-                        }
+                  if (this.origByteCodeJTA != null && this.newByteCodeJTA != null) {
+                     if (this.origByteCodeJTA.getDocument().getLength() >= this.newByteCodeJTA.getDocument()
+                           .getLength()) {
+                        this.jTB.putClientProperty(this.panels[1], "left");
+                     } else {
+                        this.jTB.putClientProperty(this.panels[1], "right");
                      }
-
-                     java.awt.Component rightComp3 = byteCodePane.getRightComponent();
-                     if (rightComp3 instanceof JScrollPane) {
-                        this.newByteCodeJTA = (JTextPane)((JScrollPane)rightComp3).getViewport().getView();
-                        if (this.newByteCodeJTA != null) {
-                           String code = newByteCode != null ? newByteCode : "// Recompiled bytecode not available";
-                           this.newByteCodeJTA.setText(code);
-                           BytecodeSyntaxHighlighter.applyHighlightingImmediate(this.newByteCodeJTA);
-                        }
-                     }
-
-                     if (this.origByteCodeJTA != null && this.newByteCodeJTA != null) {
-                        if (this.origByteCodeJTA.getDocument().getLength() >= this.newByteCodeJTA.getDocument().getLength()) {
-                           this.jTB.putClientProperty(this.panels[1], "left");
-                        } else {
-                           this.jTB.putClientProperty(this.panels[1], "right");
-                        }
-                     }
-                  } catch (Exception e) {
-                     System.out.println("Error updating bytecode view: " + e.getMessage());
                   }
+               } catch (Exception e) {
+                  System.out.println("Error updating bytecode view: " + e.getMessage());
+                  e.printStackTrace();
                }
+            }
 
-               // Refresh decompiled code view with newly generated code and round-trip code
-               this.refreshDecompiledCodeView(index, newFile);
-
-               this.hash_Func2VarVec = this.fileDecompiler.getVariableData(this.file);
-               this.jTree.setModel(TreeModelFactory.createTreeModel(this.hash_Func2VarVec));
-               this.fileDecompiler.getOriginalByteCode(this.file);
-               JComponent selectedTab3 = this.getSelectedTabComponent();
-               if (selectedTab3 != null) {
-                  this.hash_TabComponent2File.put(selectedTab3, this.file);
-                  this.hash_TabComponent2Func2VarVec.put(selectedTab3, this.hash_Func2VarVec);
-                  this.hash_TabComponent2TreeModel.put(selectedTab3, this.jTree.getModel());
+            this.hash_Func2VarVec = this.fileDecompiler.getVariableData(this.file);
+            this.jTree.setModel(TreeModelFactory.createTreeModel(this.hash_Func2VarVec));
+            this.fileDecompiler.getOriginalByteCode(this.file);
+            JComponent selectedTab = this.getSelectedTabComponent();
+            if (selectedTab != null) {
+               this.hash_TabComponent2File.put(selectedTab, this.file);
+               this.hash_TabComponent2Func2VarVec.put(selectedTab, this.hash_Func2VarVec);
+               this.hash_TabComponent2TreeModel.put(selectedTab, this.jTree.getModel());
+            }
+            this.status.append("success\n");
+            break;
+         case 2:
+            // Refresh bytecode views
+            this.panels = (JComponent[]) this.jTB.getClientProperty((JComponent) this.jTB.getTabComponentAt(index));
+            if (this.panels != null && this.panels.length > 1 && this.panels[1] instanceof JSplitPane) {
+               try {
+                  String origByteCode = this.fileDecompiler.getOriginalByteCode(this.file);
+                  JSplitPane byteCodePane = (JSplitPane) this.panels[1];
+                  java.awt.Component leftComp2 = byteCodePane.getLeftComponent();
+                  if (leftComp2 instanceof JScrollPane) {
+                     this.origByteCodeJTA = (JTextPane) ((JScrollPane) leftComp2).getViewport().getView();
+                     if (this.origByteCodeJTA != null) {
+                        String code = origByteCode != null ? origByteCode : "// Original bytecode not available";
+                        this.origByteCodeJTA.setText(code);
+                        BytecodeSyntaxHighlighter.applyHighlightingImmediate(this.origByteCodeJTA);
+                     }
+                  }
+                  this.jTB.putClientProperty(this.panels[1], "left");
+               } catch (Exception e) {
+                  System.out.println("Error updating bytecode view: " + e.getMessage());
                }
+            }
 
-               // Mark as saved
-               unsavedFiles.remove(this.file);
-               if (tabComponent instanceof JPanel) {
-                  this.updateTabLabel((JPanel)tabComponent, false);
+            // Refresh decompiled code view with newly generated code and round-trip code
+            this.refreshDecompiledCodeView(index, newFile);
+
+            this.hash_Func2VarVec = this.fileDecompiler.getVariableData(this.file);
+            this.jTree.setModel(TreeModelFactory.createTreeModel(this.hash_Func2VarVec));
+            this.fileDecompiler.getOriginalByteCode(this.file);
+            JComponent selectedTab2 = this.getSelectedTabComponent();
+            if (selectedTab2 != null) {
+               this.hash_TabComponent2File.put(selectedTab2, this.file);
+               this.hash_TabComponent2Func2VarVec.put(selectedTab2, this.hash_Func2VarVec);
+               this.hash_TabComponent2TreeModel.put(selectedTab2, this.jTree.getModel());
+            }
+
+            // Mark as saved
+            unsavedFiles.remove(this.file);
+            if (tabComponent instanceof JPanel) {
+               this.updateTabLabel((JPanel) tabComponent, false);
+            }
+
+            this.setTabComponentPanel(1);
+            this.status.append("partial-could not recompile\n");
+            break;
+         case 3:
+            // Refresh bytecode views
+            this.panels = (JComponent[]) this.jTB.getClientProperty((JComponent) this.jTB.getTabComponentAt(index));
+            if (this.panels != null && this.panels.length > 1 && this.panels[1] instanceof JSplitPane) {
+               try {
+                  String origByteCode = this.fileDecompiler.getOriginalByteCode(this.file);
+                  String newByteCode = this.fileDecompiler.getNewByteCode(this.file);
+
+                  JSplitPane byteCodePane = (JSplitPane) this.panels[1];
+                  java.awt.Component leftComp3 = byteCodePane.getLeftComponent();
+                  if (leftComp3 instanceof JScrollPane) {
+                     this.origByteCodeJTA = (JTextPane) ((JScrollPane) leftComp3).getViewport().getView();
+                     if (this.origByteCodeJTA != null) {
+                        String code = origByteCode != null ? origByteCode : "// Original bytecode not available";
+                        this.origByteCodeJTA.setText(code);
+                        BytecodeSyntaxHighlighter.applyHighlightingImmediate(this.origByteCodeJTA);
+                     }
+                  }
+
+                  java.awt.Component rightComp3 = byteCodePane.getRightComponent();
+                  if (rightComp3 instanceof JScrollPane) {
+                     this.newByteCodeJTA = (JTextPane) ((JScrollPane) rightComp3).getViewport().getView();
+                     if (this.newByteCodeJTA != null) {
+                        String code = newByteCode != null ? newByteCode : "// Recompiled bytecode not available";
+                        this.newByteCodeJTA.setText(code);
+                        BytecodeSyntaxHighlighter.applyHighlightingImmediate(this.newByteCodeJTA);
+                     }
+                  }
+
+                  if (this.origByteCodeJTA != null && this.newByteCodeJTA != null) {
+                     if (this.origByteCodeJTA.getDocument().getLength() >= this.newByteCodeJTA.getDocument()
+                           .getLength()) {
+                        this.jTB.putClientProperty(this.panels[1], "left");
+                     } else {
+                        this.jTB.putClientProperty(this.panels[1], "right");
+                     }
+                  }
+               } catch (Exception e) {
+                  System.out.println("Error updating bytecode view: " + e.getMessage());
                }
+            }
 
-               this.setTabComponentPanel(1);
-               this.status.append("partial-byte code does not match\n");
+            // Refresh decompiled code view with newly generated code and round-trip code
+            this.refreshDecompiledCodeView(index, newFile);
+
+            this.hash_Func2VarVec = this.fileDecompiler.getVariableData(this.file);
+            this.jTree.setModel(TreeModelFactory.createTreeModel(this.hash_Func2VarVec));
+            this.fileDecompiler.getOriginalByteCode(this.file);
+            JComponent selectedTab3 = this.getSelectedTabComponent();
+            if (selectedTab3 != null) {
+               this.hash_TabComponent2File.put(selectedTab3, this.file);
+               this.hash_TabComponent2Func2VarVec.put(selectedTab3, this.hash_Func2VarVec);
+               this.hash_TabComponent2TreeModel.put(selectedTab3, this.jTree.getModel());
+            }
+
+            // Mark as saved
+            unsavedFiles.remove(this.file);
+            if (tabComponent instanceof JPanel) {
+               this.updateTabLabel((JPanel) tabComponent, false);
+            }
+
+            this.setTabComponentPanel(1);
+            this.status.append("partial-byte code does not match\n");
          }
 
-         // Mark as saved (already done in case statements above, but ensure it's done here too)
+         // Mark as saved (already done in case statements above, but ensure it's done
+         // here too)
          unsavedFiles.remove(this.file);
          if (tabComponent instanceof JPanel) {
-            this.updateTabLabel((JPanel)tabComponent, false);
+            this.updateTabLabel((JPanel) tabComponent, false);
          }
          newFile = null;
       }
    }
 
    /**
-    * Refreshes the decompiled code view with the newly generated code after save/recompilation.
-    * Also populates the round-trip decompiled code on the right side.
+    * Refreshes the decompiled code view with the newly generated code after
+    * save/recompilation. Also populates the round-trip decompiled code on the
+    * right side.
     *
-    * @param index The tab index to refresh
-    * @param savedNssFile The saved NSS file (used to find the recompiled NCS for round-trip decompilation)
+    * @param index        The tab index to refresh
+    * @param savedNssFile The saved NSS file (used to find the recompiled NCS for
+    *                     round-trip decompilation)
     */
    private void refreshDecompiledCodeView(int index, File savedNssFile) {
       try {
-         JComponent tabComponent = (JComponent)this.jTB.getTabComponentAt(index);
+         JComponent tabComponent = (JComponent) this.jTB.getTabComponentAt(index);
          if (tabComponent == null) {
             return;
          }
@@ -2694,29 +2809,30 @@ public class Decompiler
             return;
          }
 
-         JComponent[] panels = (JComponent[])clientProperty;
+         JComponent[] panels = (JComponent[]) clientProperty;
          if (panels.length == 0 || !(panels[0] instanceof JSplitPane)) {
             return;
          }
 
-         JSplitPane decompSplitPane = (JSplitPane)panels[0];
+         JSplitPane decompSplitPane = (JSplitPane) panels[0];
 
          // Get left side (original decompiled code)
          java.awt.Component leftComp = decompSplitPane.getLeftComponent();
          if (!(leftComp instanceof JScrollPane)) {
             return;
          }
-         JScrollPane leftScrollPane = (JScrollPane)leftComp;
+         JScrollPane leftScrollPane = (JScrollPane) leftComp;
          if (!(leftScrollPane.getViewport().getView() instanceof JTextPane)) {
             return;
          }
-         JTextPane codePane = (JTextPane)leftScrollPane.getViewport().getView();
+         JTextPane codePane = (JTextPane) leftScrollPane.getViewport().getView();
 
          // Get the newly generated code
          String generatedCode = this.fileDecompiler.getGeneratedCode(file);
          if (generatedCode != null) {
-            // Temporarily disable highlighting during setText
+            // Temporarily disable highlighting and dirty marking during setText
             NWScriptSyntaxHighlighter.setSkipHighlighting(codePane, true);
+            codePane.putClientProperty("Decompiler.programmaticUpdate", true);
 
             // Save caret position
             int caretPos = codePane.getCaretPosition();
@@ -2728,12 +2844,13 @@ public class Decompiler
             int newLength = codePane.getDocument().getLength();
             codePane.setCaretPosition(Math.min(caretPos, newLength));
 
-            // Re-enable highlighting and apply
+            // Re-enable highlighting and dirty marking, then apply highlighting
             NWScriptSyntaxHighlighter.setSkipHighlighting(codePane, false);
+            codePane.putClientProperty("Decompiler.programmaticUpdate", false);
             NWScriptSyntaxHighlighter.applyHighlightingImmediate(codePane);
 
             // Reset undo manager since we're loading new content
-            UndoManager undoManager = (UndoManager)codePane.getClientProperty("undoManager");
+            UndoManager undoManager = (UndoManager) codePane.getClientProperty("undoManager");
             if (undoManager != null) {
                undoManager.discardAllEdits();
             }
@@ -2742,9 +2859,9 @@ public class Decompiler
          // Get right side (round-trip decompiled code)
          java.awt.Component rightComp = decompSplitPane.getRightComponent();
          if (rightComp instanceof JScrollPane) {
-            JScrollPane rightScrollPane = (JScrollPane)rightComp;
+            JScrollPane rightScrollPane = (JScrollPane) rightComp;
             if (rightScrollPane.getViewport().getView() instanceof JTextPane) {
-               JTextPane roundTripPane = (JTextPane)rightScrollPane.getViewport().getView();
+               JTextPane roundTripPane = (JTextPane) rightScrollPane.getViewport().getView();
 
                // Get round-trip decompiled code using shared utility (same logic as test)
                String roundTripCode = null;
@@ -2757,7 +2874,8 @@ public class Decompiler
                   NWScriptSyntaxHighlighter.setSkipHighlighting(roundTripPane, false);
                   NWScriptSyntaxHighlighter.applyHighlightingImmediate(roundTripPane);
                } else {
-                  roundTripPane.setText("// Round-trip decompiled code not available.\n// Save the file to trigger round-trip validation and decompilation.");
+                  roundTripPane.setText(
+                        "// Round-trip decompiled code not available.\n// Save the file to trigger round-trip validation and decompilation.");
                }
             }
          }
@@ -2768,10 +2886,11 @@ public class Decompiler
    }
 
    /**
-    * Gets the round-trip decompiled code using the shared RoundTripUtil.
-    * This ensures we use the exact same logic as the test suite.
+    * Gets the round-trip decompiled code using the shared RoundTripUtil. This
+    * ensures we use the exact same logic as the test suite.
     *
-    * @param savedNssFile The saved NSS file (after compilation, this should have a corresponding .ncs file)
+    * @param savedNssFile The saved NSS file (after compilation, this should have a
+    *                     corresponding .ncs file)
     * @return Round-trip decompiled NSS code, or null if not available
     */
    private String getRoundTripDecompiledCode(File savedNssFile) {
@@ -2781,12 +2900,12 @@ public class Decompiler
 
    private void saveAll() {
       for (int i = 0; i < this.jTB.getTabCount(); i++) {
-         JComponent tabComponent = (JComponent)this.jTB.getTabComponentAt(i);
+         JComponent tabComponent = (JComponent) this.jTB.getTabComponentAt(i);
          if (tabComponent == null) {
             continue;
          }
 
-         String fileName = ((JLabel)((JPanel)tabComponent).getComponent(0)).getText();
+         String fileName = ((JLabel) ((JPanel) tabComponent).getComponent(0)).getText();
          // Remove unsaved marker if present
          if (fileName.endsWith(" *")) {
             fileName = fileName.substring(0, fileName.length() - 2);
@@ -2833,20 +2952,20 @@ public class Decompiler
          if (!(clientProperty instanceof JComponent[])) {
             continue; // Invalid client property
          }
-         JComponent[] panels = (JComponent[])clientProperty;
+         JComponent[] panels = (JComponent[]) clientProperty;
          if (panels.length == 0 || !(panels[0] instanceof JSplitPane)) {
             continue; // Invalid panel structure
          }
-         JSplitPane decompSplitPane = (JSplitPane)panels[0];
+         JSplitPane decompSplitPane = (JSplitPane) panels[0];
          java.awt.Component leftComp = decompSplitPane.getLeftComponent();
          if (!(leftComp instanceof JScrollPane)) {
             continue; // Invalid component structure
          }
-         JScrollPane scrollPane = (JScrollPane)leftComp;
+         JScrollPane scrollPane = (JScrollPane) leftComp;
          if (!(scrollPane.getViewport().getView() instanceof JTextComponent)) {
             continue; // Invalid view type
          }
-         JTextComponent textArea = (JTextComponent)scrollPane.getViewport().getView();
+         JTextComponent textArea = (JTextComponent) scrollPane.getViewport().getView();
          newFile = this.saveBuffer(textArea, newFile.getAbsolutePath());
          if (newFile == null) {
             continue; // saveBuffer failed
@@ -2874,20 +2993,20 @@ public class Decompiler
          }
 
          switch (compileResult) {
-            case 0:
-               newFile.renameTo(new File(this.getShortName(newFile) + "_failed.nss"));
-               break;
-            case 1:
-               this.updateTabLabel((JPanel)this.jTB.getTabComponentAt(i), false);
-               break;
-            case 2:
-               newFile.renameTo(new File(this.getShortName(newFile) + "_compile_fails.nss"));
-               break;
-            case 3:
-               newFile.renameTo(new File(this.getShortName(newFile) + "_compare_fails.nss"));
-               break;
-            default:
-               break;
+         case 0:
+            newFile.renameTo(new File(this.getShortName(newFile) + "_failed.nss"));
+            break;
+         case 1:
+            this.updateTabLabel((JPanel) this.jTB.getTabComponentAt(i), false);
+            break;
+         case 2:
+            newFile.renameTo(new File(this.getShortName(newFile) + "_compile_fails.nss"));
+            break;
+         case 3:
+            newFile.renameTo(new File(this.getShortName(newFile) + "_compare_fails.nss"));
+            break;
+         default:
+            break;
          }
       }
       this.updateWorkspaceCard();
@@ -2898,4 +3017,3 @@ public class Decompiler
       return i == -1 ? in.getAbsolutePath() : in.getAbsolutePath().substring(0, i);
    }
 }
-
