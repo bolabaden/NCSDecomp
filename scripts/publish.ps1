@@ -332,8 +332,28 @@ $zipPath = Join-Path $targetDir $zipFileName
 
 # Remove existing ZIP if it exists
 if (Test-Path $zipPath) {
-    Remove-Item -Force $zipPath
-    Write-Host "  - Removed existing ZIP archive" -ForegroundColor Gray
+    try {
+        Remove-Item -Force $zipPath -ErrorAction Stop
+        Write-Host "  - Removed existing ZIP archive" -ForegroundColor Gray
+    } catch {
+        Write-Host "  Warning: Could not delete existing ZIP (file may be locked)" -ForegroundColor Yellow
+        Write-Host "  Attempting to close any processes using the file..." -ForegroundColor Yellow
+        if ($IsWindows) {
+            # Try to find and close processes that might be using the file
+            Get-Process | Where-Object { $_.Path -like "*$zipPath*" } | Stop-Process -Force -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 2
+            try {
+                Remove-Item -Force $zipPath -ErrorAction Stop
+                Write-Host "  - Removed existing ZIP archive after closing processes" -ForegroundColor Gray
+            } catch {
+                Write-Host "  Error: Still cannot delete ZIP. Please close any applications using it and try again." -ForegroundColor Red
+                exit 1
+            }
+        } else {
+            Write-Host "  Error: Cannot delete ZIP. Please close any applications using it and try again." -ForegroundColor Red
+            exit 1
+        }
+    }
 }
 
 # Create ZIP archive using .NET Compression
