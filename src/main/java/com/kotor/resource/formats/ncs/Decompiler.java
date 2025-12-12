@@ -887,9 +887,9 @@ public class Decompiler
                         this.jTA = (JTextComponent)scrollPane.getViewport().getView();
                         this.jTA.setText(this.fileDecompiler.getGeneratedCode(file));
                         this.jTA.setCaretPosition(0);
-                        // Apply syntax highlighting if it's a JTextPane
+                        // Apply syntax highlighting if it's a JTextPane (defer to avoid document mutation errors)
                         if (this.jTA instanceof JTextPane) {
-                           NWScriptSyntaxHighlighter.applyHighlighting((JTextPane)this.jTA);
+                           SwingUtilities.invokeLater(() -> NWScriptSyntaxHighlighter.applyHighlighting((JTextPane)this.jTA));
                         }
                      }
                   }
@@ -912,9 +912,9 @@ public class Decompiler
                                  this.jTA = (JTextComponent)scrollPane.getViewport().getView();
                                  this.jTA.setText(this.fileDecompiler.regenerateCode(file));
                                  this.jTA.setCaretPosition(0);
-                                 // Apply syntax highlighting if it's a JTextPane
+                                 // Apply syntax highlighting if it's a JTextPane (defer to avoid document mutation errors)
                                  if (this.jTA instanceof JTextPane) {
-                                    NWScriptSyntaxHighlighter.applyHighlighting((JTextPane)this.jTA);
+                                    SwingUtilities.invokeLater(() -> NWScriptSyntaxHighlighter.applyHighlighting((JTextPane)this.jTA));
                                  }
                               }
                            }
@@ -1135,78 +1135,124 @@ public class Decompiler
       return this.newNCSTab(text, this.jTB.getTabCount());
    }
 
+   /**
+    * Creates a new tab in the editor for viewing and editing NCS decompiled code and bytecode comparison.
+    *
+    * @param text  The label to display on the tab (usually the filename without extension).
+    * @param index The index at which to insert the new tab.
+    * @return Array of components for this tab: [0]=code panel, [1]=bytecode split pane.
+    */
    private JComponent[] newNCSTab(String text, int index) {
+      // Array for holding the panels: [0] = Decompilation panel, [1] = Bytecode split view
       JComponent[] tabComponents = new JComponent[2];
+
+      // --- Decompiled Code Panel ---
       JPanel decompPanel = new JPanel(new BorderLayout());
+
+      // Line number display as a titled border
       TitledBorder border = new TitledBorder("1");
-      border.setTitlePosition(5);
-      border.setTitleJustification(4);
+      border.setTitlePosition(TitledBorder.BELOW_TOP);
+      border.setTitleJustification(TitledBorder.RIGHT);
       decompPanel.setBorder(border);
+
+      // Main code-editing area
       JTextPane textPane = new JTextPane();
-      textPane.setFont(new Font("Monospaced", 0, 12));
+      textPane.setFont(new Font("Monospaced", Font.PLAIN, 12));
       textPane.setEditable(true);
+
+      // Syntax highlighting, caret/keyboard event hooks, drag and drop, etc.
       textPane.addCaretListener(this);
       textPane.addKeyListener(this);
       this.dropTarget = new DropTarget(textPane, this);
       textPane.putClientProperty("dropTarget", this.dropTarget);
-
-      // Apply syntax highlighting
       textPane.getDocument().addDocumentListener(NWScriptSyntaxHighlighter.createHighlightingListener(textPane));
-      JScrollPane scrollPane = new JScrollPane(textPane);
-      decompPanel.add(scrollPane, "Center");
-      JPopupMenu panelSwitchPopup = new JPopupMenu();
-      JMenuItem menuItem = new JMenuItem("View Byte Code");
-      menuItem.addActionListener(this);
-      panelSwitchPopup.add(menuItem);
-      textPane.setComponentPopupMenu(panelSwitchPopup);
+
+      JScrollPane codeScrollPane = new JScrollPane(textPane);
+      decompPanel.add(codeScrollPane, BorderLayout.CENTER);
+
+      // Context menu for switching to bytecode view
+      JPopupMenu codePopupMenu = new JPopupMenu();
+      JMenuItem viewByteCodeItem = new JMenuItem("View Byte Code");
+      viewByteCodeItem.addActionListener(this);
+      codePopupMenu.add(viewByteCodeItem);
+      textPane.setComponentPopupMenu(codePopupMenu);
+
       tabComponents[0] = decompPanel;
-      JSplitPane byteCodePane = new JSplitPane(1);
-      byteCodePane.setDividerLocation(320);
-      byteCodePane.setDividerSize(5);
+
+      // --- Bytecode Comparison Split Pane ---
+      JSplitPane byteCodeSplitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
+      byteCodeSplitPane.setDividerLocation(320);
+      byteCodeSplitPane.setDividerSize(5);
+
+      // ---- Left: Original Bytecode Panel ----
       JTextArea origByteCodeArea = new JTextArea();
-      origByteCodeArea.setFont(new Font("Monospaced", 0, 12));
+      origByteCodeArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
       origByteCodeArea.setEditable(false);
+
       this.dropTarget = new DropTarget(origByteCodeArea, this);
       origByteCodeArea.putClientProperty("dropTarget", this.dropTarget);
-      scrollPane = new JScrollPane(origByteCodeArea);
-      scrollPane.setBorder(new TitledBorder("Original Byte Code"));
-      scrollPane.getVerticalScrollBar().addAdjustmentListener(this);
-      byteCodePane.setLeftComponent(scrollPane);
-      panelSwitchPopup = new JPopupMenu();
-      menuItem = new JMenuItem("View Decompiled Code");
-      menuItem.addActionListener(this);
-      panelSwitchPopup.add(menuItem);
-      JCheckBoxMenuItem jCBMI = new JCheckBoxMenuItem("Link Scroll Bars");
-      jCBMI.setSelected(Boolean.parseBoolean(settings.getProperty("Link Scroll Bars")));
-      jCBMI.addActionListener(this);
-      panelSwitchPopup.add(jCBMI);
-      origByteCodeArea.setComponentPopupMenu(panelSwitchPopup);
+
+      JScrollPane origScrollPane = new JScrollPane(origByteCodeArea);
+      origScrollPane.setBorder(new TitledBorder("Original Byte Code"));
+      origScrollPane.getVerticalScrollBar().addAdjustmentListener(this);
+
+      byteCodeSplitPane.setLeftComponent(origScrollPane);
+
+      // Context menu for switching to decompiled code view, and scrollbars
+      JPopupMenu bytecodePopupMenu = new JPopupMenu();
+
+      JMenuItem viewDecompiledCodeItem = new JMenuItem("View Decompiled Code");
+      viewDecompiledCodeItem.addActionListener(this);
+      bytecodePopupMenu.add(viewDecompiledCodeItem);
+
+      JCheckBoxMenuItem linkScrollBarsItem = new JCheckBoxMenuItem("Link Scroll Bars");
+      linkScrollBarsItem.setSelected(Boolean.parseBoolean(settings.getProperty("Link Scroll Bars")));
+      linkScrollBarsItem.addActionListener(this);
+      bytecodePopupMenu.add(linkScrollBarsItem);
+
+      origByteCodeArea.setComponentPopupMenu(bytecodePopupMenu);
+
+      // ---- Right: Recompiled Bytecode Panel ----
       JTextArea newByteCodeArea = new JTextArea();
-      newByteCodeArea.setFont(new Font("Monospaced", 0, 12));
+      newByteCodeArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
       newByteCodeArea.setEditable(false);
+
       this.dropTarget = new DropTarget(newByteCodeArea, this);
       newByteCodeArea.putClientProperty("dropTarget", this.dropTarget);
-      scrollPane = new JScrollPane(newByteCodeArea);
-      scrollPane.setBorder(new TitledBorder("Recompiled Byte Code"));
-      scrollPane.getVerticalScrollBar().addAdjustmentListener(this);
-      byteCodePane.setRightComponent(scrollPane);
-      newByteCodeArea.setComponentPopupMenu(panelSwitchPopup);
-      tabComponents[1] = byteCodePane;
-      JPanel panel = new JPanel(new BorderLayout());
-      this.jTB.insertTab(null, null, tabComponents[0], null, index);
-      panel.setOpaque(false);
-      JLabel label = new JLabel(text);
-      label.setBorder(new EmptyBorder(0, 0, 0, 10));
-      label.setOpaque(false);
+
+      JScrollPane newScrollPane = new JScrollPane(newByteCodeArea);
+      newScrollPane.setBorder(new TitledBorder("Recompiled Byte Code"));
+      newScrollPane.getVerticalScrollBar().addAdjustmentListener(this);
+
+      byteCodeSplitPane.setRightComponent(newScrollPane);
+
+      newByteCodeArea.setComponentPopupMenu(bytecodePopupMenu);
+
+      tabComponents[1] = byteCodeSplitPane;
+
+      // --- Tab Header Panel (label + close box) ---
+      JPanel tabHeaderPanel = new JPanel(new BorderLayout());
+      tabHeaderPanel.setOpaque(false);
+
+      JLabel titleLabel = new JLabel(text);
+      titleLabel.setBorder(new EmptyBorder(0, 0, 0, 10));
+      titleLabel.setOpaque(false);
+
       JLabel closeLabel = new JLabel("X");
       closeLabel.setOpaque(false);
       closeLabel.addMouseListener(this);
-      panel.add(label, "Center");
-      panel.add(closeLabel, "East");
-      this.jTB.setTabComponentAt(index, panel);
-      this.jTB.putClientProperty(panel, tabComponents);
+
+      tabHeaderPanel.add(titleLabel, BorderLayout.CENTER);
+      tabHeaderPanel.add(closeLabel, BorderLayout.EAST);
+
+      // --- Insert Tab and Tab Management ---
+      this.jTB.insertTab(null, null, tabComponents[0], null, index);
+      this.jTB.setTabComponentAt(index, tabHeaderPanel);
+      this.jTB.putClientProperty(tabHeaderPanel, tabComponents);
       this.jTB.setSelectedIndex(index);
-      this.updateWorkspaceCard();
+
+      updateWorkspaceCard();
+
       return tabComponents;
    }
 
@@ -1248,9 +1294,9 @@ public class Decompiler
          this.panels = this.newNCSTab(file.getName().substring(0, file.getName().length() - 4));
          JTextComponent codeArea = (JTextComponent)((JScrollPane)((JPanel)this.panels[0]).getComponent(0)).getViewport().getView();
          codeArea.setText(generatedCode);
-         // Apply syntax highlighting if it's a JTextPane
+         // Apply syntax highlighting if it's a JTextPane (defer to avoid document mutation errors)
          if (codeArea instanceof JTextPane) {
-            NWScriptSyntaxHighlighter.applyHighlighting((JTextPane)codeArea);
+            SwingUtilities.invokeLater(() -> NWScriptSyntaxHighlighter.applyHighlighting((JTextPane)codeArea));
          }
 
          // Try to get bytecode if available

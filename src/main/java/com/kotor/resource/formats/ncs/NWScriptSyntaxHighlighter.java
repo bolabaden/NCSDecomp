@@ -5,6 +5,7 @@
 package com.kotor.resource.formats.ncs;
 
 import javax.swing.JTextPane;
+import javax.swing.SwingUtilities;
 import javax.swing.text.*;
 import java.awt.Color;
 import java.util.regex.Matcher;
@@ -203,22 +204,26 @@ public class NWScriptSyntaxHighlighter {
 
    /**
     * Creates a DocumentListener that re-applies highlighting when the document changes.
+    * Uses SwingUtilities.invokeLater to defer highlighting until after document mutations complete.
     */
    public static javax.swing.event.DocumentListener createHighlightingListener(JTextPane textPane) {
       return new javax.swing.event.DocumentListener() {
          @Override
          public void insertUpdate(javax.swing.event.DocumentEvent e) {
-            applyHighlighting(textPane);
+            // Defer highlighting to avoid "Attempt to mutate in notification" error
+            SwingUtilities.invokeLater(() -> applyHighlighting(textPane));
          }
 
          @Override
          public void removeUpdate(javax.swing.event.DocumentEvent e) {
-            applyHighlighting(textPane);
+            // Defer highlighting to avoid "Attempt to mutate in notification" error
+            SwingUtilities.invokeLater(() -> applyHighlighting(textPane));
          }
 
          @Override
          public void changedUpdate(javax.swing.event.DocumentEvent e) {
-            applyHighlighting(textPane);
+            // Defer highlighting to avoid "Attempt to mutate in notification" error
+            SwingUtilities.invokeLater(() -> applyHighlighting(textPane));
          }
       };
    }
