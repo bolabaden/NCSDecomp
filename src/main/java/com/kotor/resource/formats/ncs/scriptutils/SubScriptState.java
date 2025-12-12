@@ -903,15 +903,15 @@ public class SubScriptState {
    public void transformCopyTopSp(ACopyTopSpCommand node) {
       this.checkStart(node);
       int nodePos = this.nodedata.getPos(node);
-      
+
       if (this.state == 5) {
          this.state = 0;
       } else {
          int loc = NodeUtils.stackOffsetToPos(node.getOffset());
          StackEntry sourceEntry = this.stack.get(loc);
-         System.err.println("DEBUG transformCopyTopSp: pos=" + nodePos + ", loc=" + loc + 
-               ", sourceEntry=" + (sourceEntry != null ? sourceEntry.getClass().getSimpleName() : "null") + 
-               ", state=" + this.state + ", current=" + this.current.getClass().getSimpleName() + 
+         System.err.println("DEBUG transformCopyTopSp: pos=" + nodePos + ", loc=" + loc +
+               ", sourceEntry=" + (sourceEntry != null ? sourceEntry.getClass().getSimpleName() : "null") +
+               ", state=" + this.state + ", current=" + this.current.getClass().getSimpleName() +
                ", hasChildren=" + this.current.hasChildren());
 
          // For constants: when copying a constant that's already the last child,
@@ -954,7 +954,7 @@ public class SubScriptState {
 
          AExpression varref = this.getVarToCopy(node);
          String varName = (varref instanceof AVarRef) ? ((AVarRef) varref).var().toString() : "N/A";
-         System.err.println("DEBUG transformCopyTopSp: adding " + varref.getClass().getSimpleName() + 
+         System.err.println("DEBUG transformCopyTopSp: adding " + varref.getClass().getSimpleName() +
                " to AST, var=" + varName);
          this.current.addChild((ScriptNode) varref);
       }
@@ -1065,10 +1065,10 @@ public class SubScriptState {
             // If the last child is a plain expression (AVarRef, AConst, etc.) that's not part of
             // a larger expression, convert it to an expression statement
             // But don't do this for function calls (AActionExp) as they're usually part of expressions
-            if (AExpression.class.isInstance(last) && !AActionExp.class.isInstance(last) 
+            if (AExpression.class.isInstance(last) && !AActionExp.class.isInstance(last)
                   && !AModifyExp.class.isInstance(last) && !AUnaryModExp.class.isInstance(last)
                   && !AReturnStatement.class.isInstance(last)) {
-               System.err.println("DEBUG transformMoveSp: converting standalone expression to statement: " + 
+               System.err.println("DEBUG transformMoveSp: converting standalone expression to statement: " +
                      last.getClass().getSimpleName());
                AExpression expr = (AExpression) this.removeLastExp(true);
                if (expr != null) {
@@ -1885,10 +1885,12 @@ public class SubScriptState {
             if (paramtype.equals((byte) -16)) {
                exp = this.getLastExp();
                if (!exp.stackentry().type().equals((byte) -16) && !exp.stackentry().type().equals((byte) -15)) {
-                  exp = new AVectorConstExp(
-                        this.removeLastExp(false),
-                        this.removeLastExp(false),
-                        this.removeLastExp(false));
+                  // When creating a vector from three float constants, removeLastExp removes from the end,
+                  // so we get them in reverse order (z, y, x). We need to reverse to get (x, y, z).
+                  AExpression exp3 = this.removeLastExp(false); // z (last on stack, first removed)
+                  AExpression exp2 = this.removeLastExp(false); // y
+                  AExpression exp1 = this.removeLastExp(false); // x (first on stack, last removed)
+                  exp = new AVectorConstExp(exp1, exp2, exp3); // [x, y, z]
                } else {
                   exp = this.removeLastExp(false);
                }
