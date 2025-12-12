@@ -29,6 +29,10 @@
 *.tar.gz
 *.rar
 *.exe
+!tools/nwnnsscomp_incompatible_tslpatcher.exe
+!tools/nwnnsscomp_incompatible_v1.exe
+!tools/nwnnsscomp_kscript.exe
+!tools/nwnnsscomp_ktool.exe
 *.app
 !.mvn/extensions/guice-hiddenclass-patch.jar
 !build-support/guice-hiddenclass-patch/**
@@ -88,4 +92,7 @@ jpackage-input/
 ncsdecomp_converted/
 misc/
 tmp/
-ncsdecomp.conf
+config/
+test-output.txt
+tmp/
+tests/

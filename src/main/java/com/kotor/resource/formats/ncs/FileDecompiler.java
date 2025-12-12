@@ -183,16 +183,15 @@ public class FileDecompiler {
    /**
     * Loads preferSwitches setting from configuration file if present.
     * <p>
-    * Checks for {@code preferSwitches} property in {@code ncsdecomp.conf} or
-    * {@code dencs.conf} in the current working directory. If not found or
-    * unparseable, leaves the current value unchanged.
+    * Checks for {@code Prefer Switches} property in {@code .\config\ncsdecomp.conf}.
+    * If not found or unparseable, leaves the current value unchanged.
     */
    private static void loadPreferSwitchesFromConfig() {
       try {
-         File dir = new File(System.getProperty("user.dir"));
-         File configFile = new File(dir, "ncsdecomp.conf");
+         File configDir = new File(System.getProperty("user.dir"), "config");
+         File configFile = new File(configDir, "ncsdecomp.conf");
          if (!configFile.exists()) {
-            configFile = new File(dir, "dencs.conf");
+            configFile = new File(configDir, "dencs.conf");
          }
 
          if (configFile.exists() && configFile.isFile()) {
@@ -200,7 +199,8 @@ public class FileDecompiler {
                String line;
                while ((line = reader.readLine()) != null) {
                   line = line.trim();
-                  if (line.startsWith("preferSwitches") || line.startsWith("Prefer Switches")) {
+                  // Accept both legacy and canonical "Prefer Switches" spelling
+                  if (line.startsWith("Prefer Switches") || line.startsWith("preferSwitches")) {
                      int equalsIdx = line.indexOf('=');
                      if (equalsIdx >= 0) {
                         String value = line.substring(equalsIdx + 1).trim();

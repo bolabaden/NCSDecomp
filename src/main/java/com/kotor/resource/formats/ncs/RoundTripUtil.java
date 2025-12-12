@@ -145,12 +145,13 @@ public class RoundTripUtil {
 
          // Find the recompiled NCS file (should be in same directory, with .ncs extension)
          // This matches how FileDecompiler.externalCompile creates the output
-         // FileDecompiler.externalCompile uses: new File(getShortName(file) + ".ncs").getAbsoluteFile()
-         // getShortName strips the extension from the absolute path, so we need to do the same
-         String nssAbsolutePath = savedNssFile.getAbsolutePath();
-         int lastDot = nssAbsolutePath.lastIndexOf('.');
-         String basePath = lastDot > 0 ? nssAbsolutePath.substring(0, lastDot) : nssAbsolutePath;
-         File recompiledNcsFile = new File(basePath + ".ncs").getAbsoluteFile();
+         String nssName = savedNssFile.getName();
+         String baseName = nssName;
+         int lastDot = nssName.lastIndexOf('.');
+         if (lastDot > 0) {
+            baseName = nssName.substring(0, lastDot);
+         }
+         File recompiledNcsFile = new File(savedNssFile.getParentFile(), baseName + ".ncs");
 
          if (!recompiledNcsFile.exists()) {
             return null;

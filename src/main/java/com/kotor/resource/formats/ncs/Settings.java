@@ -375,9 +375,11 @@ public class Settings extends Properties implements ActionListener {
     * Loads preferences from disk, creating a default config if none exists.
     */
    public void load() {
-      File configToLoad = new File(CONFIG_FILE);
+      File configDir = new File(System.getProperty("user.dir"), "config");
+      File configFile = new File(configDir, CONFIG_FILE);
+      File configToLoad = configFile;
       if (!configToLoad.exists()) {
-         File legacy = new File(LEGACY_CONFIG_FILE);
+         File legacy = new File(configDir, LEGACY_CONFIG_FILE);
          if (legacy.exists()) {
             configToLoad = legacy;
          }
@@ -415,7 +417,9 @@ public class Settings extends Properties implements ActionListener {
     * Writes preferences to {@code ncsdecomp.conf}.
     */
    public void save() {
-      try (FileOutputStream fos = new FileOutputStream(CONFIG_FILE)) {
+      File configDir = new File(System.getProperty("user.dir"), "config");
+      File configFile = new File(configDir, CONFIG_FILE);
+      try (FileOutputStream fos = new FileOutputStream(configFile)) {
          this.store(fos, "NCSDecomp Configuration");
       } catch (FileNotFoundException var2) {
          var2.printStackTrace();
