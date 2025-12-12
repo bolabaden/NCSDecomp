@@ -53,6 +53,9 @@ public class BytecodeSyntaxHighlighter {
    private static final Pattern PATTERN_FUNCTION = Pattern.compile("\\bfn_[0-9A-Fa-f]+\\b");
    private static final Pattern PATTERN_TYPE = Pattern.compile("\\bT\\s+[0-9A-Fa-f]+\\b");
 
+   // Maximum text size for highlighting (500KB - prevents regex catastrophic backtracking on huge files)
+   private static final int MAX_HIGHLIGHT_SIZE = 500000;
+
    /**
     * Applies syntax highlighting to a JTextPane displaying bytecode.
     *
@@ -67,6 +70,27 @@ public class BytecodeSyntaxHighlighter {
       } catch (BadLocationException e) {
          return;
       }
+      
+      // Skip highlighting for very large files to prevent regex catastrophic backtracking
+      if (text.length() > MAX_HIGHLIGHT_SIZE) {
+         System.err.println("DEBUG BytecodeSyntaxHighlighter: File too large for highlighting (" + text.length() + " chars), skipping");
+         return;
+      }
+      
+      // Wrap entire highlighting in try-catch to prevent crashes
+      try {
+         applyHighlightingInternal(doc, text);
+      } catch (Exception | StackOverflowError e) {
+         System.err.println("DEBUG BytecodeSyntaxHighlighter: Error during highlighting: " + e.getClass().getName());
+         System.err.println("DEBUG BytecodeSyntaxHighlighter: Text length: " + text.length() + " chars");
+         // Don't rethrow - just skip highlighting for this file
+      }
+   }
+   
+   /**
+    * Internal highlighting implementation - can throw exceptions.
+    */
+   private static void applyHighlightingInternal(StyledDocument doc, String text) {
 
       // Remove all existing styles
       Style defaultStyle = StyleContext.getDefaultStyleContext().getStyle(StyleContext.DEFAULT_STYLE);
@@ -95,21 +119,42 @@ public class BytecodeSyntaxHighlighter {
       boolean[] styled = new boolean[text.length()];
 
       // Apply highlighting in order of priority
+      // Each pattern wrapped in try-catch to isolate failures
 
-      // 1. Functions (highest priority - most specific)
-      applyPattern(doc, PATTERN_FUNCTION, functionStyle, styled, text);
+      try {
+         // 1. Functions (highest priority - most specific)
+         applyPattern(doc, PATTERN_FUNCTION, functionStyle, styled, text);
+      } catch (Exception e) {
+         System.err.println("DEBUG BytecodeSyntaxHighlighter: Failed to highlight functions: " + e.getMessage());
+      }
 
-      // 2. Type indicators (T followed by hex)
-      applyPattern(doc, PATTERN_TYPE, typeStyle, styled, text);
+      try {
+         // 2. Type indicators (T followed by hex)
+         applyPattern(doc, PATTERN_TYPE, typeStyle, styled, text);
+      } catch (Exception e) {
+         System.err.println("DEBUG BytecodeSyntaxHighlighter: Failed to highlight types: " + e.getMessage());
+      }
 
-      // 3. Instructions
-      applyPattern(doc, PATTERN_INSTRUCTION, instructionStyle, styled, text);
+      try {
+         // 3. Instructions
+         applyPattern(doc, PATTERN_INSTRUCTION, instructionStyle, styled, text);
+      } catch (Exception e) {
+         System.err.println("DEBUG BytecodeSyntaxHighlighter: Failed to highlight instructions: " + e.getMessage());
+      }
 
-      // 4. Addresses (8 hex digits)
-      applyPattern(doc, PATTERN_ADDRESS, addressStyle, styled, text);
+      try {
+         // 4. Addresses (8 hex digits)
+         applyPattern(doc, PATTERN_ADDRESS, addressStyle, styled, text);
+      } catch (Exception e) {
+         System.err.println("DEBUG BytecodeSyntaxHighlighter: Failed to highlight addresses: " + e.getMessage());
+      }
 
-      // 5. Other hex values (4+ hex digits, but not already styled as addresses)
-      applyPattern(doc, PATTERN_HEX_VALUE, hexValueStyle, styled, text);
+      try {
+         // 5. Other hex values (4+ hex digits, but not already styled as addresses)
+         applyPattern(doc, PATTERN_HEX_VALUE, hexValueStyle, styled, text);
+      } catch (Exception e) {
+         System.err.println("DEBUG BytecodeSyntaxHighlighter: Failed to highlight hex values: " + e.getMessage());
+      }
    }
 
    /**

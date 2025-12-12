@@ -55,14 +55,23 @@ public class NWScriptSyntaxHighlighter {
    private static final String TYPE_PATTERN = "\\b(" + String.join("|", TYPES) + ")\\b";
 
    // Patterns for different syntax elements
+   // Fixed patterns to prevent catastrophic backtracking:
+   // - Multi-line comments: use possessive quantifiers and negated character classes
+   // - Strings: use possessive quantifiers to prevent excessive backtracking
    private static final Pattern PATTERN_COMMENT_SINGLE = Pattern.compile("//.*$", Pattern.MULTILINE);
-   private static final Pattern PATTERN_COMMENT_MULTI = Pattern.compile("/\\*[\\s\\S]*?\\*/", Pattern.MULTILINE);
-   private static final Pattern PATTERN_STRING_DOUBLE = Pattern.compile("\"([^\"\\\\]|\\\\.)*\"");
-   private static final Pattern PATTERN_STRING_SINGLE = Pattern.compile("'([^'\\\\]|\\\\.)*'");
+   private static final Pattern PATTERN_COMMENT_MULTI = Pattern.compile("/\\*(?:[^*]|\\*(?!/))*+\\*/", Pattern.MULTILINE);
+   private static final Pattern PATTERN_STRING_DOUBLE = Pattern.compile("\"(?:[^\"\\\\]|\\\\.)*+\"");
+   private static final Pattern PATTERN_STRING_SINGLE = Pattern.compile("'(?:[^'\\\\]|\\\\.)*+'");
    private static final Pattern PATTERN_NUMBER = Pattern.compile("\\b\\d+\\.?\\d*[fF]?\\b");
    private static final Pattern PATTERN_KEYWORD = Pattern.compile(KEYWORD_PATTERN);
    private static final Pattern PATTERN_TYPE = Pattern.compile(TYPE_PATTERN);
-   private static final Pattern PATTERN_FUNCTION = Pattern.compile("\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(");
+   private static final Pattern PATTERN_FUNCTION = Pattern.compile("\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*+\\(");
+
+   // Maximum text size for highlighting (500KB - prevents regex catastrophic backtracking on huge files)
+   private static final int MAX_HIGHLIGHT_SIZE = 500000;
+   
+   // Timeout for highlighting (5 seconds)
+   private static final long HIGHLIGHT_TIMEOUT_MS = 5000;
 
    /**
     * Applies syntax highlighting to a JTextPane.
@@ -78,6 +87,27 @@ public class NWScriptSyntaxHighlighter {
       } catch (BadLocationException e) {
          return;
       }
+      
+      // Skip highlighting for very large files to prevent regex catastrophic backtracking
+      if (text.length() > MAX_HIGHLIGHT_SIZE) {
+         System.err.println("DEBUG NWScriptSyntaxHighlighter: File too large for highlighting (" + text.length() + " chars), skipping");
+         return;
+      }
+      
+      // Wrap entire highlighting in try-catch to prevent crashes
+      try {
+         applyHighlightingInternal(textPane, doc, text);
+      } catch (Exception | StackOverflowError e) {
+         System.err.println("DEBUG NWScriptSyntaxHighlighter: Error during highlighting (likely regex catastrophic backtracking): " + e.getClass().getName());
+         System.err.println("DEBUG NWScriptSyntaxHighlighter: Text length: " + text.length() + " chars");
+         // Don't rethrow - just skip highlighting for this file
+      }
+   }
+   
+   /**
+    * Internal highlighting implementation - can throw exceptions.
+    */
+   private static void applyHighlightingInternal(JTextPane textPane, StyledDocument doc, String text) {
 
       // Remove all existing styles
       Style defaultStyle = StyleContext.getDefaultStyleContext().getStyle(StyleContext.DEFAULT_STYLE);
@@ -109,30 +139,63 @@ public class NWScriptSyntaxHighlighter {
       boolean[] styled = new boolean[text.length()];
 
       // Apply highlighting in order of priority (comments and strings first, then keywords)
+      // Each pattern wrapped in try-catch to isolate failures
 
-      // 1. Multi-line comments (highest priority)
-      applyPattern(doc, PATTERN_COMMENT_MULTI, commentStyle, styled, text);
+      try {
+         // 1. Multi-line comments (highest priority)
+         applyPattern(doc, PATTERN_COMMENT_MULTI, commentStyle, styled, text);
+      } catch (Exception e) {
+         System.err.println("DEBUG NWScriptSyntaxHighlighter: Failed to highlight multi-line comments: " + e.getMessage());
+      }
 
-      // 2. Single-line comments
-      applyPattern(doc, PATTERN_COMMENT_SINGLE, commentStyle, styled, text);
+      try {
+         // 2. Single-line comments
+         applyPattern(doc, PATTERN_COMMENT_SINGLE, commentStyle, styled, text);
+      } catch (Exception e) {
+         System.err.println("DEBUG NWScriptSyntaxHighlighter: Failed to highlight single-line comments: " + e.getMessage());
+      }
 
-      // 3. Double-quoted strings
-      applyPattern(doc, PATTERN_STRING_DOUBLE, stringStyle, styled, text);
+      try {
+         // 3. Double-quoted strings
+         applyPattern(doc, PATTERN_STRING_DOUBLE, stringStyle, styled, text);
+      } catch (Exception e) {
+         System.err.println("DEBUG NWScriptSyntaxHighlighter: Failed to highlight double-quoted strings: " + e.getMessage());
+      }
 
-      // 4. Single-quoted strings
-      applyPattern(doc, PATTERN_STRING_SINGLE, stringStyle, styled, text);
+      try {
+         // 4. Single-quoted strings
+         applyPattern(doc, PATTERN_STRING_SINGLE, stringStyle, styled, text);
+      } catch (Exception e) {
+         System.err.println("DEBUG NWScriptSyntaxHighlighter: Failed to highlight single-quoted strings: " + e.getMessage());
+      }
 
-      // 5. Numbers (only if not already styled)
-      applyPattern(doc, PATTERN_NUMBER, numberStyle, styled, text);
+      try {
+         // 5. Numbers (only if not already styled)
+         applyPattern(doc, PATTERN_NUMBER, numberStyle, styled, text);
+      } catch (Exception e) {
+         System.err.println("DEBUG NWScriptSyntaxHighlighter: Failed to highlight numbers: " + e.getMessage());
+      }
 
-      // 6. Keywords (only if not already styled)
-      applyPattern(doc, PATTERN_KEYWORD, keywordStyle, styled, text);
+      try {
+         // 6. Keywords (only if not already styled)
+         applyPattern(doc, PATTERN_KEYWORD, keywordStyle, styled, text);
+      } catch (Exception e) {
+         System.err.println("DEBUG NWScriptSyntaxHighlighter: Failed to highlight keywords: " + e.getMessage());
+      }
 
-      // 7. Types (only if not already styled)
-      applyPattern(doc, PATTERN_TYPE, typeStyle, styled, text);
+      try {
+         // 7. Types (only if not already styled)
+         applyPattern(doc, PATTERN_TYPE, typeStyle, styled, text);
+      } catch (Exception e) {
+         System.err.println("DEBUG NWScriptSyntaxHighlighter: Failed to highlight types: " + e.getMessage());
+      }
 
-      // 8. Function calls (only if not already styled)
-      applyFunctionPattern(doc, PATTERN_FUNCTION, functionStyle, styled, text);
+      try {
+         // 8. Function calls (only if not already styled)
+         applyFunctionPattern(doc, PATTERN_FUNCTION, functionStyle, styled, text);
+      } catch (Exception e) {
+         System.err.println("DEBUG NWScriptSyntaxHighlighter: Failed to highlight function calls: " + e.getMessage());
+      }
    }
 
    /**
