@@ -812,12 +812,12 @@ public class Decompiler
                      list.add(file);
                   }
                }
-               (new Thread() {
-                  @Override
-                  public void run() {
-                     Decompiler.this.open(list.toArray(new File[0]));
-                  }
-               }).start();
+               Thread openThread = new Thread(() -> {
+                  Decompiler.this.open(list.toArray(new File[0]));
+               });
+               openThread.setDaemon(true);
+               openThread.setName("FileOpen-" + System.currentTimeMillis());
+               openThread.start();
                dtde.dropComplete(true);
                return;
             }
@@ -1594,7 +1594,7 @@ public class Decompiler
       }
    }
 
-   private void open(File[] files) {
+   void open(File[] files) {
       for (int j = 0; j < files.length; j++) {
          File fileToOpen = files[j];
          if ((this.temp = fileToOpen.getName()).substring(this.temp.length() - 3).equalsIgnoreCase("ncs")) {
