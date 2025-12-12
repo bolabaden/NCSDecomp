@@ -1489,11 +1489,12 @@ public class Decompiler
                // Get left component (original bytecode)
                java.awt.Component leftComp = byteCodePane.getLeftComponent();
                if (leftComp instanceof JScrollPane) {
-                  JTextArea origTextArea = (JTextArea)((JScrollPane)leftComp).getViewport().getView();
+                  JTextPane origTextArea = (JTextPane)((JScrollPane)leftComp).getViewport().getView();
                   if (origTextArea != null && origTextArea.getText().trim().isEmpty()) {
                      String origByteCode = this.fileDecompiler.getOriginalByteCode(file);
                      if (origByteCode != null && !origByteCode.trim().isEmpty()) {
                         origTextArea.setText(origByteCode);
+                        BytecodeSyntaxHighlighter.applyHighlightingImmediate(origTextArea);
                      } else {
                         origTextArea.setText("// Original bytecode not available.\n// Bytecode is only captured during round-trip validation (save/recompile).");
                      }
@@ -1532,7 +1533,7 @@ public class Decompiler
                JSplitPane byteCodePane = (JSplitPane)panels[1];
                java.awt.Component leftComp = byteCodePane.getLeftComponent();
                if (leftComp instanceof JScrollPane) {
-                  JTextArea origTextArea = (JTextArea)((JScrollPane)leftComp).getViewport().getView();
+                  JTextPane origTextArea = (JTextPane)((JScrollPane)leftComp).getViewport().getView();
                   if (origTextArea != null) {
                      origTextArea.setText("// Error loading bytecode: " + e.getMessage());
                   }
