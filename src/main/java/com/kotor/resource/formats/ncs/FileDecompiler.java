@@ -834,7 +834,13 @@ public class FileDecompiler {
          System.out.println("[NCSDecomp] Input file: " + in.getAbsolutePath());
          System.out.println("[NCSDecomp] Expected output: " + result.getAbsolutePath());
 
-         new FileDecompiler.WindowsExec().callExec(args);
+         try {
+            new FileDecompiler.WindowsExec().callExec(args);
+         } catch (IOException ioEx) {
+            // Elevation errors are already logged in callExec with helpful messages
+            // Re-throw to be caught by outer catch block
+            throw ioEx;
+         }
 
          if (!result.exists()) {
             System.out.println("[NCSDecomp] ERROR: Expected output file does not exist: " + result.getAbsolutePath());
@@ -844,9 +850,17 @@ public class FileDecompiler {
          }
 
          return result;
-      } catch (Exception e) {
-         System.out.println("[NCSDecomp] EXCEPTION during external decompile:");
-         System.out.println("[NCSDecomp]   Exception Type: " + e.getClass().getName());
+      } catch (IOException e) {
+         // Check if this is an elevation error
+         String errorMsg = e.getMessage();
+         if (errorMsg != null && (errorMsg.contains("error=740") || errorMsg.contains("requires administrator"))) {
+            System.out.println("[NCSDecomp] EXCEPTION during external decompile:");
+            System.out.println("[NCSDecomp]   Elevation required - compiler needs administrator privileges.");
+            System.out.println("[NCSDecomp]   Decompiled code is still available, but bytecode capture failed.");
+         } else {
+            System.out.println("[NCSDecomp] EXCEPTION during external decompile:");
+            System.out.println("[NCSDecomp]   Exception Type: " + e.getClass().getName());
+         }
          System.out.println("[NCSDecomp]   Exception Message: " + e.getMessage());
          if (e.getCause() != null) {
             System.out.println("[NCSDecomp]   Caused by: " + e.getCause().getClass().getName() + " - " + e.getCause().getMessage());
@@ -954,7 +968,13 @@ public class FileDecompiler {
          System.out.println("[NCSDecomp] Input file: " + file.getAbsolutePath());
          System.out.println("[NCSDecomp] Expected output: " + result.getAbsolutePath());
 
-         new FileDecompiler.WindowsExec().callExec(args);
+         try {
+            new FileDecompiler.WindowsExec().callExec(args);
+         } catch (IOException ioEx) {
+            // Elevation errors are already logged in callExec with helpful messages
+            // Re-throw to be caught by outer catch block
+            throw ioEx;
+         }
 
          if (!result.exists()) {
             System.out.println("[NCSDecomp] ERROR: Expected output file does not exist: " + result.getAbsolutePath());
@@ -964,9 +984,17 @@ public class FileDecompiler {
          }
 
          return result;
-      } catch (Exception e) {
-         System.out.println("[NCSDecomp] EXCEPTION during external compile:");
-         System.out.println("[NCSDecomp]   Exception Type: " + e.getClass().getName());
+      } catch (IOException e) {
+         // Check if this is an elevation error
+         String errorMsg = e.getMessage();
+         if (errorMsg != null && (errorMsg.contains("error=740") || errorMsg.contains("requires administrator"))) {
+            System.out.println("[NCSDecomp] EXCEPTION during external compile:");
+            System.out.println("[NCSDecomp]   Elevation required - compiler needs administrator privileges.");
+            System.out.println("[NCSDecomp]   Round-trip validation cannot proceed without elevation.");
+         } else {
+            System.out.println("[NCSDecomp] EXCEPTION during external compile:");
+            System.out.println("[NCSDecomp]   Exception Type: " + e.getClass().getName());
+         }
          System.out.println("[NCSDecomp]   Exception Message: " + e.getMessage());
          if (e.getCause() != null) {
             System.out.println("[NCSDecomp]   Caused by: " + e.getCause().getClass().getName() + " - " + e.getCause().getMessage());
@@ -2308,31 +2336,32 @@ public class FileDecompiler {
        * This method is used when we have properly formatted arguments from compiler detection.
        *
        * @param args Array of command-line arguments (first element is the executable)
+       * @throws IOException If process execution fails, including elevation errors
        */
-      public void callExec(String[] args) {
-         try {
-            // Build copy-pasteable command string (exact format as test output)
-            StringBuilder cmdStr = new StringBuilder();
-            for (int i = 0; i < args.length; i++) {
-               if (i > 0) {
-                  cmdStr.append(" ");
-               }
-               String arg = args[i];
-               // Quote arguments that contain spaces
-               if (arg.contains(" ") || arg.contains("\"")) {
-                  cmdStr.append("\"").append(arg.replace("\"", "\\\"")).append("\"");
-               } else {
-                  cmdStr.append(arg);
-               }
+      public void callExec(String[] args) throws IOException {
+         // Build copy-pasteable command string (exact format as test output)
+         StringBuilder cmdStr = new StringBuilder();
+         for (int i = 0; i < args.length; i++) {
+            if (i > 0) {
+               cmdStr.append(" ");
             }
-            System.out.println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-            System.out.println("[NCSDecomp] Executing nwnnsscomp.exe:");
-            System.out.println("[NCSDecomp] Command: " + cmdStr.toString());
-            System.out.println("");
-            System.out.println("[NCSDecomp] Calling nwnnsscomp with command:");
-            System.out.println(cmdStr.toString());
-            System.out.println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+            String arg = args[i];
+            // Quote arguments that contain spaces
+            if (arg.contains(" ") || arg.contains("\"")) {
+               cmdStr.append("\"").append(arg.replace("\"", "\\\"")).append("\"");
+            } else {
+               cmdStr.append(arg);
+            }
+         }
+         System.out.println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+         System.out.println("[NCSDecomp] Executing nwnnsscomp.exe:");
+         System.out.println("[NCSDecomp] Command: " + cmdStr.toString());
+         System.out.println("");
+         System.out.println("[NCSDecomp] Calling nwnnsscomp with command:");
+         System.out.println(cmdStr.toString());
+         System.out.println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
+         try {
             ProcessBuilder pb = new ProcessBuilder(args);
             Process proc = pb.start();
             FileDecompiler.WindowsExec.StreamGobbler errorGobbler = new FileDecompiler.WindowsExec.StreamGobbler(proc.getErrorStream(), "nwnnsscomp");
@@ -2344,13 +2373,54 @@ public class FileDecompiler {
             System.out.println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
             System.out.println("[NCSDecomp] nwnnsscomp.exe exited with code: " + exitCode);
             System.out.println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-         } catch (Throwable var6) {
+         } catch (IOException e) {
+            // Check for elevation error (error code 740 on Windows)
+            String errorMsg = e.getMessage();
+            boolean isElevationError = errorMsg != null && errorMsg.contains("error=740");
+            
+            // Check if this is a TSLPatcher variant
+            String exePath = args.length > 0 ? args[0] : "";
+            boolean isTslPatcher = exePath.toLowerCase().contains("tslpatcher");
+            
             System.out.println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
             System.out.println("[NCSDecomp] EXCEPTION executing nwnnsscomp.exe:");
-            System.out.println("[NCSDecomp] Exception Type: " + var6.getClass().getName());
-            System.out.println("[NCSDecomp] Exception Message: " + var6.getMessage());
-            var6.printStackTrace();
+            System.out.println("[NCSDecomp] Exception Type: " + e.getClass().getName());
+            System.out.println("[NCSDecomp] Exception Message: " + e.getMessage());
+            
+            if (isElevationError) {
+               if (isTslPatcher) {
+                  System.out.println("[NCSDecomp] ERROR: TSLPatcher compiler requires administrator privileges.");
+                  System.out.println("[NCSDecomp]   The nwnnsscomp_tslpatcher.exe variant requires elevation to run.");
+                  System.out.println("[NCSDecomp]   Please either:");
+                  System.out.println("[NCSDecomp]   1. Run NCSDecomp as administrator, or");
+                  System.out.println("[NCSDecomp]   2. Use a different compiler variant (e.g., nwnnsscomp.exe) in Settings.");
+               } else {
+                  System.out.println("[NCSDecomp] ERROR: Compiler requires administrator privileges.");
+                  System.out.println("[NCSDecomp]   Please run NCSDecomp as administrator.");
+               }
+            }
+            
+            e.printStackTrace();
             System.out.println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+            
+            // Re-throw with enhanced message for elevation errors
+            if (isElevationError) {
+               String enhancedMsg = isTslPatcher 
+                  ? "TSLPatcher compiler requires administrator privileges. Please run NCSDecomp as administrator or use a different compiler."
+                  : "Compiler requires administrator privileges. Please run NCSDecomp as administrator.";
+               throw new IOException(enhancedMsg, e);
+            }
+            
+            throw e;
+         } catch (InterruptedException e) {
+            System.out.println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+            System.out.println("[NCSDecomp] EXCEPTION executing nwnnsscomp.exe:");
+            System.out.println("[NCSDecomp] Exception Type: " + e.getClass().getName());
+            System.out.println("[NCSDecomp] Exception Message: " + e.getMessage());
+            e.printStackTrace();
+            System.out.println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+            Thread.currentThread().interrupt();
+            throw new IOException("Process execution was interrupted", e);
          }
       }
 
