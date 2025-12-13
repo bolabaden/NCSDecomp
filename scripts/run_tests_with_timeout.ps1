@@ -18,10 +18,50 @@ if ($PSVersionTable.PSVersion.Major -ge 6) {
     if (-not (Test-Path variable:IsWindows)) { $script:IsWindows = $env:OS -eq "Windows_NT" }
 }
 
-$junitStandalone = Join-Path "." (Join-Path "lib" "junit-platform-console-standalone-1.10.0.jar")
+# Ensure lib directory exists
+$libDir = Join-Path "." "lib"
+if (-not (Test-Path $libDir)) {
+    New-Item -ItemType Directory -Path $libDir -Force | Out-Null
+}
+
+# Try to find JUnit JAR (prefer exact version, fall back to any version)
+$junitVersion = "1.10.0"
+$junitJarName = "junit-platform-console-standalone-$junitVersion.jar"
+$junitStandalone = Join-Path $libDir $junitJarName
+
 if (-not (Test-Path $junitStandalone)) {
-    Write-Host "Error: JUnit JAR not found at $junitStandalone" -ForegroundColor Red
-    exit 1
+    # Try to find any version of junit-platform-console-standalone in lib/
+    $existingJars = Get-ChildItem -Path $libDir -Filter "junit-platform-console-standalone-*.jar" -ErrorAction SilentlyContinue
+    if ($existingJars) {
+        # Use the latest version found (sort by name, which should sort versions correctly)
+        $latestJar = $existingJars | Sort-Object Name -Descending | Select-Object -First 1
+        $junitStandalone = $latestJar.FullName
+        Write-Host "Found existing JUnit JAR: $($latestJar.Name)" -ForegroundColor Green
+    } else {
+        # Download from Maven Central
+        Write-Host "JUnit JAR not found. Downloading from Maven Central..." -ForegroundColor Yellow
+        $mavenUrl = "https://repo1.maven.org/maven2/org/junit/platform/junit-platform-console-standalone/$junitVersion/$junitJarName"
+
+        try {
+            Write-Host "Downloading from: $mavenUrl" -ForegroundColor Gray
+            $ProgressPreference = 'SilentlyContinue'
+            Invoke-WebRequest -Uri $mavenUrl -OutFile $junitStandalone -UseBasicParsing
+            $ProgressPreference = 'Continue'
+
+            if (Test-Path $junitStandalone) {
+                $fileSize = (Get-Item $junitStandalone).Length / 1MB
+                Write-Host "Successfully downloaded JUnit JAR ($([math]::Round($fileSize, 2)) MB)" -ForegroundColor Green
+            } else {
+                Write-Host "Error: Download failed - file not found after download" -ForegroundColor Red
+                exit 1
+            }
+        } catch {
+            Write-Host "Error: Failed to download JUnit JAR from Maven Central" -ForegroundColor Red
+            Write-Host "  URL: $mavenUrl" -ForegroundColor Gray
+            Write-Host "  Error: $($_.Exception.Message)" -ForegroundColor Gray
+            exit 1
+        }
+    }
 }
 
 # Ensure build directory exists and has compiled classes (Java/Maven idiomatic: target/classes)
