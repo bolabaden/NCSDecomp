@@ -146,6 +146,7 @@ public class FileDecompiler {
    private static ActionsData loadActionsDataInternal(boolean isK2Selected) throws DecompilerException {
       try {
          File actionfile = null;
+         String nwscriptFilename = isK2Selected ? "tsl_nwscript.nss" : "k1_nwscript.nss";
 
          // Check settings first (GUI mode) - only if Decompiler class is loaded
          try {
@@ -166,36 +167,22 @@ public class FileDecompiler {
             // Settings not available (CLI mode) or invalid path, fall through to default
          }
 
-         // Fall back to default location in tools/ directory
-         File dir = new File(System.getProperty("user.dir"), "tools");
-         actionfile = isK2Selected ? new File(dir, "tsl_nwscript.nss") : new File(dir, "k1_nwscript.nss");
-         // If not in tools/, try current directory (legacy support)
-         if (!actionfile.isFile()) {
-            dir = new File(System.getProperty("user.dir"));
-            actionfile = isK2Selected ? new File(dir, "tsl_nwscript.nss") : new File(dir, "k1_nwscript.nss");
-         }
-         // If still not found, try JAR/EXE directory's tools folder
-         if (!actionfile.isFile()) {
-            File ncsDecompDir = CompilerUtil.getNCSDecompDirectory();
-            if (ncsDecompDir != null) {
-               File jarToolsDir = new File(ncsDecompDir, "tools");
-               actionfile = isK2Selected ? new File(jarToolsDir, "tsl_nwscript.nss") : new File(jarToolsDir, "k1_nwscript.nss");
-            }
-         }
-         // If still not found, try JAR/EXE directory itself
-         if (!actionfile.isFile()) {
-            File ncsDecompDir = CompilerUtil.getNCSDecompDirectory();
-            if (ncsDecompDir != null) {
-               actionfile = isK2Selected ? new File(ncsDecompDir, "tsl_nwscript.nss") : new File(ncsDecompDir, "k1_nwscript.nss");
-            }
-         }
+         // Use CompilerUtil.resolveToolsFile to search in proper order:
+         // 1. App directory's tools/
+         // 2. CWD's tools/
+         // 3. App directory itself
+         // 4. CWD itself
+         actionfile = CompilerUtil.resolveToolsFile(nwscriptFilename);
+
          if (actionfile.isFile()) {
-            System.out.println("[INFO] loadActionsDataInternal: READING nwscript file (fallback): " + actionfile.getAbsolutePath() + " (K2=" + isK2Selected + ")");
+            System.out.println("[INFO] loadActionsDataInternal: READING nwscript file (resolved): " + actionfile.getAbsolutePath() + " (K2=" + isK2Selected + ")");
             ActionsData result = new ActionsData(new BufferedReader(new FileReader(actionfile)));
             System.out.println("[INFO] loadActionsDataInternal: Read nwscript file: " + actionfile.getAbsolutePath());
             return result;
          } else {
-            throw new DecompilerException("Error: cannot open actions file " + actionfile.getAbsolutePath() + ".");
+            throw new DecompilerException("Error: cannot open actions file " + actionfile.getAbsolutePath() + ".\n" +
+                  "Searched in app directory: " + CompilerUtil.getNCSDecompDirectory().getAbsolutePath() + "\n" +
+                  "And CWD: " + System.getProperty("user.dir"));
          }
       } catch (IOException ex) {
          throw new DecompilerException(ex.getMessage());
@@ -940,68 +927,58 @@ public class FileDecompiler {
    /**
     * Returns the compiler executable location.
     * <p>
-    * For GUI mode: Uses CompilerUtil.getCompilerFromSettings() EXCLUSIVELY - NO
-    * FALLBACKS. The Settings stores "nwnnsscomp Folder Path" (directory) and
-    * "nwnnsscomp Filename" (filename).
+    * Resolution order:
+    * <ol>
+    *   <li>CLI argument (nwnnsscompPath) - if explicitly specified via command line</li>
+    *   <li>Settings (GUI mode) - if configured and exists</li>
+    *   <li>Automatic fallback - searches in app directory's tools/, CWD tools/, etc.</li>
+    * </ol>
     * <p>
-    * For CLI mode: Uses nwnnsscompPath if set via command-line argument - NO
-    * FALLBACKS.
-    * <p>
-    * Returns null if no compiler is configured.
+    * Returns null only if no compiler is found anywhere.
     */
    private File getCompilerFile() {
-      // GUI MODE: Try to get compiler from Settings
+      // 1. CLI MODE: Use nwnnsscompPath if explicitly set via command-line argument
+      if (nwnnsscompPath != null && !nwnnsscompPath.trim().isEmpty()) {
+         File cliCompiler = new File(nwnnsscompPath);
+         if (cliCompiler.exists() && cliCompiler.isFile()) {
+            System.out.println("[INFO] FileDecompiler.getCompilerFile: Using CLI nwnnsscompPath: "
+                  + cliCompiler.getAbsolutePath());
+            return cliCompiler;
+         }
+         // CLI path specified but doesn't exist - log warning and continue to fallback
+         System.out.println("[INFO] FileDecompiler.getCompilerFile: CLI nwnnsscompPath not found: "
+               + cliCompiler.getAbsolutePath() + ", trying fallback");
+      }
+
+      // 2. GUI MODE: Try to get compiler from Settings
       try {
          File settingsCompiler = CompilerUtil.getCompilerFromSettings();
-         if (settingsCompiler != null) {
-            // If Settings compiler exists, use it
-            if (settingsCompiler.exists() && settingsCompiler.isFile()) {
-               System.out.println("[INFO] FileDecompiler.getCompilerFile: Using Settings compiler: "
-                     + settingsCompiler.getAbsolutePath());
-               return settingsCompiler;
-            }
-            // Settings compiler doesn't exist - try fallback to JAR/EXE directory's tools folder
-            System.out.println("[INFO] FileDecompiler.getCompilerFile: Settings compiler not found: "
-                  + settingsCompiler.getAbsolutePath() + ", trying fallback to JAR directory");
-
-            // Try JAR/EXE directory's tools folder with all known compiler names
-            File ncsDecompDir = CompilerUtil.getNCSDecompDirectory();
-            if (ncsDecompDir != null) {
-               File jarToolsDir = new File(ncsDecompDir, "tools");
-               String[] compilerNames = CompilerUtil.getCompilerNames();
-               for (String name : compilerNames) {
-                  File fallbackCompiler = new File(jarToolsDir, name);
-                  if (fallbackCompiler.exists() && fallbackCompiler.isFile()) {
-                     System.out.println("[INFO] FileDecompiler.getCompilerFile: Found fallback compiler in JAR directory: "
-                           + fallbackCompiler.getAbsolutePath());
-                     return fallbackCompiler;
-                  }
-               }
-               System.out.println("[INFO] FileDecompiler.getCompilerFile: No fallback compiler found in JAR directory: "
-                     + jarToolsDir.getAbsolutePath());
-            }
-
-            // Fallback failed, but return the Settings path anyway (caller will handle error)
-            System.out.println("[INFO] FileDecompiler.getCompilerFile: Using Settings compiler (not found): "
+         if (settingsCompiler != null && settingsCompiler.exists() && settingsCompiler.isFile()) {
+            System.out.println("[INFO] FileDecompiler.getCompilerFile: Using Settings compiler: "
                   + settingsCompiler.getAbsolutePath());
             return settingsCompiler;
          }
+         if (settingsCompiler != null) {
+            System.out.println("[INFO] FileDecompiler.getCompilerFile: Settings compiler not found: "
+                  + settingsCompiler.getAbsolutePath() + ", trying fallback");
+         }
       } catch (NoClassDefFoundError | Exception e) {
          // CompilerUtil or Decompiler.settings not available - likely CLI mode
-         System.out.println("[INFO] FileDecompiler.getCompilerFile: Settings not available (CLI mode): "
+         System.out.println("[INFO] FileDecompiler.getCompilerFile: Settings not available: "
                + e.getClass().getSimpleName());
       }
 
-      // CLI MODE: Use nwnnsscompPath if set (set by CLI argument)
-      if (nwnnsscompPath != null && !nwnnsscompPath.trim().isEmpty()) {
-         File cliCompiler = new File(nwnnsscompPath);
-         System.out.println(
-               "[INFO] FileDecompiler.getCompilerFile: Using CLI nwnnsscompPath: " + cliCompiler.getAbsolutePath());
-         return cliCompiler;
+      // 3. FALLBACK: Use centralized resolution to search in standard locations
+      // This searches: app/tools/, CWD/tools/, app/, CWD/
+      File fallbackCompiler = CompilerUtil.resolveCompilerPathWithFallbacks(null);
+      if (fallbackCompiler != null && fallbackCompiler.exists() && fallbackCompiler.isFile()) {
+         System.out.println("[INFO] FileDecompiler.getCompilerFile: Found compiler via fallback: "
+               + fallbackCompiler.getAbsolutePath());
+         return fallbackCompiler;
       }
 
-      // NO FALLBACKS - return null if not configured
-      System.out.println("[INFO] FileDecompiler.getCompilerFile: No compiler configured - returning null");
+      // No compiler found anywhere
+      System.out.println("[INFO] FileDecompiler.getCompilerFile: No compiler found anywhere");
       return null;
    }
 

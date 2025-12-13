@@ -205,8 +205,12 @@ $defaultConfig = @"
 # NCSDecomp Configuration
 # key=value (Java .properties format)
 #
-# The GUI reads this file from: .\config\ncsdecomp.conf
-# (legacy name also supported: .\config\dencs.conf)
+# The GUI reads this file from: config/ncsdecomp.conf
+# (legacy name also supported: config/dencs.conf)
+#
+# NOTE: Leave path settings empty to use automatic detection.
+# The app will find tools/compilers relative to the EXE location.
+# Only set paths if you want to override the default locations.
 
 Game Variant=k1
 Prefer Switches=false
@@ -218,12 +222,14 @@ Filename Prefix=
 Filename Suffix=
 Link Scroll Bars=false
 
-nwnnsscomp Folder Path=.\tools
-nwnnsscomp Filename=nwnnsscomp.exe
+# Compiler settings - leave empty for automatic detection from app's tools/ directory
+nwnnsscomp Folder Path=
+nwnnsscomp Filename=
 nwnnsscomp Path=
 
-K1 nwscript Path=.\tools\k1_nwscript.nss
-K2 nwscript Path=.\tools\tsl_nwscript.nss
+# nwscript.nss paths - leave empty for automatic detection from app's tools/ directory
+K1 nwscript Path=
+K2 nwscript Path=
 "@
 
 # Collect destinations: root config/ plus each app-image config/

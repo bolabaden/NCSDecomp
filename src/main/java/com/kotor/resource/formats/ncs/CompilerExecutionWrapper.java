@@ -280,37 +280,24 @@ public class CompilerExecutionWrapper {
 
    /**
     * Determines which nwscript.nss file to use based on game version and script requirements.
+    * Uses CompilerUtil.resolveToolsFile() to search in app directory first, then CWD.
     */
    private File determineNwscriptSource() {
-      File toolsDir = new File(System.getProperty("user.dir"), "tools");
-      // Create tools directory if it doesn't exist
-      if (!toolsDir.exists()) {
-         System.out.println("[INFO] CompilerExecutionWrapper: CREATING tools directory: " + toolsDir.getAbsolutePath());
-         if (!toolsDir.mkdirs()) {
-            System.err.println("[WARNING] CompilerExecutionWrapper: Failed to create tools directory: " + toolsDir.getAbsolutePath());
-         } else {
-            System.out.println("[INFO] CompilerExecutionWrapper: Created tools directory: " + toolsDir.getAbsolutePath());
-         }
-      }
-
       if (isK2) {
          // For K2, use tsl_nwscript.nss
-         return new File(toolsDir, "tsl_nwscript.nss");
+         return CompilerUtil.resolveToolsFile("tsl_nwscript.nss");
       } else {
          // For K1, check if script needs ASC nwscript (ActionStartConversation with 11 params)
          boolean needsAsc = checkNeedsAscNwscript(sourceFile);
          if (needsAsc) {
-            // Try k1_asc_donotuse_nwscript.nss first, then k1_asc_donotuse_nwscript.nss
-            File ascNwscript = new File(toolsDir, "k1_asc_donotuse_nwscript.nss");
-            if (!ascNwscript.exists()) {
-               ascNwscript = new File(toolsDir, "k1_asc_donotuse_nwscript.nss");
-            }
+            // Try k1_asc_donotuse_nwscript.nss first
+            File ascNwscript = CompilerUtil.resolveToolsFile("k1_asc_donotuse_nwscript.nss");
             if (ascNwscript.exists()) {
                return ascNwscript;
             }
          }
          // Default to k1_nwscript.nss
-         return new File(toolsDir, "k1_nwscript.nss");
+         return CompilerUtil.resolveToolsFile("k1_nwscript.nss");
       }
    }
 
@@ -387,8 +374,8 @@ public class CompilerExecutionWrapper {
       if (compilerDir != null && compilerDir.exists()) {
          return compilerDir;
       }
-      // Final fallback to current directory
-      return new File(System.getProperty("user.dir"));
+      // Final fallback to app directory (NOT CWD)
+      return CompilerUtil.getNCSDecompDirectory();
    }
 
    /**
@@ -488,7 +475,7 @@ public class CompilerExecutionWrapper {
     * keep everything self-contained in the tools directory.
     */
    private void buildEnvironmentOverrides() {
-      File toolsDir = new File(System.getProperty("user.dir"), "tools");
+      File toolsDir = CompilerUtil.getToolsDirectory();
 
       // Only apply overrides for legacy compilers that ignore -g or probe registry
       boolean needsRootOverride = compiler == KnownExternalCompilers.KOTOR_TOOL
@@ -545,7 +532,7 @@ public class CompilerExecutionWrapper {
       // Only KOTOR Tool and KOTOR Scripting Tool require registry spoofing
       if (compiler == KnownExternalCompilers.KOTOR_TOOL || compiler == KnownExternalCompilers.KOTOR_SCRIPTING_TOOL) {
          // Use the tools directory as the installation path (where compiler and nwscript files are)
-         File toolsDir = new File(System.getProperty("user.dir"), "tools");
+         File toolsDir = CompilerUtil.getToolsDirectory();
          try {
             RegistrySpoofer spoofer = new RegistrySpoofer(toolsDir, isK2);
             System.out.println("[INFO] CompilerExecutionWrapper: Created RegistrySpoofer for " + compiler.getName());

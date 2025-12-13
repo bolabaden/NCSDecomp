@@ -261,13 +261,18 @@ public class Settings extends Properties implements ActionListener {
 
    private void loadSettingsIntoUI() {
       // File/Directory Settings
-      // Default output directory: ./ncsdecomp_converted relative to current working directory
-      String defaultOutputDir = new File(System.getProperty("user.dir"), "ncsdecomp_converted").getAbsolutePath();
-      this.outputDirectoryField.setText(this.getProperty("Output Directory", defaultOutputDir));
-      this.openDirectoryField.setText(this.getProperty("Open Directory", System.getProperty("user.dir")));
+      // Get the app installation directory (where EXE/JAR is located)
+      // This ensures paths work when app is run from any working directory
+      File appDir = CompilerUtil.getNCSDecompDirectory();
+      File toolsDir = CompilerUtil.getToolsDirectory();
 
-      // Default nwnnsscomp path: tools/ directory
-      String defaultNwnnsscompPath = new File(System.getProperty("user.dir"), "tools").getAbsolutePath();
+      // Default output directory: ./ncsdecomp_converted relative to app directory
+      String defaultOutputDir = new File(appDir, "ncsdecomp_converted").getAbsolutePath();
+      this.outputDirectoryField.setText(this.getProperty("Output Directory", defaultOutputDir));
+      this.openDirectoryField.setText(this.getProperty("Open Directory", appDir.getAbsolutePath()));
+
+      // Default nwnnsscomp path: tools/ directory (relative to app)
+      String defaultNwnnsscompPath = toolsDir.getAbsolutePath();
       // Check FileDecompiler.nwnnsscompPath first to ensure synchronization with actual runtime state
       String nwnnsscompPath = FileDecompiler.nwnnsscompPath != null ? FileDecompiler.nwnnsscompPath : this.getProperty("nwnnsscomp Path", defaultNwnnsscompPath);
 
@@ -336,9 +341,9 @@ public class Settings extends Properties implements ActionListener {
       }
       updateCompilerInfo();
 
-      // Default nwscript paths: tools/ directory + filename
-      String defaultK1Path = new File(new File(System.getProperty("user.dir"), "tools"), "k1_nwscript.nss").getAbsolutePath();
-      String defaultK2Path = new File(new File(System.getProperty("user.dir"), "tools"), "tsl_nwscript.nss").getAbsolutePath();
+      // Default nwscript paths: tools/ directory + filename (relative to app)
+      String defaultK1Path = CompilerUtil.resolveToolsFile("k1_nwscript.nss").getAbsolutePath();
+      String defaultK2Path = CompilerUtil.resolveToolsFile("tsl_nwscript.nss").getAbsolutePath();
       this.k1NwscriptPathField.setText(this.getProperty("K1 nwscript Path", defaultK1Path));
       this.k2NwscriptPathField.setText(this.getProperty("K2 nwscript Path", defaultK2Path));
 
@@ -449,8 +454,37 @@ public class Settings extends Properties implements ActionListener {
       FileDecompiler.isK2Selected = gameVariant.equals("k2") || gameVariant.equals("tsl") || gameVariant.equals("2");
       FileDecompiler.preferSwitches = Boolean.parseBoolean(this.getProperty("Prefer Switches", "false"));
       FileDecompiler.strictSignatures = Boolean.parseBoolean(this.getProperty("Strict Signatures", "false"));
-      String nwnnsscompPath = this.getProperty("nwnnsscomp Path", "");
-      FileDecompiler.nwnnsscompPath = nwnnsscompPath.isEmpty() ? null : nwnnsscompPath;
+
+      // Handle both old "nwnnsscomp Path" and new split "nwnnsscomp Folder Path" + "nwnnsscomp Filename" properties
+      // New properties take precedence
+      String folderPath = this.getProperty("nwnnsscomp Folder Path", "");
+      String filename = this.getProperty("nwnnsscomp Filename", "");
+
+      if (!folderPath.isEmpty() && !filename.isEmpty()) {
+         // Resolve relative paths (like ".\tools") to absolute paths using app directory
+         File folder = new File(folderPath);
+         if (!folder.isAbsolute()) {
+            // Relative path - resolve relative to app directory, NOT CWD
+            folder = new File(CompilerUtil.getNCSDecompDirectory(), folderPath);
+         }
+         File compilerFile = new File(folder, filename);
+         FileDecompiler.nwnnsscompPath = compilerFile.getAbsolutePath();
+         System.out.println("[INFO] Settings.load: Compiler path from split properties: " + FileDecompiler.nwnnsscompPath);
+      } else {
+         // Fall back to old single "nwnnsscomp Path" property (for backward compatibility)
+         String nwnnsscompPath = this.getProperty("nwnnsscomp Path", "");
+         if (!nwnnsscompPath.isEmpty()) {
+            // Resolve relative paths to absolute paths using app directory
+            File compilerFile = new File(nwnnsscompPath);
+            if (!compilerFile.isAbsolute()) {
+               compilerFile = new File(CompilerUtil.getNCSDecompDirectory(), nwnnsscompPath);
+            }
+            FileDecompiler.nwnnsscompPath = compilerFile.getAbsolutePath();
+            System.out.println("[INFO] Settings.load: Compiler path from old property: " + FileDecompiler.nwnnsscompPath);
+         } else {
+            FileDecompiler.nwnnsscompPath = null;
+         }
+      }
    }
 
    /**
@@ -484,20 +518,46 @@ public class Settings extends Properties implements ActionListener {
 
    /**
     * Resets all preferences to their default values.
+    * Uses the app installation directory (not CWD) for paths to ensure
+    * the app works correctly when run from any location.
     */
    public void reset() {
-      // Default output directory: ./ncsdecomp_converted relative to current working directory
-      String defaultOutputDir = new File(System.getProperty("user.dir"), "ncsdecomp_converted").getAbsolutePath();
+      // Get the app installation directory (where EXE/JAR is located)
+      // This ensures paths work when app is run from any working directory
+      File appDir = CompilerUtil.getNCSDecompDirectory();
+      System.out.println("[INFO] Settings.reset: Using app directory: " + appDir.getAbsolutePath());
+
+      // Default output directory: ./ncsdecomp_converted relative to app directory
+      String defaultOutputDir = new File(appDir, "ncsdecomp_converted").getAbsolutePath();
       this.setProperty("Output Directory", defaultOutputDir);
-      this.setProperty("Open Directory", System.getProperty("user.dir"));
-      String defaultNwnnsscompFolderPath = new File(System.getProperty("user.dir"), "tools").getAbsolutePath();
-      String defaultNwnnsscompFilename = "nwnnsscomp.exe";
+      this.setProperty("Open Directory", appDir.getAbsolutePath());
+
+      // Default compiler path: tools/ subdirectory with auto-detected filename
+      File toolsDir = new File(appDir, "tools");
+      String defaultNwnnsscompFolderPath = toolsDir.getAbsolutePath();
+
+      // Auto-detect which compiler exists, falling back to nwnnsscomp_kscript.exe
+      // Priority order matches CompilerUtil.COMPILER_NAMES
+      String defaultNwnnsscompFilename = "nwnnsscomp_kscript.exe"; // Default to actual shipped compiler
+      String[] compilerCandidates = {"nwnnsscomp.exe", "nwnnsscomp_kscript.exe", "nwnnsscomp_ktool.exe"};
+      for (String candidate : compilerCandidates) {
+         File compilerFile = new File(toolsDir, candidate);
+         if (compilerFile.exists() && compilerFile.isFile()) {
+            defaultNwnnsscompFilename = candidate;
+            System.out.println("[INFO] Settings.reset: Auto-detected compiler: " + compilerFile.getAbsolutePath());
+            break;
+         }
+      }
+
       this.setProperty("nwnnsscomp Folder Path", defaultNwnnsscompFolderPath);
       this.setProperty("nwnnsscomp Filename", defaultNwnnsscompFilename);
-      String defaultK1Path = new File(new File(System.getProperty("user.dir"), "tools"), "k1_nwscript.nss").getAbsolutePath();
-      String defaultK2Path = new File(new File(System.getProperty("user.dir"), "tools"), "tsl_nwscript.nss").getAbsolutePath();
+
+      // Default nwscript paths: tools/ subdirectory
+      String defaultK1Path = new File(toolsDir, "k1_nwscript.nss").getAbsolutePath();
+      String defaultK2Path = new File(toolsDir, "tsl_nwscript.nss").getAbsolutePath();
       this.setProperty("K1 nwscript Path", defaultK1Path);
       this.setProperty("K2 nwscript Path", defaultK2Path);
+
       this.setProperty("Game Variant", "k1");
       this.setProperty("Prefer Switches", "false");
       this.setProperty("Strict Signatures", "false");
