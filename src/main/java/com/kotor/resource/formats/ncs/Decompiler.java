@@ -3793,7 +3793,10 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
          TitledBorder border = (TitledBorder) scrollPane.getBorder();
          if (border != null && "Compilation Errors".equals(border.getTitle())) {
             errorScrollPane = scrollPane;
-            errorTextPane = (JTextPane) ((JViewport) scrollPane.getViewport().getView()).getView();
+            java.awt.Component view = scrollPane.getViewport().getView();
+            if (view instanceof JTextPane) {
+               errorTextPane = (JTextPane) view;
+            }
          }
       }
 
