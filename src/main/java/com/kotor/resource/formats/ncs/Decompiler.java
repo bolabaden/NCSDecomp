@@ -1723,8 +1723,12 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
                            compiledNcs = new File(file.getParentFile(), compiledBaseName + ".ncs");
 
                            // Use NwnnsscompConfig to compile (same as FileDecompiler.externalCompile)
-                           boolean isK2 = FileDecompiler.isK2Selected;
-                           System.err.println("DEBUG loadNssFile: Compiling NSS with isK2: " + isK2);
+                           // Read isK2 from Settings directly (not from static field which might be stale)
+                           String gameVariant = Decompiler.settings.getProperty("Game Variant", "k1").toLowerCase();
+                           boolean isK2 = gameVariant.equals("k2") || gameVariant.equals("tsl") || gameVariant.equals("2");
+                           // Also update the static field for consistency
+                           FileDecompiler.isK2Selected = isK2;
+                           System.err.println("DEBUG loadNssFile: Compiling NSS with isK2: " + isK2 + " (from Settings: " + gameVariant + ")");
 
                            // Ensure nwscript.nss is in compiler directory
                            File compilerDir = compiler.getParentFile();
