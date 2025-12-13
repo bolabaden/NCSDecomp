@@ -351,33 +351,35 @@ public class FileDecompiler {
       // This allows viewing bytecode even without round-trip validation
       if (this.checkCompilerExists()) {
          try {
-            System.out.println("[NCSDecomp] Attempting to capture original bytecode from NCS file...");
+            Logger.ncsdecomp("Attempting to capture original bytecode from NCS file...");
             // Use temp directory to avoid creating files outside temp without user consent
             File olddecompiled = this.externalDecompile(file, isK2Selected, null);
             if (olddecompiled != null && olddecompiled.exists()) {
                String originalByteCode = this.readFile(olddecompiled);
                if (originalByteCode != null && !originalByteCode.trim().isEmpty()) {
                   data.setOriginalByteCode(originalByteCode);
-                  System.out.println("[NCSDecomp] Successfully captured original bytecode (" + originalByteCode.length()
+                  Logger.success("Successfully captured original bytecode (" + originalByteCode.length()
                         + " characters)");
                } else {
-                  System.out.println("[NCSDecomp] Warning: Original bytecode file is empty");
+                  Logger.warn("Original bytecode file is empty");
                }
             } else {
-               System.out.println("[NCSDecomp] Warning: Failed to decompile original NCS file to bytecode");
+               Logger.warn("Failed to decompile original NCS file to bytecode");
             }
          } catch (Exception e) {
-            System.out.println("[NCSDecomp] Exception while capturing original bytecode:");
-            System.out.println("[NCSDecomp]   Exception Type: " + e.getClass().getName());
-            System.out.println("[NCSDecomp]   Exception Message: " + e.getMessage());
+            Logger.startErrorSection();
+            Logger.error("Exception while capturing original bytecode:");
+            Logger.error("Exception Type: " + e.getClass().getName());
+            Logger.error("Exception Message: " + e.getMessage());
             if (e.getCause() != null) {
-               System.out.println("[NCSDecomp]   Caused by: " + e.getCause().getClass().getName() + " - "
+               Logger.error("Caused by: " + e.getCause().getClass().getName() + " - "
                      + e.getCause().getMessage());
             }
+            Logger.endSection();
             e.printStackTrace();
          }
       } else {
-         System.out.println("[NCSDecomp] nwnnsscomp.exe not found - cannot capture original bytecode");
+         Logger.warn("nwnnsscomp.exe not found - cannot capture original bytecode");
       }
 
       // Try validation, but don't fail if it doesn't work
@@ -385,15 +387,16 @@ public class FileDecompiler {
       try {
          return this.compileAndCompare(file, data.getCode(), data);
       } catch (Exception e) {
-         System.out.println("[NCSDecomp] Exception during bytecode validation:");
-         System.out.println("[NCSDecomp]   Exception Type: " + e.getClass().getName());
-         System.out.println("[NCSDecomp]   Exception Message: " + e.getMessage());
+         Logger.startErrorSection();
+         Logger.error("Exception during bytecode validation:");
+         Logger.error("Exception Type: " + e.getClass().getName());
+         Logger.error("Exception Message: " + e.getMessage());
          if (e.getCause() != null) {
-            System.out.println(
-                  "[NCSDecomp]   Caused by: " + e.getCause().getClass().getName() + " - " + e.getCause().getMessage());
+            Logger.error("Caused by: " + e.getCause().getClass().getName() + " - " + e.getCause().getMessage());
          }
+         Logger.endSection();
          e.printStackTrace();
-         System.out.println("[NCSDecomp] Showing decompiled source anyway (validation failed)");
+         Logger.warn("Showing decompiled source anyway (validation failed)");
          return PARTIAL_COMPILE;
       }
    }
@@ -617,13 +620,12 @@ public class FileDecompiler {
       // If compiler doesn't exist, skip validation but still return success for
       // decompilation
       if (!this.checkCompilerExists()) {
-         System.out.println(
-               "[NCSDecomp] nwnnsscomp.exe not found - skipping bytecode validation. Decompiled source will still be shown.");
+         Logger.warn("nwnnsscomp.exe not found - skipping bytecode validation. Decompiled source will still be shown.");
          File compiler = this.getCompilerFile();
          if (compiler != null) {
-            System.out.println("[NCSDecomp] Looking for: " + compiler.getAbsolutePath());
+            Logger.info("Looking for: " + compiler.getAbsolutePath());
          } else {
-            System.out.println("[NCSDecomp] No compiler configured");
+            Logger.warn("No compiler configured");
          }
          return PARTIAL_COMPILE;
       }
@@ -633,39 +635,50 @@ public class FileDecompiler {
       File olddecompiled = null;
 
       try {
-         System.out.println("[NCSDecomp] Decompiling original NCS file to capture bytecode...");
+         Logger.ncsdecomp("Decompiling original NCS file to capture bytecode...");
+         Logger.startCompilerSection();
          // Use temp directory to avoid creating files outside temp without user consent
          olddecompiled = this.externalDecompile(file, isK2Selected, null);
+         Logger.endSection();
          if (olddecompiled == null || !olddecompiled.exists()) {
-            System.out.println("[NCSDecomp] ERROR: nwnnsscomp decompile of original NCS file failed.");
-            System.out.println("[NCSDecomp]   Expected output file: "
+            Logger.startErrorSection();
+            Logger.error("nwnnsscomp decompile of original NCS file failed.");
+            Logger.error("Expected output file: "
                   + (olddecompiled != null ? olddecompiled.getAbsolutePath() : "null"));
-            System.out.println("[NCSDecomp]   Check nwnnsscomp output above for details.");
+            Logger.error("Check nwnnsscomp output above for details.");
+            Logger.endSection();
             return PARTIAL_COMPILE;
          }
 
          data.setOriginalByteCode(this.readFile(olddecompiled));
-         System.out.println("[NCSDecomp] Compiling generated NSS file...");
+         Logger.ncsdecomp("Compiling generated NSS file...");
+         Logger.startCompilerSection();
          // Use same directory as input NSS file for output NCS (user has already chosen
          // this location via save dialog)
          newcompiled = this.externalCompile(newfile, isK2Selected, newfile.getParentFile());
+         Logger.endSection();
          if (newcompiled == null || !newcompiled.exists()) {
-            System.out.println("[NCSDecomp] ERROR: nwnnsscomp compilation of generated NSS file failed.");
-            System.out.println("[NCSDecomp]   Input file: " + newfile.getAbsolutePath());
-            System.out.println(
-                  "[NCSDecomp]   Expected output: " + (newcompiled != null ? newcompiled.getAbsolutePath() : "null"));
-            System.out.println("[NCSDecomp]   Check nwnnsscomp output above for compilation errors.");
+            Logger.startErrorSection();
+            Logger.error("nwnnsscomp compilation of generated NSS file failed.");
+            Logger.error("Input file: " + newfile.getAbsolutePath());
+            Logger.error("Expected output: " + (newcompiled != null ? newcompiled.getAbsolutePath() : "null"));
+            Logger.error("Check nwnnsscomp output above for compilation errors.");
+            Logger.endSection();
             return PARTIAL_COMPILE;
          }
 
-         System.out.println("[NCSDecomp] Decompiling newly compiled NCS file to capture bytecode...");
+         Logger.ncsdecomp("Decompiling newly compiled NCS file to capture bytecode...");
+         Logger.startCompilerSection();
          // Use temp directory for pcode files (intermediate files, cleaned up after use)
          newdecompiled = this.externalDecompile(newcompiled, isK2Selected, null);
+         Logger.endSection();
          if (newdecompiled == null || !newdecompiled.exists()) {
-            System.out.println("[NCSDecomp] ERROR: nwnnsscomp decompile of newly compiled file failed.");
-            System.out.println("[NCSDecomp]   Expected output file: "
+            Logger.startErrorSection();
+            Logger.error("nwnnsscomp decompile of newly compiled file failed.");
+            Logger.error("Expected output file: "
                   + (newdecompiled != null ? newdecompiled.getAbsolutePath() : "null"));
-            System.out.println("[NCSDecomp]   Check nwnnsscomp output above for details.");
+            Logger.error("Check nwnnsscomp output above for details.");
+            Logger.endSection();
             return PARTIAL_COMPILE;
          }
 
@@ -682,16 +695,17 @@ public class FileDecompiler {
       } catch (Exception e) {
          // Catch any exceptions during compilation/validation and continue with partial
          // result
-         System.out.println("[NCSDecomp] EXCEPTION during bytecode validation:");
-         System.out.println("[NCSDecomp]   Exception Type: " + e.getClass().getName());
-         System.out.println("[NCSDecomp]   Exception Message: " + e.getMessage());
+         Logger.startErrorSection();
+         Logger.error("EXCEPTION during bytecode validation:");
+         Logger.error("Exception Type: " + e.getClass().getName());
+         Logger.error("Exception Message: " + e.getMessage());
          if (e.getCause() != null) {
-            System.out.println(
-                  "[NCSDecomp]   Caused by: " + e.getCause().getClass().getName() + " - " + e.getCause().getMessage());
+            Logger.error("Caused by: " + e.getCause().getClass().getName() + " - " + e.getCause().getMessage());
          }
-         System.out.println("[NCSDecomp]   Stack trace:");
+         Logger.error("Stack trace:");
+         Logger.endSection();
          e.printStackTrace();
-         System.out.println("[NCSDecomp] Continuing with decompiled source (validation failed)");
+         Logger.warn("Continuing with decompiled source (validation failed)");
          return PARTIAL_COMPILE;
       } finally {
          try {
@@ -983,11 +997,13 @@ public class FileDecompiler {
    private File externalDecompile(File in, boolean k2, File outputDir) {
       File compiler = getCompilerFile();
       if (compiler == null || !compiler.exists()) {
+         Logger.startErrorSection();
          if (compiler != null) {
-            System.out.println("[NCSDecomp] ERROR: Compiler not found: " + compiler.getAbsolutePath());
+            Logger.error("Compiler not found: " + compiler.getAbsolutePath());
          } else {
-            System.out.println("[NCSDecomp] ERROR: No compiler configured");
+            Logger.error("No compiler configured");
          }
+         Logger.endSection();
          return null;
       }
 
@@ -1081,10 +1097,11 @@ public class FileDecompiler {
 
          String[] args = config.getDecompileArgs(compiler.getAbsolutePath());
 
-         System.out.println("[NCSDecomp] Using compiler: " + chosenCompiler.getName() + " (SHA256: "
+         Logger.startNCSDecompSection();
+         Logger.ncsdecomp("Using compiler: " + chosenCompiler.getName() + " (SHA256: "
                + config.getSha256Hash().substring(0, 16) + "...)");
-         System.out.println("[NCSDecomp] Input file: " + in.getAbsolutePath());
-         System.out.println("[NCSDecomp] Expected output: " + result.getAbsolutePath());
+         Logger.ncsdecomp("Input file: " + in.getAbsolutePath());
+         Logger.ncsdecomp("Expected output: " + result.getAbsolutePath());
 
          // Determine working directory - legacy compilers need their own directory
          File workingDir;
@@ -1116,39 +1133,44 @@ public class FileDecompiler {
 
          // Read output
          StringBuilder output = new StringBuilder();
+         Logger.startCompilerSection();
          try (java.io.BufferedReader reader = new java.io.BufferedReader(
                new java.io.InputStreamReader(proc.getInputStream()))) {
             String line;
             while ((line = reader.readLine()) != null) {
                output.append(line).append("\n");
-               System.out.println("[nwnnsscomp] " + line);
+               Logger.compiler(line);
             }
          }
+         Logger.endSection();
 
          int exitCode = proc.waitFor();
          if (exitCode != 0) {
-            System.out.println("[NCSDecomp] nwnnsscomp.exe exited with code: " + exitCode);
+            Logger.warn("nwnnsscomp.exe exited with code: " + exitCode);
          }
       } catch (IOException e) {
          // Check if this is an elevation error
          String errorMsg = e.getMessage();
+         Logger.startErrorSection();
          if (errorMsg != null && (errorMsg.contains("error=740") || errorMsg.contains("requires administrator"))) {
-            System.out.println("[NCSDecomp] EXCEPTION during external decompile:");
-            System.out.println("[NCSDecomp]   Elevation required - compiler needs administrator privileges.");
-            System.out.println("[NCSDecomp]   Decompiled code is still available, but bytecode capture failed.");
+            Logger.error("EXCEPTION during external decompile:");
+            Logger.error("Elevation required - compiler needs administrator privileges.");
+            Logger.error("Decompiled code is still available, but bytecode capture failed.");
          } else {
-            System.out.println("[NCSDecomp] EXCEPTION during external decompile:");
-            System.out.println("[NCSDecomp]   Exception Type: " + e.getClass().getName());
+            Logger.error("EXCEPTION during external decompile:");
+            Logger.error("Exception Type: " + e.getClass().getName());
          }
-         System.out.println("[NCSDecomp]   Exception Message: " + e.getMessage());
+         Logger.error("Exception Message: " + e.getMessage());
          if (e.getCause() != null) {
-            System.out.println(
-                  "[NCSDecomp]   Caused by: " + e.getCause().getClass().getName() + " - " + e.getCause().getMessage());
+            Logger.error("Caused by: " + e.getCause().getClass().getName() + " - " + e.getCause().getMessage());
          }
+         Logger.endSection();
          e.printStackTrace();
          return null;
       } catch (InterruptedException e) {
-         System.out.println("[NCSDecomp] EXCEPTION during external decompile (interrupted): " + e.getMessage());
+         Logger.startErrorSection();
+         Logger.error("EXCEPTION during external decompile (interrupted): " + e.getMessage());
+         Logger.endSection();
          e.printStackTrace();
          return null;
       } finally {
@@ -1165,12 +1187,16 @@ public class FileDecompiler {
       }
 
       if (!result.exists()) {
-         System.out.println("[NCSDecomp] ERROR: Expected output file does not exist: " + result.getAbsolutePath());
-         System.out.println("[NCSDecomp]   This usually means nwnnsscomp.exe failed or produced no output.");
-         System.out.println("[NCSDecomp]   Check the nwnnsscomp output above for error messages.");
+         Logger.startErrorSection();
+         Logger.error("Expected output file does not exist: " + result.getAbsolutePath());
+         Logger.error("This usually means nwnnsscomp.exe failed or produced no output.");
+         Logger.error("Check the nwnnsscomp output above for error messages.");
+         Logger.endSection();
+         Logger.endSection();
          return null;
       }
 
+      Logger.endSection();
       return result;
    }
 
@@ -1228,11 +1254,13 @@ public class FileDecompiler {
       try {
          File compiler = getCompilerFile();
          if (compiler == null || !compiler.exists()) {
+            Logger.startErrorSection();
             if (compiler != null) {
-               System.out.println("[NCSDecomp] ERROR: Compiler not found: " + compiler.getAbsolutePath());
+               Logger.error("Compiler not found: " + compiler.getAbsolutePath());
             } else {
-               System.out.println("[NCSDecomp] ERROR: No compiler configured");
+               Logger.error("No compiler configured");
             }
+            Logger.endSection();
             return null;
          }
 
@@ -1271,34 +1299,41 @@ public class FileDecompiler {
             java.util.Map<String, String> env = wrapper.getEnvironmentOverrides();
             File workingDir = wrapper.getWorkingDirectory();
 
-            System.out.println("[NCSDecomp] Using compiler: " + wrapper.getCompiler().getName());
-            System.out.println("[NCSDecomp] Input file: " + file.getAbsolutePath());
-            System.out.println("[NCSDecomp] Expected output: " + result.getAbsolutePath());
-            System.out.println("[NCSDecomp] Working directory: " + workingDir.getAbsolutePath());
+            Logger.startNCSDecompSection();
+            Logger.ncsdecomp("Using compiler: " + wrapper.getCompiler().getName());
+            Logger.ncsdecomp("Input file: " + file.getAbsolutePath());
+            Logger.ncsdecomp("Expected output: " + result.getAbsolutePath());
+            Logger.ncsdecomp("Working directory: " + workingDir.getAbsolutePath());
 
             // Capture compiler output to check for NwnStdLoader error
             boolean needsRegistrySpoof = false;
 
             try {
                // First compilation attempt
-               System.out.println("[NCSDecomp] First compilation attempt (without registry spoofing)");
+               Logger.ncsdecomp("First compilation attempt (without registry spoofing)");
+               Logger.startCompilerSection();
                String output = executeCompilerAndCaptureOutput(args, workingDir, env);
+               Logger.endSection();
 
                // Check if compilation succeeded
                if (result.exists()) {
-                  System.out.println("[NCSDecomp] Compilation succeeded without registry spoofing");
+                  Logger.success("Compilation succeeded without registry spoofing");
+                  Logger.endSection();
                   return result;
                }
 
                // Check if we need registry spoofing (look for NwnStdLoader error)
                if (output.contains("Error: Couldn't initialize the NwnStdLoader")) {
-                  System.out.println("[NCSDecomp] Detected NwnStdLoader error - registry spoofing required");
+                  Logger.warn("Detected NwnStdLoader error - registry spoofing required");
                   needsRegistrySpoof = true;
                } else {
-                  System.out.println("[NCSDecomp] Compilation failed but no NwnStdLoader error detected");
-                  System.out.println("[NCSDecomp] ERROR: Expected output file does not exist: " + result.getAbsolutePath());
-                  System.out.println("[NCSDecomp]   This usually means nwnnsscomp.exe compilation failed.");
-                  System.out.println("[NCSDecomp]   Compiler output:\n" + output);
+                  Logger.warn("Compilation failed but no NwnStdLoader error detected");
+                  Logger.startErrorSection();
+                  Logger.error("Expected output file does not exist: " + result.getAbsolutePath());
+                  Logger.error("This usually means nwnnsscomp.exe compilation failed.");
+                  Logger.compilerOutput(output);
+                  Logger.endSection();
+                  Logger.endSection();
                   return null;
                }
             } catch (IOException ioEx) {
@@ -1318,20 +1353,25 @@ public class FileDecompiler {
                   if (spoofer instanceof RegistrySpoofer) {
                      try {
                         ((RegistrySpoofer) spoofer).activate();
-                        System.out.println("[NCSDecomp] Registry spoofing activated, retrying compilation");
+                        Logger.ncsdecomp("Registry spoofing activated, retrying compilation");
                      } catch (SecurityException e) {
-                        System.out.println("[NCSDecomp] WARNING: Registry spoofing failed (permission denied): " + e.getMessage());
-                        System.out.println("[NCSDecomp]   Attempting compilation without registry spoofing (may fail)");
+                        Logger.warn("Registry spoofing failed (permission denied): " + e.getMessage());
+                        Logger.warn("Attempting compilation without registry spoofing (may fail)");
                      }
                   }
 
                   // Retry compilation with registry spoofing
-                  System.out.println("[NCSDecomp] Retry compilation attempt (with registry spoofing)");
+                  Logger.ncsdecomp("Retry compilation attempt (with registry spoofing)");
+                  Logger.startCompilerSection();
                   String output = executeCompilerAndCaptureOutput(args, workingDir, env);
+                  Logger.endSection();
 
                   if (!result.exists()) {
-                     System.out.println("[NCSDecomp] ERROR: Expected output file does not exist after retry: " + result.getAbsolutePath());
-                     System.out.println("[NCSDecomp]   Compiler output:\n" + output);
+                     Logger.startErrorSection();
+                     Logger.error("Expected output file does not exist after retry: " + result.getAbsolutePath());
+                     Logger.compilerOutput(output);
+                     Logger.endSection();
+                     Logger.endSection();
                      return null;
                   }
 
@@ -1350,19 +1390,20 @@ public class FileDecompiler {
       } catch (IOException e) {
          // Check if this is an elevation error
          String errorMsg = e.getMessage();
+         Logger.startErrorSection();
          if (errorMsg != null && (errorMsg.contains("error=740") || errorMsg.contains("requires administrator"))) {
-            System.out.println("[NCSDecomp] EXCEPTION during external compile:");
-            System.out.println("[NCSDecomp]   Elevation required - compiler needs administrator privileges.");
-            System.out.println("[NCSDecomp]   Round-trip validation cannot proceed without elevation.");
+            Logger.error("EXCEPTION during external compile:");
+            Logger.error("Elevation required - compiler needs administrator privileges.");
+            Logger.error("Round-trip validation cannot proceed without elevation.");
          } else {
-            System.out.println("[NCSDecomp] EXCEPTION during external compile:");
-            System.out.println("[NCSDecomp]   Exception Type: " + e.getClass().getName());
+            Logger.error("EXCEPTION during external compile:");
+            Logger.error("Exception Type: " + e.getClass().getName());
          }
-         System.out.println("[NCSDecomp]   Exception Message: " + e.getMessage());
+         Logger.error("Exception Message: " + e.getMessage());
          if (e.getCause() != null) {
-            System.out.println(
-                  "[NCSDecomp]   Caused by: " + e.getCause().getClass().getName() + " - " + e.getCause().getMessage());
+            Logger.error("Caused by: " + e.getCause().getClass().getName() + " - " + e.getCause().getMessage());
          }
+         Logger.endSection();
          e.printStackTrace();
          return null;
       }
@@ -1396,14 +1437,14 @@ public class FileDecompiler {
          String line;
          while ((line = reader.readLine()) != null) {
             output.append(line).append("\n");
-            // Also print to console for user visibility
-            System.out.println("[nwnnsscomp] " + line);
+            // Also print to console for user visibility with proper formatting
+            Logger.compiler(line);
          }
       }
 
       try {
          int exitCode = proc.waitFor();
-         System.out.println("[NCSDecomp] Compiler exit code: " + exitCode);
+         Logger.ncsdecomp("Compiler exit code: " + exitCode);
       } catch (InterruptedException e) {
          Thread.currentThread().interrupt();
          throw new IOException("Compiler process interrupted", e);
@@ -1620,14 +1661,14 @@ public class FileDecompiler {
 
          // Decode bytecode - wrap in try-catch to handle corrupted files
          try {
-            System.err.println("DEBUG decompileNcs: starting decode for " + file.getName());
+            Logger.debug("decompileNcs: starting decode for " + file.getName());
             System.out.println("[INFO] decompileNcs: READING NCS file for decompilation: " + file.getAbsolutePath());
             commands = new Decoder(new BufferedInputStream(new FileInputStream(file)), this.actions).decode();
             System.out.println("[INFO] decompileNcs: Read NCS file: " + file.getAbsolutePath());
-            System.err.println("DEBUG decompileNcs: decode successful, commands length="
+            Logger.debug("decompileNcs: decode successful, commands length="
                   + (commands != null ? commands.length() : 0));
          } catch (Exception decodeEx) {
-            System.err.println("DEBUG decompileNcs: decode FAILED - " + decodeEx.getMessage());
+            Logger.debug("decompileNcs: decode FAILED - " + decodeEx.getMessage());
             System.out.println("Error during bytecode decoding: " + decodeEx.getMessage());
             // Create comprehensive fallback stub for decoding errors
             long fileSize = file.exists() ? file.length() : -1;
@@ -1653,9 +1694,9 @@ public class FileDecompiler {
             System.err.println(
                   "DEBUG decompileNcs: starting parse, commands length=" + (commands != null ? commands.length() : 0));
             ast = new Parser(new Lexer(new PushbackReader(new StringReader(commands), 1024))).parse();
-            System.err.println("DEBUG decompileNcs: parse successful");
+            Logger.debug("decompileNcs: parse successful");
          } catch (Exception parseEx) {
-            System.err.println("DEBUG decompileNcs: parse FAILED - " + parseEx.getMessage());
+            Logger.debug("decompileNcs: parse FAILED - " + parseEx.getMessage());
             System.out.println("Error during parsing: " + parseEx.getMessage());
             System.out.println("Attempting to recover by trying partial parsing strategies...");
 
@@ -1761,9 +1802,9 @@ public class FileDecompiler {
 
          try {
             subdata.splitOffSubroutines(ast);
-            System.err.println("DEBUG splitOffSubroutines: success, numSubs=" + subdata.numSubs());
+            Logger.debug("splitOffSubroutines: success, numSubs=" + subdata.numSubs());
          } catch (Exception e) {
-            System.err.println("DEBUG splitOffSubroutines: ERROR - " + e.getMessage());
+            Logger.debug("splitOffSubroutines: ERROR - " + e.getMessage());
             e.printStackTrace(System.err);
             System.out.println("Error splitting subroutines, attempting to continue: " + e.getMessage());
             // Try to get main sub at least
@@ -1772,7 +1813,7 @@ public class FileDecompiler {
                System.err
                      .println("DEBUG splitOffSubroutines: recovered mainsub=" + (mainsub != null ? "found" : "null"));
             } catch (Exception e2) {
-               System.err.println("DEBUG splitOffSubroutines: could not recover mainsub - " + e2.getMessage());
+               Logger.debug("splitOffSubroutines: could not recover mainsub - " + e2.getMessage());
                System.out.println("Could not recover main subroutine: " + e2.getMessage());
             }
          }
@@ -1944,7 +1985,7 @@ public class FileDecompiler {
          dotypes = null;
          nodedata.clearProtoData();
 
-         System.err.println("DEBUG decompileNcs: iterating subroutines, numSubs=" + subdata.numSubs());
+         Logger.debug("decompileNcs: iterating subroutines, numSubs=" + subdata.numSubs());
          int subCount = 0;
          for (ASubroutine iterSub : this.subIterable(subdata)) {
             subCount++;
@@ -1956,7 +1997,7 @@ public class FileDecompiler {
                cleanpass = new CleanupPass(mainpass.getScriptRoot(), nodedata, subdata, mainpass.getState());
                cleanpass.apply();
                data.addSub(mainpass.getState());
-               System.err.println("DEBUG decompileNcs: successfully added subroutine " + subCount);
+               Logger.debug("decompileNcs: successfully added subroutine " + subCount);
                mainpass.done();
                cleanpass.done();
             } catch (Exception e) {
@@ -1983,13 +2024,13 @@ public class FileDecompiler {
          }
 
          // Generate code for main subroutine - recover if this fails
-         System.err.println("DEBUG decompileNcs: mainsub="
+         Logger.debug("decompileNcs: mainsub="
                + (mainsub != null ? "found at pos=" + nodedata.getPos(mainsub) : "null"));
          if (mainsub != null) {
             try {
-               System.err.println("DEBUG decompileNcs: creating MainPass for mainsub");
+               Logger.debug("decompileNcs: creating MainPass for mainsub");
                mainpass = new MainPass(subdata.getState(mainsub), nodedata, subdata, this.actions);
-               System.err.println("DEBUG decompileNcs: applying mainpass to mainsub");
+               Logger.debug("decompileNcs: applying mainpass to mainsub");
                mainsub.apply(mainpass);
 
                try {
