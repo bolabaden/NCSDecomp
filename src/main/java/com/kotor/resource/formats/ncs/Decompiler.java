@@ -136,6 +136,9 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
    // Store compilation errors per file for prominent display
    private final java.util.Map<File, java.util.List<String>> compilationErrors = new java.util.HashMap<>();
 
+   // Store decompilation errors per file for prominent display in bytecode view
+   private final java.util.Map<File, java.util.List<String>> decompilationErrors = new java.util.HashMap<>();
+
    /**
     * Log severity levels.
     */
@@ -386,8 +389,9 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
                decompiler.allLogLines.add(new LogLine(text, severity));
             }
 
-            // Extract compilation errors from compiler output
+            // Extract compilation and decompilation errors from output
             extractAndDisplayCompilationErrors(text, decompiler);
+            extractAndDisplayDecompilationErrors(text, decompiler);
 
             // Only append if it should be shown based on current filter
             if (shouldShowLog(severity, decompiler)) {
@@ -522,6 +526,117 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
                               }
                            }
                         }
+                     }
+                  }
+               }
+            }
+         }
+      }
+      
+      /**
+       * Extracts decompilation errors from log output and displays them prominently in bytecode view.
+       */
+      private static void extractAndDisplayDecompilationErrors(String text, Decompiler decompiler) {
+         if (text == null || decompiler == null) {
+            return;
+         }
+         
+         // Strip ANSI codes for parsing
+         String textWithoutAnsi = text.replaceAll("\u001B\\[[0-9;]+m", "");
+         String upper = textWithoutAnsi.toUpperCase();
+         
+         // Check for decompilation error patterns
+         boolean isDecompilationError = false;
+         String errorMessage = null;
+         
+         if (upper.contains("DECOMPILE") && (upper.contains("FAILED") || upper.contains("ERROR") || upper.contains("EXCEPTION"))) {
+            isDecompilationError = true;
+            errorMessage = textWithoutAnsi.trim();
+         } else if (upper.contains("NWNNSCOMP DECOMPILE") && upper.contains("FAILED")) {
+            isDecompilationError = true;
+            errorMessage = textWithoutAnsi.trim();
+         } else if (upper.contains("EXCEPTION DURING EXTERNAL DECOMPILE")) {
+            isDecompilationError = true;
+            errorMessage = textWithoutAnsi.trim();
+         } else if (upper.contains("BYTECODE CAPTURE FAILED")) {
+            isDecompilationError = true;
+            errorMessage = textWithoutAnsi.trim();
+         }
+         
+         if (isDecompilationError && errorMessage != null) {
+            // Try to find the file from context
+            synchronized (decompiler.allLogLines) {
+               File matchingFile = null;
+               
+               // Look for file references in recent log lines
+               for (int i = decompiler.allLogLines.size() - 1; i >= 0 && i >= decompiler.allLogLines.size() - 15; i--) {
+                  LogLine logLine = decompiler.allLogLines.get(i);
+                  String lineText = logLine.text.replaceAll("\u001B\\[[0-9;]+m", "");
+                  String lineUpper = lineText.toUpperCase();
+                  
+                  // Check for file references
+                  if (lineUpper.contains("DECOMPILING:") || lineUpper.contains("INPUT FILE:") || 
+                      lineUpper.contains("EXPECTED OUTPUT:")) {
+                     // Extract filename from the line
+                     java.util.regex.Pattern filePattern = java.util.regex.Pattern.compile("([^/\\\\]+\\.(ncs|nss))", java.util.regex.Pattern.CASE_INSENSITIVE);
+                     java.util.regex.Matcher fileMatcher = filePattern.matcher(lineText);
+                     if (fileMatcher.find()) {
+                        String filename = fileMatcher.group(1);
+                        // Find matching file
+                        synchronized (decompiler.hash_TabComponent2File) {
+                           for (File file : decompiler.hash_TabComponent2File.values()) {
+                              if (file != null && (file.getName().equals(filename) || 
+                                  file.getName().startsWith(filename.replace(".ncs", "").replace(".nss", "")))) {
+                                 matchingFile = file;
+                                 break;
+                              }
+                           }
+                        }
+                        if (matchingFile != null) {
+                           break;
+                        }
+                     }
+                  }
+               }
+               
+               // If no file found, try to get the currently selected tab's file
+               if (matchingFile == null) {
+                  SwingUtilities.invokeLater(() -> {
+                     JComponent tabComponent = decompiler.getSelectedTabComponent();
+                     if (tabComponent != null) {
+                        File tabFile = decompiler.hash_TabComponent2File.get(tabComponent);
+                        if (tabFile != null) {
+                           synchronized (decompiler.decompilationErrors) {
+                              java.util.List<String> errors = decompiler.decompilationErrors.get(tabFile);
+                              if (errors == null) {
+                                 errors = new java.util.ArrayList<>();
+                                 decompiler.decompilationErrors.put(tabFile, errors);
+                              }
+                              
+                              if (!errors.contains(errorMessage)) {
+                                 errors.add(errorMessage);
+                                 decompiler.showDecompilationErrorsForFile(tabFile);
+                              }
+                           }
+                        }
+                     }
+                  });
+               } else {
+                  // Collect this error
+                  synchronized (decompiler.decompilationErrors) {
+                     java.util.List<String> errors = decompiler.decompilationErrors.get(matchingFile);
+                     if (errors == null) {
+                        errors = new java.util.ArrayList<>();
+                        decompiler.decompilationErrors.put(matchingFile, errors);
+                     }
+                     
+                     if (!errors.contains(errorMessage)) {
+                        errors.add(errorMessage);
+                        
+                        // Update error display
+                        SwingUtilities.invokeLater(() -> {
+                           decompiler.showDecompilationErrorsForFile(matchingFile);
+                        });
                      }
                   }
                }
@@ -2899,9 +3014,19 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
                   }
                }
 
-               // Get right component (recompiled bytecode)
+               // Get right component (recompiled bytecode or error display)
                java.awt.Component rightComp = byteCodePane.getRightComponent();
-               if (rightComp instanceof JScrollPane) {
+               
+               // Check if there are decompilation errors to display
+               java.util.List<String> decompErrors = null;
+               synchronized (this.decompilationErrors) {
+                  decompErrors = this.decompilationErrors.get(file);
+               }
+               
+               if (decompErrors != null && !decompErrors.isEmpty()) {
+                  // Show decompilation errors instead of bytecode
+                  this.showDecompilationErrorsInBytecodeView(tabComponent, decompErrors);
+               } else if (rightComp instanceof JScrollPane) {
                   JTextPane newTextArea = (JTextPane) ((JScrollPane) rightComp).getViewport().getView();
                   if (newTextArea != null && newTextArea.getText().trim().isEmpty()) {
                      String newByteCode = this.fileDecompiler.getNewByteCode(file);
