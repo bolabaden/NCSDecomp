@@ -442,17 +442,18 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
                String errorMsg = matcher.group(3).trim();
 
                // Find the file that matches this error
-               File matchingFile = null;
+               final File[] matchingFileRef = new File[1];
                synchronized (decompiler.hash_TabComponent2File) {
                   for (File file : decompiler.hash_TabComponent2File.values()) {
                      if (file != null && (file.getName().equals(filename) || file.getName().startsWith(filename.replace(".nss", "")))) {
-                        matchingFile = file;
+                        matchingFileRef[0] = file;
                         break;
                      }
                   }
                }
 
-               if (matchingFile != null) {
+               if (matchingFileRef[0] != null) {
+                  final File matchingFile = matchingFileRef[0];
                   // Collect this error
                   synchronized (decompiler.compilationErrors) {
                      java.util.List<String> errors = decompiler.compilationErrors.get(matchingFile);
@@ -495,18 +496,19 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
 
                      if (lastCompilingFile != null) {
                         // Find matching file
-                        File matchingFile = null;
+                        final File[] matchingFileRef = new File[1];
                         synchronized (decompiler.hash_TabComponent2File) {
                            for (File file : decompiler.hash_TabComponent2File.values()) {
                               if (file != null && file.getName().equals(lastCompilingFile) ||
                                   file.getName().startsWith(lastCompilingFile.replace(".nss", ""))) {
-                                 matchingFile = file;
+                                 matchingFileRef[0] = file;
                                  break;
                               }
                            }
                         }
 
-                        if (matchingFile != null) {
+                        if (matchingFileRef[0] != null) {
+                           final File matchingFile = matchingFileRef[0];
                            // Collect all error lines for this file
                            java.util.List<String> errorLines = new java.util.ArrayList<>();
                            for (int i = decompiler.allLogLines.size() - 1; i >= 0 && i >= decompiler.allLogLines.size() - 20; i--) {
@@ -532,7 +534,7 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
             }
          }
       }
-      
+
       /**
        * Extracts decompilation errors from log output and displays them prominently in bytecode view.
        */
@@ -540,15 +542,15 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
          if (text == null || decompiler == null) {
             return;
          }
-         
+
          // Strip ANSI codes for parsing
          String textWithoutAnsi = text.replaceAll("\u001B\\[[0-9;]+m", "");
          String upper = textWithoutAnsi.toUpperCase();
-         
+
          // Check for decompilation error patterns
          boolean isDecompilationError = false;
          String errorMessage = null;
-         
+
          if (upper.contains("DECOMPILE") && (upper.contains("FAILED") || upper.contains("ERROR") || upper.contains("EXCEPTION"))) {
             isDecompilationError = true;
             errorMessage = textWithoutAnsi.trim();
@@ -562,11 +564,11 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
             isDecompilationError = true;
             errorMessage = textWithoutAnsi.trim();
          }
-         
+
          if (isDecompilationError && errorMessage != null) {
             // Try to find the file from context
             synchronized (decompiler.allLogLines) {
-               File matchingFile = null;
+               final File[] matchingFileRef = new File[1];
                
                // Look for file references in recent log lines
                for (int i = decompiler.allLogLines.size() - 1; i >= 0 && i >= decompiler.allLogLines.size() - 15; i--) {
@@ -587,12 +589,12 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
                            for (File file : decompiler.hash_TabComponent2File.values()) {
                               if (file != null && (file.getName().equals(filename) || 
                                   file.getName().startsWith(filename.replace(".ncs", "").replace(".nss", "")))) {
-                                 matchingFile = file;
+                                 matchingFileRef[0] = file;
                                  break;
                               }
                            }
                         }
-                        if (matchingFile != null) {
+                        if (matchingFileRef[0] != null) {
                            break;
                         }
                      }
@@ -600,7 +602,7 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
                }
                
                // If no file found, try to get the currently selected tab's file
-               if (matchingFile == null) {
+               if (matchingFileRef[0] == null) {
                   SwingUtilities.invokeLater(() -> {
                      JComponent tabComponent = decompiler.getSelectedTabComponent();
                      if (tabComponent != null) {
@@ -622,6 +624,7 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
                      }
                   });
                } else {
+                  final File matchingFile = matchingFileRef[0];
                   // Collect this error
                   synchronized (decompiler.decompilationErrors) {
                      java.util.List<String> errors = decompiler.decompilationErrors.get(matchingFile);
@@ -3016,13 +3019,13 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
 
                // Get right component (recompiled bytecode or error display)
                java.awt.Component rightComp = byteCodePane.getRightComponent();
-               
+
                // Check if there are decompilation errors to display
                java.util.List<String> decompErrors = null;
                synchronized (this.decompilationErrors) {
                   decompErrors = this.decompilationErrors.get(file);
                }
-               
+
                if (decompErrors != null && !decompErrors.isEmpty()) {
                   // Show decompilation errors instead of bytecode
                   this.showDecompilationErrorsInBytecodeView(tabComponent, decompErrors);
@@ -3948,6 +3951,113 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
       }
 
       errorText.append("\n═══════════════════════════════════════════════════════════════════════════════\n");
+
+      // Set error text
+      errorTextPane.setText(errorText.toString());
+      errorTextPane.setCaretPosition(0);
+
+      // Show error panel
+      byteCodeSplitPane.setRightComponent(errorScrollPane);
+      byteCodeSplitPane.setDividerLocation(0.5); // Split evenly
+   }
+
+   /**
+    * Shows decompilation errors for a file by finding its tab and displaying errors in bytecode view.
+    * @param file The file to show errors for
+    */
+   private void showDecompilationErrorsForFile(File file) {
+      if (file == null) {
+         return;
+      }
+
+      java.util.List<String> errors;
+      synchronized (this.decompilationErrors) {
+         errors = this.decompilationErrors.get(file);
+      }
+
+      if (errors == null || errors.isEmpty()) {
+         return;
+      }
+
+      // Find the tab component for this file
+      JComponent tabComponent = null;
+      synchronized (this.hash_TabComponent2File) {
+         for (java.util.Map.Entry<JComponent, File> entry : this.hash_TabComponent2File.entrySet()) {
+            if (file.equals(entry.getValue())) {
+               tabComponent = entry.getKey();
+               break;
+            }
+         }
+      }
+
+      if (tabComponent != null) {
+         this.showDecompilationErrorsInBytecodeView(tabComponent, errors);
+      }
+   }
+
+   /**
+    * Shows decompilation errors in the right panel of the bytecode view.
+    * @param tabComponent The tab component to show errors for
+    * @param errorMessages List of error messages to display
+    */
+   private void showDecompilationErrorsInBytecodeView(JComponent tabComponent, java.util.List<String> errorMessages) {
+      if (tabComponent == null || errorMessages == null || errorMessages.isEmpty()) {
+         return;
+      }
+
+      // Get the bytecode split pane (panels[1])
+      Object clientProperty = this.jTB.getClientProperty(tabComponent);
+      if (!(clientProperty instanceof JComponent[])) {
+         return;
+      }
+
+      JComponent[] panels = (JComponent[]) clientProperty;
+      if (panels.length < 2 || !(panels[1] instanceof JSplitPane)) {
+         return;
+      }
+
+      JSplitPane byteCodeSplitPane = (JSplitPane) panels[1];
+      java.awt.Component rightComponent = byteCodeSplitPane.getRightComponent();
+
+      // Check if we already have an error display
+      JScrollPane errorScrollPane = null;
+      JTextPane errorTextPane = null;
+
+      if (rightComponent instanceof JScrollPane) {
+         JScrollPane scrollPane = (JScrollPane) rightComponent;
+         TitledBorder border = (TitledBorder) scrollPane.getBorder();
+         if (border != null && "Decompilation Errors".equals(border.getTitle())) {
+            errorScrollPane = scrollPane;
+            java.awt.Component view = scrollPane.getViewport().getView();
+            if (view instanceof JTextPane) {
+               errorTextPane = (JTextPane) view;
+            }
+         }
+      }
+
+      // Create error display if it doesn't exist
+      if (errorScrollPane == null) {
+         errorTextPane = new JTextPane();
+         errorTextPane.setFont(new Font("Monospaced", Font.PLAIN, 12));
+         errorTextPane.setEditable(false);
+         errorTextPane.setBackground(new java.awt.Color(255, 240, 240)); // Light red background
+         errorTextPane.setForeground(new java.awt.Color(200, 0, 0)); // Dark red text
+
+         errorScrollPane = new JScrollPane(errorTextPane);
+         errorScrollPane.setBorder(new TitledBorder("Decompilation Errors"));
+      }
+
+      // Build error message text
+      StringBuilder errorText = new StringBuilder();
+      errorText.append("═══════════════════════════════════════════════════════════════════════════════\n");
+      errorText.append(" ════════════════════════════ DECOMPILATION ERRORS ════════════════════════════\n");
+      errorText.append("═══════════════════════════════════════════════════════════════════════════════\n\n");
+
+      for (String error : errorMessages) {
+         errorText.append(error).append("\n\n");
+      }
+
+      errorText.append("═══════════════════════════════════════════════════════════════════════════════\n");
 
       // Set error text
       errorTextPane.setText(errorText.toString());
