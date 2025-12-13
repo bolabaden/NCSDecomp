@@ -446,19 +446,61 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
                // Match by base name (without extension) since temp files have different names
                final File[] matchingFileRef = new File[1];
                String baseName = filename.replaceAll("\\.(nss|ncs)$", "").toLowerCase();
-               
-               synchronized (decompiler.hash_TabComponent2File) {
-                  for (File file : decompiler.hash_TabComponent2File.values()) {
-                     if (file != null) {
-                        String fileBaseName = file.getName().replaceAll("\\.(nss|ncs)$", "").toLowerCase();
-                        // Match by base name (handles temp files like generatedcode_xxx.nss matching k_sup_galaxymap.ncs)
-                        // Also check if filename contains the base name or vice versa
-                        if (fileBaseName.equals(baseName) || 
-                            filename.toLowerCase().contains(fileBaseName) || 
-                            fileBaseName.contains(baseName) ||
-                            file.getName().equalsIgnoreCase(filename)) {
-                           matchingFileRef[0] = file;
-                           break;
+
+               // First, try to find the original file from context (look for "Input file:" or "Decompiling:")
+               File contextFile = null;
+               synchronized (decompiler.allLogLines) {
+                  for (int i = decompiler.allLogLines.size() - 1; i >= 0 && i >= decompiler.allLogLines.size() - 50; i--) {
+                     LogLine logLine = decompiler.allLogLines.get(i);
+                     String lineText = logLine.text.replaceAll("\u001B\\[[0-9;]+m", "");
+                     String lineUpper = lineText.toUpperCase();
+
+                     // Look for "Input file:" or "Decompiling:" to find the original file
+                     if (lineUpper.contains("INPUT FILE:") || lineUpper.contains("DECOMPILING:")) {
+                        // Extract filename from the line
+                        java.util.regex.Pattern filePattern = java.util.regex.Pattern.compile("([^/\\\\]+\\.(ncs|nss))", java.util.regex.Pattern.CASE_INSENSITIVE);
+                        java.util.regex.Matcher fileMatcher = filePattern.matcher(lineText);
+                        if (fileMatcher.find()) {
+                           String contextFilename = fileMatcher.group(1);
+                           String contextBaseName = contextFilename.replaceAll("\\.(nss|ncs)$", "").toLowerCase();
+
+                           // Find matching file
+                           synchronized (decompiler.hash_TabComponent2File) {
+                              for (File file : decompiler.hash_TabComponent2File.values()) {
+                                 if (file != null) {
+                                    String fileBaseName = file.getName().replaceAll("\\.(nss|ncs)$", "").toLowerCase();
+                                    if (fileBaseName.equals(contextBaseName) || file.getName().equalsIgnoreCase(contextFilename)) {
+                                       contextFile = file;
+                                       break;
+                                    }
+                                 }
+                              }
+                           }
+                           if (contextFile != null) {
+                              break;
+                           }
+                        }
+                     }
+                  }
+               }
+
+               // If we found a context file, use it; otherwise try to match by name
+               if (contextFile != null) {
+                  matchingFileRef[0] = contextFile;
+               } else {
+                  synchronized (decompiler.hash_TabComponent2File) {
+                     for (File file : decompiler.hash_TabComponent2File.values()) {
+                        if (file != null) {
+                           String fileBaseName = file.getName().replaceAll("\\.(nss|ncs)$", "").toLowerCase();
+                           // Match by base name (handles temp files like generatedcode_xxx.nss matching k_sup_galaxymap.ncs)
+                           // Also check if filename contains the base name or vice versa
+                           if (fileBaseName.equals(baseName) ||
+                               filename.toLowerCase().contains(fileBaseName) ||
+                               fileBaseName.contains(baseName) ||
+                               file.getName().equalsIgnoreCase(filename)) {
+                              matchingFileRef[0] = file;
+                              break;
+                           }
                         }
                      }
                   }
@@ -525,12 +567,12 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
                            java.util.List<String> errorLines = new java.util.ArrayList<>();
                            String lastCompilingBaseName = lastCompilingFile.replaceAll("\\.(nss|ncs)$", "").toLowerCase();
                            String matchingFileBaseName = matchingFile.getName().replaceAll("\\.(nss|ncs)$", "").toLowerCase();
-                           
+
                            for (int i = decompiler.allLogLines.size() - 1; i >= 0 && i >= decompiler.allLogLines.size() - 30; i--) {
                               LogLine logLine = decompiler.allLogLines.get(i);
                               String lineText = logLine.text.replaceAll("\u001B\\[[0-9;]+m", "");
                               String lineUpper = lineText.toUpperCase();
-                              
+
                               // Check if this line contains an error and matches our file
                               if (lineUpper.contains("ERROR:") || (lineUpper.contains("ERROR") && lineUpper.contains("SYNTAX"))) {
                                  // Extract filename from error line
@@ -539,9 +581,9 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
                                  if (errorMatcher.find()) {
                                     String errorFilename = errorMatcher.group(1).trim();
                                     String errorBaseName = errorFilename.replaceAll("\\.(nss|ncs)$", "").toLowerCase();
-                                    
+
                                     // Match if base names match or if error filename contains our file base name
-                                    if (errorBaseName.equals(lastCompilingBaseName) || 
+                                    if (errorBaseName.equals(lastCompilingBaseName) ||
                                         errorBaseName.equals(matchingFileBaseName) ||
                                         errorFilename.toLowerCase().contains(lastCompilingBaseName) ||
                                         errorFilename.toLowerCase().contains(matchingFileBaseName)) {
