@@ -120,6 +120,18 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
    private JComboBox<String> logLevelFilter;
    private static final String[] LOG_LEVELS = {"TRACE", "DEBUG", "INFO", "WARNING", "ERROR"};
    private static final int DEFAULT_LOG_LEVEL_INDEX = 2; // INFO
+   
+   // Store all log lines for filtering
+   private static class LogLine {
+      final String text;
+      final LogSeverity severity;
+      
+      LogLine(String text, LogSeverity severity) {
+         this.text = text;
+         this.severity = severity;
+      }
+   }
+   private final java.util.List<LogLine> allLogLines = new java.util.ArrayList<>();
 
    /**
     * Log severity levels.
@@ -363,34 +375,39 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
       /**
        * Instance method to append text to GUI log with color coding.
        * Parses ANSI escape codes and converts them to Swing colors.
+       * Stores all log lines for filtering.
        */
       private static void appendToGuiLog(String text, JTextPane guiLog, javax.swing.text.StyledDocument doc, Decompiler decompiler) {
-         if (text != null && guiLog != null && doc != null) {
-            SwingUtilities.invokeLater(() -> {
-               try {
-                  // Check if this severity should be shown based on filter
-                  // Do this before parsing ANSI to avoid unnecessary work
-                  LogSeverity severity = parseLogSeverity(text);
-                  if (!shouldShowLog(severity, decompiler)) {
-                     return; // Don't append if filtered out
-                  }
-
-                  // Parse ANSI codes and render with colors
-                  parseAndAppendAnsiText(text, guiLog, doc);
-
-                  // Auto-scroll to bottom
-                  guiLog.setCaretPosition(doc.getLength());
-               } catch (Exception e) {
-                  // Fallback to plain append if styled insert fails
+         if (text != null && guiLog != null && doc != null && decompiler != null) {
+            // Parse severity first
+            LogSeverity severity = parseLogSeverity(text);
+            
+            // Store the log line (always store, even if filtered)
+            synchronized (decompiler.allLogLines) {
+               decompiler.allLogLines.add(new LogLine(text, severity));
+            }
+            
+            // Only append if it should be shown based on current filter
+            if (shouldShowLog(severity, decompiler)) {
+               SwingUtilities.invokeLater(() -> {
                   try {
-                     int start = doc.getLength();
-                     doc.insertString(start, text, null);
+                     // Parse ANSI codes and render with colors
+                     parseAndAppendAnsiText(text, guiLog, doc);
+
+                     // Auto-scroll to bottom
                      guiLog.setCaretPosition(doc.getLength());
-                  } catch (javax.swing.text.BadLocationException e2) {
-                     // Ignore
+                  } catch (Exception e) {
+                     // Fallback to plain append if styled insert fails
+                     try {
+                        int start = doc.getLength();
+                        doc.insertString(start, text, null);
+                        guiLog.setCaretPosition(doc.getLength());
+                     } catch (javax.swing.text.BadLocationException e2) {
+                        // Ignore
+                     }
                   }
-               }
-            });
+               });
+            }
          }
       }
 
@@ -398,7 +415,7 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
        * Parses ANSI escape codes and appends text with appropriate colors.
        * Supports foreground colors, bold, dim, and reset codes.
        */
-      private static void parseAndAppendAnsiText(String text, JTextPane guiLog, javax.swing.text.StyledDocument doc) {
+      static void parseAndAppendAnsiText(String text, JTextPane guiLog, javax.swing.text.StyledDocument doc) {
          try {
             // Pattern to match ANSI escape sequences: \033[...m or \x1B[...m
             java.util.regex.Pattern ansiPattern = java.util.regex.Pattern.compile("\u001B\\[([0-9;]+)m");
@@ -530,11 +547,11 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
          if (text == null) {
             return LogSeverity.INFO;
          }
-         
+
          // Strip ANSI escape codes before parsing (they interfere with pattern matching)
          String textWithoutAnsi = text.replaceAll("\u001B\\[[0-9;]+m", "");
          String upper = textWithoutAnsi.toUpperCase();
-         
+
          // Check for TRACE (must come before DEBUG check)
          if (upper.contains("TRACE") && (upper.contains("[TRACE]") || upper.matches(".*\\bTRACE\\b.*"))) {
             return LogSeverity.TRACE;
@@ -548,7 +565,7 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
                return LogSeverity.INFO;
             }
             // Check if it's a control flow DEBUG (transformJump, checkEnd, etc.) - these are TRACE level
-            if (upper.contains("DEBUG TRANSFORM") || upper.contains("DEBUG CHECK") 
+            if (upper.contains("DEBUG TRANSFORM") || upper.contains("DEBUG CHECK")
                   || upper.contains("DEBUG REMOVE") || upper.contains("DEBUG ISAT")
                   || upper.contains("DEBUG ISRETURN") || upper.contains("DEBUG TRANSFORMJZ")
                   || upper.contains("DEBUG TRANSFORMCOPY") || upper.contains("DEBUG TRANSFORMMOVE")
@@ -589,7 +606,7 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
       /**
        * Gets severity index for comparison.
        */
-      private static int getSeverityIndex(String level) {
+      static int getSeverityIndex(String level) {
          for (int i = 0; i < LOG_LEVELS.length; i++) {
             if (LOG_LEVELS[i].equals(level)) {
                return i;
@@ -1572,6 +1589,18 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
       } else if (cmd.equals("Settings")) {
          settings.show();
       } else if (cmd.equals("Clear")) {
+         // Clear both the display and stored log lines
+         if (this.status != null) {
+            try {
+               javax.swing.text.StyledDocument doc = this.status.getStyledDocument();
+               doc.remove(0, doc.getLength());
+            } catch (javax.swing.text.BadLocationException e) {
+               // Ignore
+            }
+         }
+         synchronized (this.allLogLines) {
+            this.allLogLines.clear();
+         }
          this.status.setText("");
       } else if (cmd.equals("FilterLogs")) {
          filterLogs();
@@ -3515,12 +3544,50 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
     * Filters the log display based on the selected log level.
     * Re-applies all log entries with proper filtering.
     */
+   /**
+    * Re-filters and re-renders all log lines based on current filter level.
+    * This ensures that changing the filter shows/hides previously logged messages in real-time.
+    */
    private void filterLogs() {
-      // For now, filtering is done at append time, so we just need to refresh
-      // In a full implementation, we could store all logs and re-render, but
-      // for simplicity, we'll just ensure new logs are filtered correctly
-      // The filter combobox change will affect future log entries
+      if (this.status == null) {
+         return;
+      }
+      
+      SwingUtilities.invokeLater(() -> {
+         try {
+            javax.swing.text.StyledDocument doc = this.status.getStyledDocument();
+            
+            // Clear the entire log
+            doc.remove(0, doc.getLength());
+            
+            // Get current filter level
+            String selectedLevel = (String) this.logLevelFilter.getSelectedItem();
+            if (selectedLevel == null) {
+               selectedLevel = LOG_LEVELS[DEFAULT_LOG_LEVEL_INDEX];
+            }
+            int selectedIndex = DualOutputPrintStream.getSeverityIndex(selectedLevel);
+            
+            // Re-render all log lines that match the current filter
+            synchronized (this.allLogLines) {
+               for (LogLine logLine : this.allLogLines) {
+                  int logIndex = logLine.severity.ordinal();
+                  // Show if log severity is >= selected filter level
+                  if (logIndex >= selectedIndex) {
+                     // Parse ANSI codes and render with colors
+                     DualOutputPrintStream.parseAndAppendAnsiText(logLine.text, this.status, doc);
+                  }
+                  // If filtered out, don't append anything (no blank lines)
+               }
+            }
+            
+            // Auto-scroll to bottom
+            this.status.setCaretPosition(doc.getLength());
+         } catch (Exception e) {
+            e.printStackTrace();
+         }
+      });
    }
+   
 
    /**
     * Helper method to append text to status log with INFO severity.
