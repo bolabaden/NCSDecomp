@@ -382,5 +382,46 @@ public class CompilerExecutionWrapper {
       }
       return false;
    }
+
+   /**
+    * Creates a registry spoofer for compilers that require registry spoofing.
+    * <p>
+    * Legacy compilers (KOTOR Tool, KOTOR Scripting Tool) read the game installation
+    * path from the Windows registry. This method returns a RegistrySpoofer for those
+    * compilers, or a NoOpRegistrySpoofer for compilers that don't need it.
+    * <p>
+    * The registry spoofer should be used in a try-with-resources block around the
+    * compilation process:
+    * <pre>
+    * try (AutoCloseable spoofer = wrapper.createRegistrySpoofer()) {
+    *    if (spoofer instanceof RegistrySpoofer) {
+    *       ((RegistrySpoofer) spoofer).activate();
+    *    }
+    *    // ... perform compilation ...
+    * }
+    * </pre>
+    *
+    * @return A RegistrySpoofer for legacy compilers, or NoOpRegistrySpoofer otherwise
+    * @throws UnsupportedOperationException If registry spoofing is needed but not on Windows
+    */
+   public AutoCloseable createRegistrySpoofer() {
+      // Only KOTOR Tool and KOTOR Scripting Tool require registry spoofing
+      if (compiler == KnownExternalCompilers.KOTOR_TOOL || compiler == KnownExternalCompilers.KOTOR_SCRIPTING_TOOL) {
+         // Use the tools directory as the installation path (where compiler and nwscript files are)
+         File toolsDir = new File(System.getProperty("user.dir"), "tools");
+         try {
+            RegistrySpoofer spoofer = new RegistrySpoofer(toolsDir, isK2);
+            System.err.println("DEBUG CompilerExecutionWrapper: Created RegistrySpoofer for " + compiler.getName());
+            return spoofer;
+         } catch (UnsupportedOperationException e) {
+            // Not on Windows - fall back to NoOp
+            System.err.println("DEBUG CompilerExecutionWrapper: Registry spoofing not supported, using NoOp: " + e.getMessage());
+            return new NoOpRegistrySpoofer();
+         }
+      } else {
+         // Compiler doesn't need registry spoofing
+         return new NoOpRegistrySpoofer();
+      }
+   }
 }
 

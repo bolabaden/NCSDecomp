@@ -1747,18 +1747,31 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
                            boolean finished = false;
                            Process proc = null;
                            
-                           try {
-                              // Get unified command arguments
-                              String[] cmd = wrapper.getCompileArgs(includeDirs);
+                           // Use registry spoofer for compilers that need it (KOTOR Tool, KOTOR Scripting Tool)
+                           try (AutoCloseable spoofer = wrapper.createRegistrySpoofer()) {
+                              // Activate registry spoofer if it's a real spoofer (not NoOp)
+                              if (spoofer instanceof RegistrySpoofer) {
+                                 try {
+                                    ((RegistrySpoofer) spoofer).activate();
+                                 } catch (SecurityException e) {
+                                    System.err.println("DEBUG loadNssFile: Registry spoofing failed (permission denied): " + e.getMessage());
+                                    System.err.println("DEBUG loadNssFile: Attempting compilation without registry spoofing (may fail)");
+                                    // Continue anyway - the compiler might still work
+                                 }
+                              }
+                              
+                              try {
+                                 // Get unified command arguments
+                                 String[] cmd = wrapper.getCompileArgs(includeDirs);
 
-                              System.err.println("DEBUG loadNssFile: Running compiler: " + java.util.Arrays.toString(cmd));
-                              ProcessBuilder pb = new ProcessBuilder(cmd);
-                              // Use unified working directory
-                              pb.directory(wrapper.getWorkingDirectory());
-                              // Apply any environment overrides (legacy compilers / registry shims)
-                              pb.environment().putAll(wrapper.getEnvironmentOverrides());
-                              pb.redirectErrorStream(true);
-                              proc = pb.start();
+                                 System.err.println("DEBUG loadNssFile: Running compiler: " + java.util.Arrays.toString(cmd));
+                                 ProcessBuilder pb = new ProcessBuilder(cmd);
+                                 // Use unified working directory
+                                 pb.directory(wrapper.getWorkingDirectory());
+                                 // Apply any environment overrides (legacy compilers / registry shims)
+                                 pb.environment().putAll(wrapper.getEnvironmentOverrides());
+                                 pb.redirectErrorStream(true);
+                                 proc = pb.start();
 
                               // Read output
                               try (java.io.BufferedReader reader = new java.io.BufferedReader(
@@ -1784,7 +1797,7 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
                               }
 
                               System.err.println("DEBUG loadNssFile: Checking for compiled NCS at: " + compiledNcs.getAbsolutePath());
-                           if (compiledNcs.exists()) {
+                              if (compiledNcs.exists()) {
                               System.err.println(
                                     "DEBUG loadNssFile: Compiled NCS exists at: " + compiledNcs.getAbsolutePath());
 
@@ -1869,12 +1882,24 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
                                     errorMsg.append("// Compiler timed out or process not started.\n");
                                  }
                               }
-                              roundTripPane.setText(errorMsg.toString());
+                                 roundTripPane.setText(errorMsg.toString());
+                              }
+                           } catch (Exception compileEx) {
+                              System.err.println("DEBUG loadNssFile: Exception during compilation: " + compileEx.getMessage());
+                              compileEx.printStackTrace();
+                              // Don't throw - let finally block execute cleanup
                            }
-                           } finally {
-                              // Clean up all temporary files (include files, nwscript.nss, etc.)
-                              wrapper.cleanup();
-                           }
+                        } catch (RuntimeException spooferEx) {
+                           System.err.println("DEBUG loadNssFile: RuntimeException with registry spoofer: " + spooferEx.getMessage());
+                           throw spooferEx;
+                        } catch (Exception spooferCloseEx) {
+                           // Handle exceptions from AutoCloseable.close()
+                           System.err.println("DEBUG loadNssFile: Exception closing registry spoofer: " + spooferCloseEx.getMessage());
+                           // Don't throw - let finally block execute cleanup
+                        } finally {
+                           // Clean up all temporary files (include files, nwscript.nss, etc.)
+                           wrapper.cleanup();
+                        }
                         } else {
                            System.err.println("DEBUG loadNssFile: Compiler not found");
                            roundTripPane.setText(
