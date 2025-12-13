@@ -400,7 +400,7 @@ public class SubScriptState {
                         if (grandParent != null) {
                            // Verify that the parent AElse is actually the last child of grandParent
                            // This ensures the new AElse will come immediately after the parent AElse
-                           boolean parentIsLastChild = grandParent.hasChildren() && 
+                           boolean parentIsLastChild = grandParent.hasChildren() &&
                                  grandParent.getLastChild() == parent;
                            if (parentIsLastChild) {
                               elseParent = grandParent;
@@ -428,51 +428,72 @@ public class SubScriptState {
                   Logger.trace("checkEnd: elseParent invalid, using root");
                   elseParent = this.root;
                }
-               
-               // Critical validation: Ensure that the AElse will have a preceding AIf or AElse in the output
-               // An AElse must always follow an AIf (either directly as a sibling, or as part of an else-if chain)
-               // Check if elseParent has any children, and if the last child is an AIf or AElse containing an AIf
-               if (elseParent.hasChildren()) {
+
+               // CRITICAL VALIDATION: An AElse must ALWAYS immediately follow an AIf in the output.
+               // The AIf we're processing (or its containing AElse) MUST be the last child of elseParent.
+               // Otherwise, there will be other nodes between the AIf and AElse, causing a syntax error.
+               boolean canAddElse = false;
+
+               if (!elseParent.hasChildren()) {
+                  // No children - can't add AElse here (would be first child, no preceding AIf)
+                  Logger.trace("checkEnd: elseParent has no children - cannot add AElse");
+                  canAddElse = false;
+               } else {
                   ScriptNode lastChild = elseParent.getLastChild();
-                  boolean hasValidPredecessor = false;
-                  
-                  if (AIf.class.isInstance(lastChild)) {
-                     // Last child is an AIf - valid predecessor
-                     hasValidPredecessor = true;
-                     Logger.trace("checkEnd: last child is AIf - valid predecessor");
-                  } else if (AElse.class.isInstance(lastChild)) {
-                     // Last child is an AElse - check if it contains an AIf (else-if chain)
-                     // AElse extends ScriptRootNode, so we can safely cast
+
+                  // Case 1: The AIf itself is the last child of elseParent
+                  if (lastChild == this.current) {
+                     canAddElse = true;
+                     Logger.trace("checkEnd: AIf is last child of elseParent - can add AElse");
+                  }
+                  // Case 2: The parent AElse (containing the AIf) is the last child of elseParent
+                  else if (AElse.class.isInstance(parent) && lastChild == parent) {
+                     canAddElse = true;
+                     Logger.trace("checkEnd: parent AElse is last child of elseParent - can add AElse");
+                  }
+                  // Case 3: The last child is an AIf (for regular if-else, not else-if)
+                  else if (AIf.class.isInstance(lastChild)) {
+                     canAddElse = true;
+                     Logger.trace("checkEnd: last child is AIf - can add AElse");
+                  }
+                  // Case 4: The last child is an AElse containing an AIf (else-if chain continuation)
+                  else if (AElse.class.isInstance(lastChild)) {
                      ScriptRootNode lastChildRoot = (ScriptRootNode) lastChild;
                      if (lastChildRoot.hasChildren()) {
                         ScriptNode lastGrandChild = lastChildRoot.getLastChild();
                         if (AIf.class.isInstance(lastGrandChild)) {
-                           hasValidPredecessor = true;
-                           Logger.trace("checkEnd: last child is AElse containing AIf - valid predecessor");
+                           canAddElse = true;
+                           Logger.trace("checkEnd: last child is AElse containing AIf - can add AElse");
                         }
                      }
                   }
-                  
-                  // Also check if the parent AElse (which contains the current AIf) is the last child
-                  // This is the most common case for else-if chains
-                  if (!hasValidPredecessor && AElse.class.isInstance(parent)) {
-                     if (lastChild == parent) {
-                        hasValidPredecessor = true;
-                        Logger.trace("checkEnd: parent AElse is last child - valid predecessor");
-                     }
+
+                  if (!canAddElse) {
+                     Logger.trace("checkEnd: Cannot add AElse to elseParent - no valid predecessor. lastChild=" +
+                           (lastChild != null ? lastChild.getClass().getSimpleName() : "null") +
+                           ", current=" + this.current.getClass().getSimpleName() +
+                           ", parent=" + (parent != null ? parent.getClass().getSimpleName() : "null"));
                   }
-                  
-                  if (!hasValidPredecessor && elseParent != parent) {
-                     // If we're trying to add to a different parent but there's no valid predecessor,
-                     // fall back to using the direct parent instead
-                     Logger.trace("checkEnd: elseParent has no valid AIf/AElse predecessor, using direct parent");
+               }
+
+               // If we can't add the AElse to elseParent, fall back to using the direct parent
+               // This ensures the AElse will be added as a sibling of the AIf
+               if (!canAddElse) {
+                  if (elseParent != parent) {
+                     Logger.trace("checkEnd: Falling back to using direct parent for AElse");
                      elseParent = parent;
+                     // Re-validate with the direct parent
+                     if (elseParent.hasChildren() && elseParent.getLastChild() == this.current) {
+                        canAddElse = true;
+                        Logger.trace("checkEnd: AIf is last child of direct parent - can add AElse");
+                     } else {
+                        Logger.trace("checkEnd: WARNING - AIf is not last child of direct parent either!");
+                        // This should not happen, but if it does, we'll still try to add the AElse
+                        // The structure might be malformed, but we can't fix it here
+                     }
+                  } else {
+                     Logger.trace("checkEnd: WARNING - Cannot add AElse even to direct parent!");
                   }
-               } else if (elseParent != parent) {
-                  // If elseParent has no children and it's not the direct parent, use the direct parent
-                  // This ensures the AElse will be added as a sibling of the AIf
-                  Logger.trace("checkEnd: elseParent has no children, using direct parent");
-                  elseParent = parent;
                }
 
                int elseStart = this.current.getEnd() + 6;
