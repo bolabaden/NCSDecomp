@@ -1936,10 +1936,6 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
       roundTripTextPane.setComponentPopupMenu(roundTripPopupMenu);
 
       tabComponents[0] = decompSplitPane;
-      
-      // Set initial link property for scrollbar synchronization (default to left)
-      // This will be updated when switching to this view based on content
-      this.jTB.putClientProperty(decompSplitPane, "left");
 
       // --- Bytecode Comparison Split Pane ---
       JSplitPane byteCodeSplitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
@@ -2792,50 +2788,67 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
       // This is CRITICAL: The left side decompiled code is independent of nwnnsscomp
       // and should ALWAYS be available
       if (index == 0 && panels[0] instanceof JSplitPane) {
+         JSplitPane decompSplitPane = (JSplitPane) panels[0];
+         java.awt.Component leftComp = decompSplitPane.getLeftComponent();
+         java.awt.Component rightComp = decompSplitPane.getRightComponent();
+         
+         // Set link property for scrollbar synchronization (always set, even if content loading fails)
+         if (leftComp instanceof JScrollPane && rightComp instanceof JScrollPane) {
+            JScrollPane leftScroll = (JScrollPane) leftComp;
+            JScrollPane rightScroll = (JScrollPane) rightComp;
+            JTextPane leftPane = (JTextPane) leftScroll.getViewport().getView();
+            JTextPane rightPane = (JTextPane) rightScroll.getViewport().getView();
+            if (leftPane != null && rightPane != null) {
+               // Set link property based on which has more content
+               if (leftPane.getDocument().getLength() >= rightPane.getDocument().getLength()) {
+                  this.jTB.putClientProperty(panels[0], "left");
+               } else {
+                  this.jTB.putClientProperty(panels[0], "right");
+               }
+            } else {
+               // Default to left if we can't determine
+               this.jTB.putClientProperty(panels[0], "left");
+            }
+         } else {
+            // Default to left if components aren't scroll panes
+            this.jTB.putClientProperty(panels[0], "left");
+         }
+         
          try {
             File file = this.hash_TabComponent2File.get(tabComponent);
-            if (file != null) {
-               JSplitPane decompSplitPane = (JSplitPane) panels[0];
-               java.awt.Component leftComp = decompSplitPane.getLeftComponent();
-               java.awt.Component rightComp = decompSplitPane.getRightComponent();
-               if (leftComp instanceof JScrollPane) {
-                  JTextPane codePane = (JTextPane) ((JScrollPane) leftComp).getViewport().getView();
-                  if (codePane != null) {
-                     // Get the decompiled code - this is independent of nwnnsscomp
-                     String generatedCode = this.fileDecompiler.getGeneratedCode(file);
-                     if (generatedCode != null && !generatedCode.trim().isEmpty()) {
-                        // Only update if the pane is empty or contains error messages
-                        String currentText = codePane.getText();
-                        if (currentText == null || currentText.trim().isEmpty() || currentText.contains("// Round-trip")
-                              || currentText.contains("// Error") || currentText.contains("// Unexpected")
-                              || currentText.contains("// No code")) {
-                           NWScriptSyntaxHighlighter.setSkipHighlighting(codePane, true);
-                           codePane.putClientProperty("Decompiler.programmaticUpdate", true);
-                           codePane.setText(generatedCode);
-                           NWScriptSyntaxHighlighter.setSkipHighlighting(codePane, false);
-                           codePane.putClientProperty("Decompiler.programmaticUpdate", false);
-                           NWScriptSyntaxHighlighter.applyHighlightingImmediate(codePane);
-                        }
+            if (file != null && leftComp instanceof JScrollPane) {
+               JTextPane codePane = (JTextPane) ((JScrollPane) leftComp).getViewport().getView();
+               if (codePane != null) {
+                  // Get the decompiled code - this is independent of nwnnsscomp
+                  String generatedCode = this.fileDecompiler.getGeneratedCode(file);
+                  if (generatedCode != null && !generatedCode.trim().isEmpty()) {
+                     // Only update if the pane is empty or contains error messages
+                     String currentText = codePane.getText();
+                     if (currentText == null || currentText.trim().isEmpty() || currentText.contains("// Round-trip")
+                           || currentText.contains("// Error") || currentText.contains("// Unexpected")
+                           || currentText.contains("// No code")) {
+                        NWScriptSyntaxHighlighter.setSkipHighlighting(codePane, true);
+                        codePane.putClientProperty("Decompiler.programmaticUpdate", true);
+                        codePane.setText(generatedCode);
+                        NWScriptSyntaxHighlighter.setSkipHighlighting(codePane, false);
+                        codePane.putClientProperty("Decompiler.programmaticUpdate", false);
+                        NWScriptSyntaxHighlighter.applyHighlightingImmediate(codePane);
                      }
                   }
-                  
-                  // Set link property for scrollbar synchronization
-                  // Default to "left" (decompiled code drives the round-trip comparison)
-                  if (rightComp instanceof JScrollPane) {
-                     JScrollPane leftScroll = (JScrollPane) leftComp;
-                     JScrollPane rightScroll = (JScrollPane) rightComp;
-                     JTextPane leftPane = (JTextPane) leftScroll.getViewport().getView();
-                     JTextPane rightPane = (JTextPane) rightScroll.getViewport().getView();
-                     if (leftPane != null && rightPane != null) {
-                        // Set link property based on which has more content
-                        if (leftPane.getDocument().getLength() >= rightPane.getDocument().getLength()) {
-                           this.jTB.putClientProperty(panels[0], "left");
-                        } else {
-                           this.jTB.putClientProperty(panels[0], "right");
-                        }
-                     } else {
-                        // Default to left if we can't determine
+               }
+               
+               // Update link property after content is loaded
+               if (rightComp instanceof JScrollPane) {
+                  JScrollPane leftScroll = (JScrollPane) leftComp;
+                  JScrollPane rightScroll = (JScrollPane) rightComp;
+                  JTextPane leftPane = (JTextPane) leftScroll.getViewport().getView();
+                  JTextPane rightPane = (JTextPane) rightScroll.getViewport().getView();
+                  if (leftPane != null && rightPane != null) {
+                     // Update link property based on which has more content
+                     if (leftPane.getDocument().getLength() >= rightPane.getDocument().getLength()) {
                         this.jTB.putClientProperty(panels[0], "left");
+                     } else {
+                        this.jTB.putClientProperty(panels[0], "right");
                      }
                   }
                }
