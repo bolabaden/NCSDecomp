@@ -1951,32 +1951,39 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
                                  roundTripPane.setText(
                                        "// Round-trip decompiled code not available.\n// The compiled NCS could not be decompiled.");
                               }
-                           } else {
-                              System.err.println("DEBUG loadNssFile: Compiled NCS does not exist after compilation");
-                              // Show actual compiler error output instead of generic message
-                              StringBuilder errorMsg = new StringBuilder();
-                              errorMsg.append("// Round-trip decompiled code not available.\n");
-                              errorMsg.append("// Compilation failed.\n\n");
-                              String compilerOutput = output.toString().trim();
-                              if (!compilerOutput.isEmpty()) {
-                                 errorMsg.append("// Compiler output:\n");
-                                 // Format compiler output as comments
-                                 String[] lines = compilerOutput.split("\n");
-                                 for (String line : lines) {
-                                    if (!line.trim().isEmpty()) {
-                                       errorMsg.append("// ").append(line).append("\n");
+                              } else {
+                                 System.err.println("DEBUG loadNssFile: Compiled NCS does not exist after compilation");
+                                 // Show actual compiler error output instead of generic message
+                                 StringBuilder errorMsg = new StringBuilder();
+                                 errorMsg.append("// Round-trip decompiled code not available.\n");
+                                 errorMsg.append("// Compilation failed.\n\n");
+                                 String compilerOutput = output.toString().trim();
+                                 if (!compilerOutput.isEmpty()) {
+                                    errorMsg.append("// Compiler output:\n");
+                                    // Format compiler output as comments
+                                    String[] lines = compilerOutput.split("\n");
+                                    for (String line : lines) {
+                                       if (!line.trim().isEmpty()) {
+                                          errorMsg.append("// ").append(line).append("\n");
+                                       }
+                                    }
+                                    
+                                    // Check for KOTOR Tool K2-specific errors
+                                    if (isK2 && compilerOutput.contains("NwnStdLoader") && compilerOutput.contains("NeverwinterNights")) {
+                                       errorMsg.append("\n// NOTE: KOTOR Tool may not fully support K2/TSL mode.\n");
+                                       errorMsg.append("// It appears to be looking for Neverwinter Nights resources instead of TSL.\n");
+                                       errorMsg.append("// Consider using KOTOR Scripting Tool (nwnnsscomp_kscript.exe) for K2/TSL scripts.\n");
+                                    }
+                                 } else {
+                                    errorMsg.append("// No compiler output available.\n");
+                                    if (proc != null && finished) {
+                                       errorMsg.append("// Exit code: ").append(proc.exitValue()).append("\n");
+                                    } else {
+                                       errorMsg.append("// Compiler timed out or process not started.\n");
                                     }
                                  }
-                              } else {
-                                 errorMsg.append("// No compiler output available.\n");
-                                 if (proc != null && finished) {
-                                    errorMsg.append("// Exit code: ").append(proc.exitValue()).append("\n");
-                                 } else {
-                                    errorMsg.append("// Compiler timed out or process not started.\n");
-                                 }
+                                 roundTripPane.setText(errorMsg.toString());
                               }
-                              roundTripPane.setText(errorMsg.toString());
-                           }
                            } finally {
                               // Clean up copied include files (for KOTOR Tool) - always run
                               for (File copiedFile : copiedIncludeFiles) {
