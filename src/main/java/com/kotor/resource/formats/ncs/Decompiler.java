@@ -236,7 +236,7 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
       this.jTB = new JTabbedPane();
       this.jTB.addChangeListener(this);
       this.jTB.setPreferredSize(new Dimension(900, 720));
-      this.dropTarget = new DropTarget(this.jTB, this);
+      new DropTarget(this.jTB, this);
 
       // Workspace cards to show empty state when no files are open
       this.workspaceCards = new JPanel(new CardLayout());
@@ -248,7 +248,9 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
       emptyPanel.add(this.emptyStateLabel, BorderLayout.CENTER);
       this.workspaceCards.add(emptyPanel, CARD_EMPTY);
       this.workspaceCards.add(this.jTB, CARD_TABS);
-      this.dropTarget = new DropTarget(this.workspaceCards, this);
+      new DropTarget(this.workspaceCards, this);
+      // Also enable drop on the empty panel itself
+      new DropTarget(emptyPanel, this);
 
       this.upperJSplitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, this.leftPanel, this.workspaceCards);
       this.upperJSplitPane.setDividerLocation(260);
@@ -305,7 +307,7 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
       this.updateWorkspaceCard();
       this.updateMenuAndToolbarState();
 
-      // Enable drag-and-drop on the main frame
+      // Enable drag-and-drop on the main frame (set as the main drop target)
       this.dropTarget = new DropTarget(this, this);
 
       // Redirect System.out and System.err to both terminal and GUI log area
@@ -401,19 +403,19 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
             // Pattern to match ANSI escape sequences: \033[...m or \x1B[...m
             java.util.regex.Pattern ansiPattern = java.util.regex.Pattern.compile("\u001B\\[([0-9;]+)m");
             java.util.regex.Matcher matcher = ansiPattern.matcher(text);
-            
+
             int lastEnd = 0;
             javax.swing.text.SimpleAttributeSet currentAttr = new javax.swing.text.SimpleAttributeSet();
             javax.swing.text.StyleConstants.setFontFamily(currentAttr, "Consolas");
             javax.swing.text.StyleConstants.setFontSize(currentAttr, 11);
-            
+
             // Default colors for light theme
             java.awt.Color defaultColor = new java.awt.Color(0, 0, 0); // Black for light theme
             java.awt.Color currentColor = defaultColor;
             boolean isBold = false;
-            
+
             javax.swing.text.StyleConstants.setForeground(currentAttr, currentColor);
-            
+
             while (matcher.find()) {
                // Append text before the ANSI code
                if (matcher.start() > lastEnd) {
@@ -422,15 +424,15 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
                      doc.insertString(doc.getLength(), plainText, currentAttr);
                   }
                }
-               
+
                // Parse ANSI code
                String codes = matcher.group(1);
                String[] codeArray = codes.split(";");
-               
+
                for (String codeStr : codeArray) {
                   try {
                      int code = Integer.parseInt(codeStr);
-                     
+
                      if (code == 0) {
                         // Reset
                         currentColor = defaultColor;
@@ -452,7 +454,7 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
                      // Ignore invalid codes
                   }
                }
-               
+
                // Update attribute set
                currentAttr = new javax.swing.text.SimpleAttributeSet();
                javax.swing.text.StyleConstants.setFontFamily(currentAttr, "Consolas");
@@ -461,10 +463,10 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
                if (isBold) {
                   javax.swing.text.StyleConstants.setBold(currentAttr, true);
                }
-               
+
                lastEnd = matcher.end();
             }
-            
+
             // Append remaining text
             if (lastEnd < text.length()) {
                String plainText = text.substring(lastEnd);
@@ -1291,7 +1293,7 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
    public void dragEnter(DropTargetDragEvent dtde) {
       // Accept drag if it contains files
       if (dtde.isDataFlavorSupported(DataFlavor.javaFileListFlavor)) {
-         dtde.acceptDrag(3); // Accept copy action
+         dtde.acceptDrag(java.awt.dnd.DnDConstants.ACTION_COPY);
       } else {
          dtde.rejectDrag();
       }
@@ -1305,7 +1307,7 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
    public void dragOver(DropTargetDragEvent dtde) {
       // Continue accepting drag
       if (dtde.isDataFlavorSupported(DataFlavor.javaFileListFlavor)) {
-         dtde.acceptDrag(3);
+         dtde.acceptDrag(java.awt.dnd.DnDConstants.ACTION_COPY);
       } else {
          dtde.rejectDrag();
       }
@@ -1315,7 +1317,7 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
    public void dropActionChanged(DropTargetDragEvent dtde) {
       // Accept if it's a copy action
       if (dtde.isDataFlavorSupported(DataFlavor.javaFileListFlavor)) {
-         dtde.acceptDrag(3);
+         dtde.acceptDrag(java.awt.dnd.DnDConstants.ACTION_COPY);
       } else {
          dtde.rejectDrag();
       }
@@ -1324,17 +1326,26 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
    @Override
    public void drop(DropTargetDropEvent dtde) {
       try {
+         // First check if we can accept this drop
+         if (!dtde.isDataFlavorSupported(DataFlavor.javaFileListFlavor)) {
+            dtde.rejectDrop();
+            return;
+         }
+
+         // Accept the drop before accessing data
+         dtde.acceptDrop(java.awt.dnd.DnDConstants.ACTION_COPY);
+
          Transferable tr = dtde.getTransferable();
          DataFlavor[] flavors = tr.getTransferDataFlavors();
 
          for (int i = 0; i < flavors.length; i++) {
             if (flavors[i].isFlavorJavaFileListType()) {
-               dtde.acceptDrop(3);
                @SuppressWarnings("unchecked")
                final List<File> rawList = (List<File>) tr.getTransferData(flavors[i]);
                final List<File> list = new ArrayList<>();
+
                for (File file : rawList) {
-                  if (file != null) {
+                  if (file != null && file.exists()) {
                      String name = file.getName().toLowerCase();
                      // Only accept .ncs and .nss files
                      if (name.endsWith(".ncs") || name.endsWith(".nss")) {
@@ -1342,23 +1353,40 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
                      }
                   }
                }
+
                if (!list.isEmpty()) {
-                  Thread openThread = new Thread(() -> {
-                     Decompiler.this.open(list.toArray(new File[0]));
+                  // Use SwingUtilities to ensure we're on the EDT for UI updates
+                  final File[] filesToOpen = list.toArray(new File[0]);
+                  SwingUtilities.invokeLater(() -> {
+                     Decompiler.this.open(filesToOpen);
                   });
-                  openThread.setDaemon(true);
-                  openThread.setName("FileOpen-" + System.currentTimeMillis());
-                  openThread.start();
                   dtde.dropComplete(true);
+                  return;
+               } else {
+                  // No valid files found
+                  dtde.dropComplete(false);
+                  SwingUtilities.invokeLater(() -> {
+                     JOptionPane.showMessageDialog(Decompiler.this,
+                           "Please drop .ncs or .nss files only.",
+                           "Invalid File Type",
+                           JOptionPane.WARNING_MESSAGE);
+                  });
                   return;
                }
             }
          }
 
-         dtde.rejectDrop();
-      } catch (Exception var6) {
-         var6.printStackTrace();
-         dtde.rejectDrop();
+         // No file list flavor found
+         dtde.dropComplete(false);
+      } catch (Exception e) {
+         e.printStackTrace();
+         dtde.dropComplete(false);
+         SwingUtilities.invokeLater(() -> {
+            JOptionPane.showMessageDialog(Decompiler.this,
+                  "Error opening dropped files: " + e.getMessage(),
+                  "Error",
+                  JOptionPane.ERROR_MESSAGE);
+         });
       }
    }
 
