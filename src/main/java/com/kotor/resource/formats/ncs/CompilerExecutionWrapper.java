@@ -35,7 +35,8 @@ import java.util.regex.Matcher;
 public class CompilerExecutionWrapper {
    private final File compilerFile;
    private final File sourceFile;
-   private final File outputFile;
+   @SuppressWarnings("unused")
+   private final File outputFile; // Used by NwnnsscompConfig internally
    private final boolean isK2;
    private final KnownExternalCompilers compiler;
    private final NwnnsscompConfig config;
