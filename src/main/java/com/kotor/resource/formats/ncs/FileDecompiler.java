@@ -210,7 +210,9 @@ public class FileDecompiler {
     */
    private static void loadPreferSwitchesFromConfig() {
       try {
-         File configDir = new File(System.getProperty("user.dir"), "config");
+         // Use getNCSDecompDirectory() to handle both JAR and EXE cases correctly
+         File baseDir = CompilerUtil.getNCSDecompDirectory();
+         File configDir = new File(baseDir, "config");
          // Ensure config directory exists (though it may not have files yet)
          if (!configDir.exists()) {
             System.out.println("[INFO] loadPreferSwitchesFromConfig: CREATING config directory: " + configDir.getAbsolutePath());

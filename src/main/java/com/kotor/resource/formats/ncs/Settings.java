@@ -17,6 +17,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import com.kotor.resource.formats.ncs.CompilerUtil;
 import java.time.format.DateTimeFormatter;
 import java.util.Properties;
 import javax.swing.event.DocumentEvent;
@@ -375,7 +376,9 @@ public class Settings extends Properties implements ActionListener {
     * Loads preferences from disk, creating a default config if none exists.
     */
    public void load() {
-      File configDir = new File(System.getProperty("user.dir"), "config");
+      // Use getNCSDecompDirectory() to handle both JAR and EXE cases correctly
+      File baseDir = CompilerUtil.getNCSDecompDirectory();
+      File configDir = new File(baseDir, "config");
       // Ensure config directory exists
       if (!configDir.exists()) {
          System.out.println("[INFO] Settings: CREATING config directory: " + configDir.getAbsolutePath());
@@ -444,7 +447,9 @@ public class Settings extends Properties implements ActionListener {
     * Writes preferences to {@code ncsdecomp.conf}.
     */
    public void save() {
-      File configDir = new File(System.getProperty("user.dir"), "config");
+      // Use getNCSDecompDirectory() to handle both JAR and EXE cases correctly
+      File baseDir = CompilerUtil.getNCSDecompDirectory();
+      File configDir = new File(baseDir, "config");
       if (!configDir.exists()) {
          System.out.println("[INFO] Settings: CREATING config directory: " + configDir.getAbsolutePath());
          if (!configDir.mkdirs()) {

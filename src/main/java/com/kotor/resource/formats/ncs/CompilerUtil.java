@@ -320,11 +320,27 @@ public class CompilerUtil {
    /**
     * Gets the NCSDecomp installation directory.
     * This is determined from the location of the running JAR file.
+    * For jpackage EXEs, this goes up from the app/ directory to the distribution root.
     *
     * @return The NCSDecomp directory, or user.dir as fallback
     */
    public static File getNCSDecompDirectory() {
       try {
+         // First, try to get the executable path (for jpackage EXEs)
+         String exePath = System.getProperty("java.launcher.path");
+         if (exePath != null) {
+            File exeFile = new File(exePath);
+            if (exeFile.exists()) {
+               File exeDir = exeFile.getParentFile();
+               if (exeDir != null) {
+                  // For jpackage, the structure is: dist/NCSDecomp/NCSDecomp.exe and dist/NCSDecomp/app/
+                  // We want the directory containing the EXE (which is the distribution root)
+                  return exeDir;
+               }
+            }
+         }
+         
+         // Fall back to JAR location
          java.net.URL location = CompilerUtil.class.getProtectionDomain().getCodeSource().getLocation();
          if (location != null) {
             String path = location.getPath();
@@ -341,6 +357,13 @@ public class CompilerUtil {
                if (jarFile.exists()) {
                   File parent = jarFile.getParentFile();
                   if (parent != null) {
+                     // If we're in an app/ directory (jpackage structure), go up one level
+                     if ("app".equals(parent.getName())) {
+                        File grandParent = parent.getParentFile();
+                        if (grandParent != null) {
+                           return grandParent;
+                        }
+                     }
                      return parent;
                   }
                }
