@@ -65,7 +65,7 @@ public final class NCSDecompCLI {
          }
       } else {
          File cwd = new File(System.getProperty("user.dir"));
-         
+
          // If no game flag was explicitly set, try nwscript.nss in cwd first
          if (!cfg.gameExplicitlySet) {
             File genericNwscript = new File(cwd, "nwscript.nss");
@@ -88,7 +88,7 @@ public final class NCSDecompCLI {
 
             // Try tools/ directory first
             nwscriptFile = new File(new File(cwd, "tools"), nssName);
-            
+
             // Fall back to current working directory (legacy support)
             if (!nwscriptFile.isFile()) {
                nwscriptFile = new File(cwd, nssName);
@@ -145,7 +145,7 @@ public final class NCSDecompCLI {
       List<InputFile> worklist = new ArrayList<>();
       List<File> inputFiles = new ArrayList<>();
       List<File> inputDirs = new ArrayList<>();
-      
+
       for (String input : cfg.inputs) {
          File f = new File(input);
          if (!f.exists()) {
@@ -165,7 +165,7 @@ public final class NCSDecompCLI {
             worklist.add(new InputFile(inputFile, inputFile.getParentFile()));
          }
       }
-      
+
       for (File inputDir : inputDirs) {
          collect(inputDir, cfg.recursive, worklist, inputDir);
       }
@@ -270,7 +270,7 @@ public final class NCSDecompCLI {
    private static File resolveOutput(InputFile input, File outputFileOrDir, CliConfig cfg) {
       File inputFile = input.file;
       File baseDir = input.baseDir;
-      
+
       // If output is explicitly a single file (and we have only one input), use it directly
       if (cfg.output != null && !outputFileOrDir.isDirectory()) {
          return outputFileOrDir;
@@ -278,18 +278,18 @@ public final class NCSDecompCLI {
 
       String base = stripExtension(inputFile.getName());
       String name = cfg.prefix + base + cfg.suffix + cfg.extension;
-      
+
       // Determine output directory
       File outDir;
       if (cfg.output != null && outputFileOrDir.isDirectory()) {
          // Output is a directory - preserve hierarchy
          outDir = outputFileOrDir;
-         
+
          // Compute relative path from base directory to input file
          Path basePath = baseDir.toPath().toAbsolutePath().normalize();
          Path inputPath = inputFile.toPath().toAbsolutePath().normalize();
          Path relativePath = basePath.relativize(inputPath);
-         
+
          // If there's a relative path (file is in a subdirectory), preserve it
          if (relativePath.getParent() != null) {
             outDir = new File(outDir, relativePath.getParent().toString());
@@ -300,7 +300,7 @@ public final class NCSDecompCLI {
       } else {
          // Default: use outputFileOrDir (which defaults to cwd if output not specified)
          outDir = outputFileOrDir;
-         
+
          // If we're processing from a directory input, preserve hierarchy relative to cwd
          // by computing relative path from the original input directory
          if (baseDir != null && !baseDir.equals(inputFile.getParentFile())) {
@@ -308,13 +308,13 @@ public final class NCSDecompCLI {
             Path basePath = baseDir.toPath().toAbsolutePath().normalize();
             Path inputPath = inputFile.toPath().toAbsolutePath().normalize();
             Path relativePath = basePath.relativize(inputPath);
-            
+
             if (relativePath.getParent() != null) {
                outDir = new File(outDir, relativePath.getParent().toString());
             }
          }
       }
-      
+
       return new File(outDir, name);
    }
 
@@ -448,7 +448,7 @@ public final class NCSDecompCLI {
          File exeFile = new File(exePath);
          return exeFile.getName();
       }
-      
+
       // Otherwise, try to get JAR name
       try {
          String jarPath = NCSDecompCLI.class.getProtectionDomain().getCodeSource().getLocation().toURI().getPath();
@@ -467,7 +467,7 @@ public final class NCSDecompCLI {
       System.out.println(summary);
       System.out.println(author);
       System.out.println();
-      
+
       // Format usage line based on whether it's a JAR or EXE
       String usageLine;
       if (executableName.endsWith(".jar")) {
@@ -476,7 +476,7 @@ public final class NCSDecompCLI {
          usageLine = "Usage: " + executableName + " [options] <files/dirs>";
       }
       System.out.println(usageLine);
-      
+
       System.out.println("Options:");
       System.out.println("  -h, --help                 Show help");
       System.out.println("  -v, --version              Show version info");
@@ -506,7 +506,7 @@ public final class NCSDecompCLI {
       System.out.println("      --strict-signatures    Fail if any subroutine signature remains unknown");
       System.out.println();
       System.out.println("Examples:");
-      
+
       // Format examples based on whether it's a JAR or EXE
       if (executableName.endsWith(".jar")) {
          System.out.println("  Decompile single file to stdout:");
@@ -546,7 +546,7 @@ public final class NCSDecompCLI {
    private static final class InputFile {
       final File file;
       final File baseDir;  // The base directory this file was collected from
-      
+
       InputFile(File file, File baseDir) {
          this.file = file;
          this.baseDir = baseDir;

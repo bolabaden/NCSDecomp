@@ -355,7 +355,7 @@ public class CompilerUtil {
                } catch (java.io.UnsupportedEncodingException e) {
                   // Continue with original path if decoding fails
                }
-               
+
                File codeSourceFile = new File(path);
                if (codeSourceFile.exists()) {
                   File parent = codeSourceFile.getParentFile();
@@ -371,7 +371,7 @@ public class CompilerUtil {
          // Log but don't fail - fall through to user.dir
          System.err.println("[WARNING] CompilerUtil.getNCSDecompDirectory: Could not determine base directory: " + e.getMessage());
       }
-      
+
       // Fallback: Use current working directory
       // This ensures the application can always create config/ and tools/ directories
       // relative to where it's being run from
