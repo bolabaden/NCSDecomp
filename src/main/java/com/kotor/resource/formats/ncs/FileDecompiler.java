@@ -1120,6 +1120,7 @@ public class FileDecompiler {
          try {
             // Get unified command arguments from wrapper
             String[] args = wrapper.getCompileArgs(new java.util.ArrayList<>());
+            java.util.Map<String, String> env = wrapper.getEnvironmentOverrides();
 
             System.out.println("[NCSDecomp] Using compiler: " + wrapper.getCompiler().getName());
             System.out.println("[NCSDecomp] Input file: " + file.getAbsolutePath());
@@ -1130,7 +1131,7 @@ public class FileDecompiler {
             System.out.println("[NCSDecomp] Working directory: " + workingDir.getAbsolutePath());
 
             try {
-               new FileDecompiler.WindowsExec().callExec(args, workingDir);
+               new FileDecompiler.WindowsExec().callExec(args, workingDir, env);
             } catch (IOException ioEx) {
                // Elevation errors are already logged in callExec with helpful messages
                // Re-throw to be caught by outer catch block
@@ -2493,10 +2494,10 @@ public class FileDecompiler {
        * @throws IOException If process execution fails, including elevation errors
        */
       public void callExec(String[] args) throws IOException {
-         callExec(args, null);
+         callExec(args, null, java.util.Collections.emptyMap());
       }
-      
-      public void callExec(String[] args, File workingDir) throws IOException {
+
+      public void callExec(String[] args, File workingDir, java.util.Map<String, String> envOverrides) throws IOException {
          // Build copy-pasteable command string (exact format as test output)
          StringBuilder cmdStr = new StringBuilder();
          for (int i = 0; i < args.length; i++) {
@@ -2533,6 +2534,12 @@ public class FileDecompiler {
             // Pattern 3: Working directory normalization
             if (workingDir != null && workingDir.exists()) {
                pb.directory(workingDir);
+            }
+
+            // Apply environment overrides when provided (registry spoof / root redirects)
+            if (envOverrides != null && !envOverrides.isEmpty()) {
+               pb.environment().putAll(envOverrides);
+               System.out.println("[NCSDecomp] Applying environment overrides: " + envOverrides);
             }
 
             // Apply TSLPatcher workaround: set __COMPAT_LAYER=RUNASINVOKER to bypass UAC elevation requirement

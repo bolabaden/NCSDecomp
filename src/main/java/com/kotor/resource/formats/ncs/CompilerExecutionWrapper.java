@@ -40,6 +40,8 @@ public class CompilerExecutionWrapper {
    private final boolean isK2;
    private final KnownExternalCompilers compiler;
    private final NwnnsscompConfig config;
+   /** Process-level environment overrides applied during compiler invocation. */
+   private final java.util.Map<String, String> envOverrides = new java.util.HashMap<>();
    
    // Files/directories that need cleanup
    private final List<File> copiedIncludeFiles = new ArrayList<>();
@@ -62,6 +64,7 @@ public class CompilerExecutionWrapper {
       this.isK2 = isK2;
       this.config = new NwnnsscompConfig(compilerFile, sourceFile, outputFile, isK2);
       this.compiler = config.getChosenCompiler();
+      buildEnvironmentOverrides();
    }
    
    /**
@@ -252,6 +255,19 @@ public class CompilerExecutionWrapper {
     * Pattern 3: Working directory normalization.
     */
    public File getWorkingDirectory() {
+      // Some legacy compilers (KOTOR Tool / Scripting Tool) behave more reliably
+      // when run from their own directory because they probe for nwscript.nss and
+      // other resources relative to the executable instead of the source file.
+      if (compiler == KnownExternalCompilers.KOTOR_TOOL || compiler == KnownExternalCompilers.KOTOR_SCRIPTING_TOOL
+            || !supportsGameFlag()) {
+         File compilerDir = compilerFile.getParentFile();
+         if (compilerDir != null && compilerDir.exists()) {
+            System.err.println("DEBUG CompilerExecutionWrapper: Using compiler directory as working dir: "
+                  + compilerDir.getAbsolutePath());
+            return compilerDir;
+         }
+      }
+
       // Most compilers work best when run from the source file's directory
       File sourceDir = sourceFile.getParentFile();
       if (sourceDir != null && sourceDir.exists()) {
@@ -318,6 +334,53 @@ public class CompilerExecutionWrapper {
     */
    public KnownExternalCompilers getCompiler() {
       return compiler;
+   }
+
+   /**
+    * Returns any environment overrides required for the chosen compiler.
+    * Legacy compilers that rely on registry/game install probing can be coaxed
+    * to use the bundled tools directory by setting common root variables.
+    */
+   public java.util.Map<String, String> getEnvironmentOverrides() {
+      return java.util.Collections.unmodifiableMap(envOverrides);
+   }
+
+   /**
+    * Builds environment overrides for compilers that don't accept -g or that
+    * expect registry-based installation paths. This is a best-effort shim to
+    * keep everything self-contained in the tools directory.
+    */
+   private void buildEnvironmentOverrides() {
+      File toolsDir = new File(System.getProperty("user.dir"), "tools");
+
+      // Only apply overrides for legacy compilers that ignore -g or probe registry
+      boolean needsRootOverride = compiler == KnownExternalCompilers.KOTOR_TOOL
+            || compiler == KnownExternalCompilers.KOTOR_SCRIPTING_TOOL
+            || !supportsGameFlag();
+
+      if (!needsRootOverride) {
+         return;
+      }
+
+      String resolvedRoot = toolsDir.getAbsolutePath();
+      envOverrides.put("NWN_ROOT", resolvedRoot);
+      envOverrides.put("NWNDir", resolvedRoot);
+      envOverrides.put("KOTOR_ROOT", resolvedRoot);
+      System.err.println("DEBUG CompilerExecutionWrapper: Applied environment overrides for legacy compiler. "
+            + "NWN_ROOT=" + resolvedRoot + ", compiler=" + compiler.getName());
+   }
+
+   /**
+    * Checks whether the selected compiler template exposes a game flag.
+    */
+   private boolean supportsGameFlag() {
+      String[] args = compiler.getCompileArgs();
+      for (String arg : args) {
+         if (arg.contains("{game_value}") || "-g".equals(arg) || arg.startsWith("-g")) {
+            return true;
+         }
+      }
+      return false;
    }
 }
 

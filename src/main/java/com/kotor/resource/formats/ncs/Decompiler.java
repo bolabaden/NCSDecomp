@@ -1755,6 +1755,8 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
                               ProcessBuilder pb = new ProcessBuilder(cmd);
                               // Use unified working directory
                               pb.directory(wrapper.getWorkingDirectory());
+                              // Apply any environment overrides (legacy compilers / registry shims)
+                              pb.environment().putAll(wrapper.getEnvironmentOverrides());
                               pb.redirectErrorStream(true);
                               proc = pb.start();
 
