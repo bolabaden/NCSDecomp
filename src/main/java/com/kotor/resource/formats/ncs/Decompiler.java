@@ -549,8 +549,8 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
 
          // Check for decompilation error patterns
          boolean isDecompilationError = false;
-         String errorMessage = null;
-
+         final String errorMessage;
+         
          if (upper.contains("DECOMPILE") && (upper.contains("FAILED") || upper.contains("ERROR") || upper.contains("EXCEPTION"))) {
             isDecompilationError = true;
             errorMessage = textWithoutAnsi.trim();
@@ -563,21 +563,23 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
          } else if (upper.contains("BYTECODE CAPTURE FAILED")) {
             isDecompilationError = true;
             errorMessage = textWithoutAnsi.trim();
+         } else {
+            errorMessage = null;
          }
-
+         
          if (isDecompilationError && errorMessage != null) {
             // Try to find the file from context
             synchronized (decompiler.allLogLines) {
                final File[] matchingFileRef = new File[1];
-               
+
                // Look for file references in recent log lines
                for (int i = decompiler.allLogLines.size() - 1; i >= 0 && i >= decompiler.allLogLines.size() - 15; i--) {
                   LogLine logLine = decompiler.allLogLines.get(i);
                   String lineText = logLine.text.replaceAll("\u001B\\[[0-9;]+m", "");
                   String lineUpper = lineText.toUpperCase();
-                  
+
                   // Check for file references
-                  if (lineUpper.contains("DECOMPILING:") || lineUpper.contains("INPUT FILE:") || 
+                  if (lineUpper.contains("DECOMPILING:") || lineUpper.contains("INPUT FILE:") ||
                       lineUpper.contains("EXPECTED OUTPUT:")) {
                      // Extract filename from the line
                      java.util.regex.Pattern filePattern = java.util.regex.Pattern.compile("([^/\\\\]+\\.(ncs|nss))", java.util.regex.Pattern.CASE_INSENSITIVE);
@@ -587,7 +589,7 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
                         // Find matching file
                         synchronized (decompiler.hash_TabComponent2File) {
                            for (File file : decompiler.hash_TabComponent2File.values()) {
-                              if (file != null && (file.getName().equals(filename) || 
+                              if (file != null && (file.getName().equals(filename) ||
                                   file.getName().startsWith(filename.replace(".ncs", "").replace(".nss", "")))) {
                                  matchingFileRef[0] = file;
                                  break;
@@ -600,7 +602,7 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
                      }
                   }
                }
-               
+
                // If no file found, try to get the currently selected tab's file
                if (matchingFileRef[0] == null) {
                   SwingUtilities.invokeLater(() -> {
@@ -614,7 +616,7 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
                                  errors = new java.util.ArrayList<>();
                                  decompiler.decompilationErrors.put(tabFile, errors);
                               }
-                              
+
                               if (!errors.contains(errorMessage)) {
                                  errors.add(errorMessage);
                                  decompiler.showDecompilationErrorsForFile(tabFile);
@@ -632,10 +634,10 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
                         errors = new java.util.ArrayList<>();
                         decompiler.decompilationErrors.put(matchingFile, errors);
                      }
-                     
+
                      if (!errors.contains(errorMessage)) {
                         errors.add(errorMessage);
-                        
+
                         // Update error display
                         SwingUtilities.invokeLater(() -> {
                            decompiler.showDecompilationErrorsForFile(matchingFile);
