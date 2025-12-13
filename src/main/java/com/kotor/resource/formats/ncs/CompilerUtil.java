@@ -91,17 +91,17 @@ public class CompilerUtil {
       String folderPath = Decompiler.settings.getProperty("nwnnsscomp Folder Path", "");
       String filename = Decompiler.settings.getProperty("nwnnsscomp Filename", "");
 
-      System.err.println("DEBUG CompilerUtil.getCompilerFromSettings: folderPath='" + folderPath + "', filename='" + filename + "'");
+      System.out.println("[INFO] CompilerUtil.getCompilerFromSettings: folderPath='" + folderPath + "', filename='" + filename + "'");
 
       // Use shared resolution function
       File compilerFile = resolveCompilerPath(folderPath, filename);
 
       if (compilerFile == null) {
-         System.err.println("DEBUG CompilerUtil.getCompilerFromSettings: folderPath or filename is empty/invalid");
+         System.out.println("[INFO] CompilerUtil.getCompilerFromSettings: folderPath or filename is empty/invalid");
          return null;
       }
 
-      System.err.println("DEBUG CompilerUtil.getCompilerFromSettings: compilerFile='" + compilerFile.getAbsolutePath() + "', exists=" + compilerFile.exists());
+      System.out.println("[INFO] CompilerUtil.getCompilerFromSettings: compilerFile='" + compilerFile.getAbsolutePath() + "', exists=" + compilerFile.exists());
 
       // Return the file (even if it doesn't exist - caller can check)
       return compilerFile;
@@ -145,7 +145,7 @@ public class CompilerUtil {
       if (cliPath != null && !cliPath.trim().isEmpty()) {
          File cliFile = new File(cliPath.trim());
          if (cliFile.exists() && cliFile.isFile()) {
-            System.err.println("DEBUG CompilerUtil.resolveCompilerPathWithFallbacks: Using CLI path: " + cliFile.getAbsolutePath());
+            System.out.println("[INFO] CompilerUtil.resolveCompilerPathWithFallbacks: Using CLI path: " + cliFile.getAbsolutePath());
             return cliFile;
          }
          // If CLI path is a directory, try known filenames in it
@@ -153,7 +153,7 @@ public class CompilerUtil {
             for (String name : COMPILER_NAMES) {
                File candidate = new File(cliFile, name);
                if (candidate.exists() && candidate.isFile()) {
-                  System.err.println("DEBUG CompilerUtil.resolveCompilerPathWithFallbacks: Found in CLI dir: " + candidate.getAbsolutePath());
+                  System.out.println("[INFO] CompilerUtil.resolveCompilerPathWithFallbacks: Found in CLI dir: " + candidate.getAbsolutePath());
                   return candidate;
                }
             }
@@ -165,7 +165,7 @@ public class CompilerUtil {
       for (String name : COMPILER_NAMES) {
          Path candidate = toolsDir.resolve(name);
          if (Files.exists(candidate) && Files.isRegularFile(candidate)) {
-            System.err.println("DEBUG CompilerUtil.resolveCompilerPathWithFallbacks: Found in tools/: " + candidate);
+            System.out.println("[INFO] CompilerUtil.resolveCompilerPathWithFallbacks: Found in tools/: " + candidate);
             return candidate.toFile();
          }
       }
@@ -175,7 +175,7 @@ public class CompilerUtil {
       for (String name : COMPILER_NAMES) {
          Path candidate = cwd.resolve(name);
          if (Files.exists(candidate) && Files.isRegularFile(candidate)) {
-            System.err.println("DEBUG CompilerUtil.resolveCompilerPathWithFallbacks: Found in cwd: " + candidate);
+            System.out.println("[INFO] CompilerUtil.resolveCompilerPathWithFallbacks: Found in cwd: " + candidate);
             return candidate.toFile();
          }
       }
@@ -186,7 +186,7 @@ public class CompilerUtil {
          for (String name : COMPILER_NAMES) {
             File candidate = new File(ncsDecompDir, name);
             if (candidate.exists() && candidate.isFile()) {
-               System.err.println("DEBUG CompilerUtil.resolveCompilerPathWithFallbacks: Found in NCSDecomp dir: " + candidate.getAbsolutePath());
+               System.out.println("[INFO] CompilerUtil.resolveCompilerPathWithFallbacks: Found in NCSDecomp dir: " + candidate.getAbsolutePath());
                return candidate;
             }
          }
@@ -195,13 +195,13 @@ public class CompilerUtil {
          for (String name : COMPILER_NAMES) {
             File candidate = new File(ncsToolsDir, name);
             if (candidate.exists() && candidate.isFile()) {
-               System.err.println("DEBUG CompilerUtil.resolveCompilerPathWithFallbacks: Found in NCSDecomp tools/: " + candidate.getAbsolutePath());
+               System.out.println("[INFO] CompilerUtil.resolveCompilerPathWithFallbacks: Found in NCSDecomp tools/: " + candidate.getAbsolutePath());
                return candidate;
             }
          }
       }
 
-      System.err.println("DEBUG CompilerUtil.resolveCompilerPathWithFallbacks: No compiler found anywhere");
+      System.out.println("[INFO] CompilerUtil.resolveCompilerPathWithFallbacks: No compiler found anywhere");
       return null;
    }
 

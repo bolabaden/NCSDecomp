@@ -459,7 +459,7 @@ public class FileDecompiler {
          }
          return true;
       } catch (Exception e) {
-         System.err.println("DEBUG captureBytecodeFromNcs: Error capturing bytecode: " + e.getMessage());
+         System.out.println("[INFO] captureBytecodeFromNcs: Error capturing bytecode: " + e.getMessage());
          e.printStackTrace();
          return false;
       }
@@ -884,12 +884,12 @@ public class FileDecompiler {
          if (settingsCompiler != null) {
             // If Settings compiler exists, use it
             if (settingsCompiler.exists() && settingsCompiler.isFile()) {
-               System.err.println("DEBUG FileDecompiler.getCompilerFile: Using Settings compiler: "
+               System.out.println("[INFO] FileDecompiler.getCompilerFile: Using Settings compiler: "
                      + settingsCompiler.getAbsolutePath());
                return settingsCompiler;
             }
             // Settings compiler doesn't exist - try fallback to JAR/EXE directory's tools folder
-            System.err.println("DEBUG FileDecompiler.getCompilerFile: Settings compiler not found: "
+            System.out.println("[INFO] FileDecompiler.getCompilerFile: Settings compiler not found: "
                   + settingsCompiler.getAbsolutePath() + ", trying fallback to JAR directory");
 
             // Try JAR/EXE directory's tools folder with all known compiler names
@@ -900,36 +900,36 @@ public class FileDecompiler {
                for (String name : compilerNames) {
                   File fallbackCompiler = new File(jarToolsDir, name);
                   if (fallbackCompiler.exists() && fallbackCompiler.isFile()) {
-                     System.err.println("DEBUG FileDecompiler.getCompilerFile: Found fallback compiler in JAR directory: "
+                     System.out.println("[INFO] FileDecompiler.getCompilerFile: Found fallback compiler in JAR directory: "
                            + fallbackCompiler.getAbsolutePath());
                      return fallbackCompiler;
                   }
                }
-               System.err.println("DEBUG FileDecompiler.getCompilerFile: No fallback compiler found in JAR directory: "
+               System.out.println("[INFO] FileDecompiler.getCompilerFile: No fallback compiler found in JAR directory: "
                      + jarToolsDir.getAbsolutePath());
             }
 
             // Fallback failed, but return the Settings path anyway (caller will handle error)
-            System.err.println("DEBUG FileDecompiler.getCompilerFile: Using Settings compiler (not found): "
+            System.out.println("[INFO] FileDecompiler.getCompilerFile: Using Settings compiler (not found): "
                   + settingsCompiler.getAbsolutePath());
             return settingsCompiler;
          }
       } catch (NoClassDefFoundError | Exception e) {
          // CompilerUtil or Decompiler.settings not available - likely CLI mode
-         System.err.println("DEBUG FileDecompiler.getCompilerFile: Settings not available (CLI mode): "
+         System.out.println("[INFO] FileDecompiler.getCompilerFile: Settings not available (CLI mode): "
                + e.getClass().getSimpleName());
       }
 
       // CLI MODE: Use nwnnsscompPath if set (set by CLI argument)
       if (nwnnsscompPath != null && !nwnnsscompPath.trim().isEmpty()) {
          File cliCompiler = new File(nwnnsscompPath);
-         System.err.println(
-               "DEBUG FileDecompiler.getCompilerFile: Using CLI nwnnsscompPath: " + cliCompiler.getAbsolutePath());
+         System.out.println(
+               "[INFO] FileDecompiler.getCompilerFile: Using CLI nwnnsscompPath: " + cliCompiler.getAbsolutePath());
          return cliCompiler;
       }
 
       // NO FALLBACKS - return null if not configured
-      System.err.println("DEBUG FileDecompiler.getCompilerFile: No compiler configured - returning null");
+      System.out.println("[INFO] FileDecompiler.getCompilerFile: No compiler configured - returning null");
       return null;
    }
 
@@ -946,7 +946,7 @@ public class FileDecompiler {
    /**
     * Invokes nwnnsscomp in decompile mode against a single file. Uses
     * {@link NwnnsscompConfig} to build arguments appropriate for the detected
-    * binary.
+    * binary. Also handles registry spoofing and file structure setup for legacy compilers.
     *
     * @param in        Input NCS file to decompile
     * @param k2        Whether to use K2 mode
@@ -955,65 +955,151 @@ public class FileDecompiler {
     * @return The decompiled pcode file, or null if decompilation failed
     */
    private File externalDecompile(File in, boolean k2, File outputDir) {
-      try {
-         File compiler = getCompilerFile();
-         if (compiler == null || !compiler.exists()) {
-            if (compiler != null) {
-               System.out.println("[NCSDecomp] ERROR: Compiler not found: " + compiler.getAbsolutePath());
-            } else {
-               System.out.println("[NCSDecomp] ERROR: No compiler configured");
-            }
-            return null;
-         }
-
-         // Determine output directory: use provided outputDir, or temp if null
-         File actualOutputDir;
-         if (outputDir != null) {
-            actualOutputDir = outputDir;
+      File compiler = getCompilerFile();
+      if (compiler == null || !compiler.exists()) {
+         if (compiler != null) {
+            System.out.println("[NCSDecomp] ERROR: Compiler not found: " + compiler.getAbsolutePath());
          } else {
-            // Default to temp directory to avoid creating files without user consent
-            actualOutputDir = new File(System.getProperty("java.io.tmpdir"), "ncsdecomp_roundtrip");
-            if (!actualOutputDir.exists()) {
-               actualOutputDir.mkdirs();
+            System.out.println("[NCSDecomp] ERROR: No compiler configured");
+         }
+         return null;
+      }
+
+      // Determine output directory: use provided outputDir, or temp if null
+      File actualOutputDir;
+      if (outputDir != null) {
+         actualOutputDir = outputDir;
+      } else {
+         // Default to temp directory to avoid creating files without user consent
+         actualOutputDir = new File(System.getProperty("java.io.tmpdir"), "ncsdecomp_roundtrip");
+         if (!actualOutputDir.exists()) {
+            actualOutputDir.mkdirs();
+         }
+      }
+
+      // Create output pcode file in the specified output directory
+      String baseName = in.getName();
+      int lastDot = baseName.lastIndexOf('.');
+      if (lastDot > 0) {
+         baseName = baseName.substring(0, lastDot);
+      }
+      File result = new File(actualOutputDir, baseName + ".pcode");
+      if (result.exists()) {
+         result.delete();
+      }
+
+      // Use compiler detection to get correct command-line arguments
+      NwnnsscompConfig config;
+      try {
+         config = new NwnnsscompConfig(compiler, in, result, k2);
+      } catch (IOException e) {
+         System.out.println("[NCSDecomp] ERROR: Failed to create compiler config: " + e.getMessage());
+         return null;
+      }
+
+      // Check if this compiler needs registry spoofing
+      KnownExternalCompilers chosenCompiler = config.getChosenCompiler();
+      boolean needsRegistrySpoof = (chosenCompiler == KnownExternalCompilers.KOTOR_TOOL
+            || chosenCompiler == KnownExternalCompilers.KOTOR_SCRIPTING_TOOL);
+
+      // Set up registry spoofing and file structure if needed
+      AutoCloseable spoofer = null;
+      File copiedNwscript = null;
+      try {
+         if (needsRegistrySpoof) {
+            // For decompilation, we need:
+            // 1. Registry spoofing
+            // 2. chitin.key and directory structure
+            // 3. nwscript.nss in tools directory
+
+            File toolsDir = compiler.getParentFile();
+
+            // Set up registry spoofing
+            try {
+               RegistrySpoofer regSpoofer = new RegistrySpoofer(toolsDir, k2);
+               regSpoofer.activate(); // This creates chitin.key and directories
+               spoofer = regSpoofer;
+               System.out.println("[INFO] externalDecompile: Registry spoofing activated for decompilation");
+            } catch (Exception e) {
+               System.out.println("[INFO] externalDecompile: Failed to set up registry spoofing: " + e.getMessage());
+               // Continue anyway
+            }
+
+            // Ensure nwscript.nss is in tools directory (compiler needs it for decompilation too)
+            File compilerNwscript = new File(toolsDir, "nwscript.nss");
+            File nwscriptSource;
+            if (k2) {
+               nwscriptSource = new File(toolsDir, "tsl_nwscript.nss");
+            } else {
+               nwscriptSource = new File(toolsDir, "k1_nwscript.nss");
+            }
+
+            if (nwscriptSource.exists()) {
+               if (!compilerNwscript.exists()) {
+                  try {
+                     java.nio.file.Files.copy(nwscriptSource.toPath(), compilerNwscript.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                     System.out.println("[INFO] externalDecompile: Copied nwscript.nss for decompilation: " + nwscriptSource.getName() + " -> " + compilerNwscript.getAbsolutePath());
+                  } catch (IOException e) {
+                     System.out.println("[INFO] externalDecompile: Failed to copy nwscript.nss: " + e.getMessage());
+                  }
+               } else {
+                  System.out.println("[INFO] externalDecompile: nwscript.nss already exists in tools directory");
+               }
+            } else {
+               System.out.println("[WARNING] externalDecompile: nwscript source not found: " + nwscriptSource.getAbsolutePath());
             }
          }
 
-         // Create output pcode file in the specified output directory
-         String baseName = in.getName();
-         int lastDot = baseName.lastIndexOf('.');
-         if (lastDot > 0) {
-            baseName = baseName.substring(0, lastDot);
-         }
-         File result = new File(actualOutputDir, baseName + ".pcode");
-         if (result.exists()) {
-            result.delete();
-         }
-
-         // Use compiler detection to get correct command-line arguments
-         NwnnsscompConfig config = new NwnnsscompConfig(compiler, in, result, k2);
          String[] args = config.getDecompileArgs(compiler.getAbsolutePath());
 
-         System.out.println("[NCSDecomp] Using compiler: " + config.getChosenCompiler().getName() + " (SHA256: "
+         System.out.println("[NCSDecomp] Using compiler: " + chosenCompiler.getName() + " (SHA256: "
                + config.getSha256Hash().substring(0, 16) + "...)");
          System.out.println("[NCSDecomp] Input file: " + in.getAbsolutePath());
          System.out.println("[NCSDecomp] Expected output: " + result.getAbsolutePath());
 
-         try {
-            new FileDecompiler.WindowsExec().callExec(args);
-         } catch (IOException ioEx) {
-            // Elevation errors are already logged in callExec with helpful messages
-            // Re-throw to be caught by outer catch block
-            throw ioEx;
+         // Determine working directory - legacy compilers need their own directory
+         File workingDir;
+         if (needsRegistrySpoof || !chosenCompiler.getCompileArgs()[0].contains("{game_value}")) {
+            workingDir = compiler.getParentFile();
+         } else {
+            workingDir = in.getParentFile();
+            if (workingDir == null || !workingDir.exists()) {
+               workingDir = compiler.getParentFile();
+            }
          }
 
-         if (!result.exists()) {
-            System.out.println("[NCSDecomp] ERROR: Expected output file does not exist: " + result.getAbsolutePath());
-            System.out.println("[NCSDecomp]   This usually means nwnnsscomp.exe failed or produced no output.");
-            System.out.println("[NCSDecomp]   Check the nwnnsscomp output above for error messages.");
-            return null;
+         // Set up environment overrides for legacy compilers
+         java.util.Map<String, String> envOverrides = new java.util.HashMap<>();
+         if (needsRegistrySpoof) {
+            File toolsDir = compiler.getParentFile();
+            String resolvedRoot = toolsDir.getAbsolutePath();
+            envOverrides.put("NWN_ROOT", resolvedRoot);
+            envOverrides.put("NWNDir", resolvedRoot);
+            envOverrides.put("KOTOR_ROOT", resolvedRoot);
          }
 
-         return result;
+         // Execute decompiler
+         ProcessBuilder pb = new ProcessBuilder(args);
+         pb.directory(workingDir);
+         pb.environment().putAll(envOverrides);
+         pb.redirectErrorStream(true);
+         Process proc = pb.start();
+
+         // Read output
+         StringBuilder output = new StringBuilder();
+         try (java.io.BufferedReader reader = new java.io.BufferedReader(
+               new java.io.InputStreamReader(proc.getInputStream()))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+               output.append(line).append("\n");
+               System.out.println("[nwnnsscomp] " + line);
+            }
+         }
+
+         int exitCode = proc.waitFor();
+         if (exitCode != 0) {
+            System.out.println("[NCSDecomp] nwnnsscomp.exe exited with code: " + exitCode);
+         }
       } catch (IOException e) {
          // Check if this is an elevation error
          String errorMsg = e.getMessage();
@@ -1032,7 +1118,31 @@ public class FileDecompiler {
          }
          e.printStackTrace();
          return null;
+      } catch (InterruptedException e) {
+         System.out.println("[NCSDecomp] EXCEPTION during external decompile (interrupted): " + e.getMessage());
+         e.printStackTrace();
+         return null;
+      } finally {
+         // Clean up registry spoofing
+         if (spoofer != null) {
+            try {
+               spoofer.close();
+            } catch (Exception e) {
+               System.out.println("[INFO] externalDecompile: Error closing registry spoofer: " + e.getMessage());
+            }
+         }
+         // Note: We don't delete nwscript.nss here - it might be needed for subsequent operations
+         // It will be cleaned up by the compilation wrapper if one is used
       }
+
+      if (!result.exists()) {
+         System.out.println("[NCSDecomp] ERROR: Expected output file does not exist: " + result.getAbsolutePath());
+         System.out.println("[NCSDecomp]   This usually means nwnnsscomp.exe failed or produced no output.");
+         System.out.println("[NCSDecomp]   Check the nwnnsscomp output above for error messages.");
+         return null;
+      }
+
+      return result;
    }
 
    /**
@@ -1112,36 +1222,36 @@ public class FileDecompiler {
 
          // Use unified compiler execution wrapper - abstracts ALL compiler quirks
          CompilerExecutionWrapper wrapper = new CompilerExecutionWrapper(compiler, file, result, k2);
-         
+
          try {
             // Prepare execution environment (handles include files, nwscript.nss, etc.)
             // For FileDecompiler, we typically don't have include directories, but wrapper handles it gracefully
             wrapper.prepareExecutionEnvironment(new java.util.ArrayList<>());
-            
+
             // First attempt: compile without registry spoofing
             String[] args = wrapper.getCompileArgs(new java.util.ArrayList<>());
             java.util.Map<String, String> env = wrapper.getEnvironmentOverrides();
             File workingDir = wrapper.getWorkingDirectory();
-            
+
             System.out.println("[NCSDecomp] Using compiler: " + wrapper.getCompiler().getName());
             System.out.println("[NCSDecomp] Input file: " + file.getAbsolutePath());
             System.out.println("[NCSDecomp] Expected output: " + result.getAbsolutePath());
             System.out.println("[NCSDecomp] Working directory: " + workingDir.getAbsolutePath());
-            
+
             // Capture compiler output to check for NwnStdLoader error
             boolean needsRegistrySpoof = false;
-            
+
             try {
                // First compilation attempt
                System.out.println("[NCSDecomp] First compilation attempt (without registry spoofing)");
                String output = executeCompilerAndCaptureOutput(args, workingDir, env);
-               
+
                // Check if compilation succeeded
                if (result.exists()) {
                   System.out.println("[NCSDecomp] Compilation succeeded without registry spoofing");
                   return result;
                }
-               
+
                // Check if we need registry spoofing (look for NwnStdLoader error)
                if (output.contains("Error: Couldn't initialize the NwnStdLoader")) {
                   System.out.println("[NCSDecomp] Detected NwnStdLoader error - registry spoofing required");
@@ -1163,7 +1273,7 @@ public class FileDecompiler {
                   throw ioEx;
                }
             }
-            
+
             // If registry spoofing is needed, retry with spoofer activated
             if (needsRegistrySpoof) {
                try (AutoCloseable spoofer = wrapper.createRegistrySpoofer()) {
@@ -1176,24 +1286,24 @@ public class FileDecompiler {
                         System.out.println("[NCSDecomp]   Attempting compilation without registry spoofing (may fail)");
                      }
                   }
-                  
+
                   // Retry compilation with registry spoofing
                   System.out.println("[NCSDecomp] Retry compilation attempt (with registry spoofing)");
                   String output = executeCompilerAndCaptureOutput(args, workingDir, env);
-                  
+
                   if (!result.exists()) {
                      System.out.println("[NCSDecomp] ERROR: Expected output file does not exist after retry: " + result.getAbsolutePath());
                      System.out.println("[NCSDecomp]   Compiler output:\n" + output);
                      return null;
                   }
-                  
+
                   return result;
                } catch (Exception spooferEx) {
                   System.out.println("[NCSDecomp] Exception with registry spoofer: " + spooferEx.getMessage());
                   throw new IOException("Registry spoofer error: " + spooferEx.getMessage(), spooferEx);
                }
             }
-            
+
             return null;
          } finally {
             // Clean up all temporary files (include files, nwscript.nss, etc.)
@@ -1238,9 +1348,9 @@ public class FileDecompiler {
          pb.environment().putAll(envOverrides);
       }
       pb.redirectErrorStream(true);
-      
+
       Process proc = pb.start();
-      
+
       // Capture output
       StringBuilder output = new StringBuilder();
       try (java.io.BufferedReader reader = new java.io.BufferedReader(
@@ -1252,7 +1362,7 @@ public class FileDecompiler {
             System.out.println("[nwnnsscomp] " + line);
          }
       }
-      
+
       try {
          int exitCode = proc.waitFor();
          System.out.println("[NCSDecomp] Compiler exit code: " + exitCode);
@@ -1260,7 +1370,7 @@ public class FileDecompiler {
          Thread.currentThread().interrupt();
          throw new IOException("Compiler process interrupted", e);
       }
-      
+
       return output.toString();
    }
 

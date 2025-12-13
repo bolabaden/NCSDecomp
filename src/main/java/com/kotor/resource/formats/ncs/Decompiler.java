@@ -45,6 +45,7 @@ import java.util.Vector;
 import java.net.URI;
 import javax.swing.JButton;
 import javax.swing.JCheckBoxMenuItem;
+import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
@@ -60,7 +61,6 @@ import javax.swing.JSplitPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTextField;
 import javax.swing.JToolBar;
-import javax.swing.JTextArea;
 import javax.swing.JTextPane;
 import javax.swing.JTree;
 import javax.swing.text.JTextComponent;
@@ -115,8 +115,18 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
    private JTextComponent jTA; // Changed to JTextComponent to support both JTextArea and JTextPane
    private DropTarget dropTarget;
    private JPanel leftPanel;
-   private JTextArea status;
+   private JTextPane status;
    private JScrollPane statusScrollPane;
+   private JComboBox<String> logLevelFilter;
+   private static final String[] LOG_LEVELS = {"TRACE", "DEBUG", "INFO", "WARNING", "ERROR"};
+   private static final int DEFAULT_LOG_LEVEL_INDEX = 2; // INFO
+
+   /**
+    * Log severity levels.
+    */
+   private enum LogSeverity {
+      TRACE, DEBUG, INFO, WARNING, ERROR
+   }
    private transient Element rootElement;
    private TitledBorder titledBorder;
    private int mark;
@@ -242,9 +252,11 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
       this.upperJSplitPane.setResizeWeight(0.2);
       this.upperJSplitPane.setDividerSize(6);
 
-      // Status/logging area
-      this.status = new JTextArea(8, 80);
+      // Status/logging area with styled text support
+      this.status = new JTextPane();
       this.status.setEditable(false);
+      this.status.setFont(new Font("Consolas", Font.PLAIN, 11)); // Industry standard monospace font
+      this.status.setBackground(java.awt.Color.WHITE);
       this.statusScrollPane = new JScrollPane(this.status);
       this.statusScrollPane.setVerticalScrollBarPolicy(22);
       this.statusScrollPane.setHorizontalScrollBarPolicy(32);
@@ -254,9 +266,18 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
       statusPopupMenu.add(clearItem);
       this.status.setComponentPopupMenu(statusPopupMenu);
 
+      // Log level filter combobox
+      this.logLevelFilter = new JComboBox<>(LOG_LEVELS);
+      this.logLevelFilter.setSelectedIndex(DEFAULT_LOG_LEVEL_INDEX);
+      this.logLevelFilter.addActionListener(e -> filterLogs());
+
       JPanel statusBar = new JPanel(new BorderLayout());
       this.statusBarLabel = new JLabel("Ready");
       statusBar.add(this.statusBarLabel, BorderLayout.WEST);
+      JPanel filterPanel = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.RIGHT, 5, 0));
+      filterPanel.add(new JLabel("Log Level: "));
+      filterPanel.add(this.logLevelFilter);
+      statusBar.add(filterPanel, BorderLayout.EAST);
 
       JPanel statusWrapper = new JPanel(new BorderLayout());
       statusWrapper.add(statusBar, BorderLayout.NORTH);
@@ -297,8 +318,8 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
       this.originalErr = System.err;
 
       // Create dual-output streams
-      DualOutputPrintStream dualOut = new DualOutputPrintStream(this.originalOut, this.status);
-      DualOutputPrintStream dualErr = new DualOutputPrintStream(this.originalErr, this.status);
+      DualOutputPrintStream dualOut = new DualOutputPrintStream(this.originalOut, this.status, this);
+      DualOutputPrintStream dualErr = new DualOutputPrintStream(this.originalErr, this.status, this);
 
       // Replace System.out and System.err
       System.setOut(dualOut);
@@ -307,31 +328,158 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
 
    /**
     * A PrintStream that writes to both the original stream (terminal) and the GUI
-    * log area. This ensures all output appears in both places.
+    * log area. This ensures all output appears in both places with color coding.
     */
    private static class DualOutputPrintStream extends PrintStream {
       private final PrintStream original;
-      private final JTextArea guiLog;
+      private final JTextPane guiLog;
+      private final javax.swing.text.StyledDocument doc;
+      private final Decompiler decompiler;
 
-      public DualOutputPrintStream(PrintStream original, JTextArea guiLog) {
-         super(new DualOutputStream(original, guiLog), true);
+      public DualOutputPrintStream(PrintStream original, JTextPane guiLog, Decompiler decompiler) {
+         super(new DualOutputStream(original, guiLog, decompiler), true);
          this.original = original;
          this.guiLog = guiLog;
+         this.doc = guiLog.getStyledDocument();
+         this.decompiler = decompiler;
       }
 
       /**
-       * Thread-safe method to append text to the GUI log area. Uses
-       * SwingUtilities.invokeLater to ensure updates happen on the EDT.
+       * Thread-safe method to append text to the GUI log area with color coding.
+       * Uses SwingUtilities.invokeLater to ensure updates happen on the EDT.
        */
       private void appendToGui(String text) {
-         if (text != null && guiLog != null) {
+         appendToGuiLog(text, this.guiLog, this.doc, this.decompiler);
+      }
+      
+      /**
+       * Instance method to append text to GUI log with color coding.
+       */
+      private static void appendToGuiLog(String text, JTextPane guiLog, javax.swing.text.StyledDocument doc, Decompiler decompiler) {
+         if (text != null && guiLog != null && doc != null) {
             SwingUtilities.invokeLater(() -> {
-               guiLog.append(text);
-               // Auto-scroll to bottom
-               guiLog.setCaretPosition(guiLog.getDocument().getLength());
+               try {
+                  // Parse log level and apply color
+                  LogSeverity severity = parseLogSeverity(text);
+                  
+                  // Check if this severity should be shown based on filter
+                  if (!shouldShowLog(severity, decompiler)) {
+                     return; // Don't append if filtered out
+                  }
+                  
+                  // Get color for this severity
+                  java.awt.Color color = getColorForSeverity(severity);
+                  
+                  // Create style attribute set with color
+                  javax.swing.text.SimpleAttributeSet attr = new javax.swing.text.SimpleAttributeSet();
+                  javax.swing.text.StyleConstants.setForeground(attr, color);
+                  javax.swing.text.StyleConstants.setFontFamily(attr, "Consolas");
+                  javax.swing.text.StyleConstants.setFontSize(attr, 11);
+                  
+                  // Append text with style
+                  int start = doc.getLength();
+                  doc.insertString(start, text, attr);
+                  
+                  // Auto-scroll to bottom
+                  guiLog.setCaretPosition(doc.getLength());
+               } catch (javax.swing.text.BadLocationException e) {
+                  // Fallback to plain append if styled insert fails
+                  try {
+                     int start = doc.getLength();
+                     doc.insertString(start, text, null);
+                     guiLog.setCaretPosition(doc.getLength());
+                  } catch (javax.swing.text.BadLocationException e2) {
+                     // Ignore
+                  }
+               }
             });
          }
       }
+      
+      /**
+       * Parses log severity from log line.
+       */
+      private static LogSeverity parseLogSeverity(String text) {
+         if (text == null) {
+            return LogSeverity.INFO;
+         }
+         String upper = text.toUpperCase();
+         if (upper.contains("[TRACE]") || upper.contains("TRACE:")) {
+            return LogSeverity.TRACE;
+         } else if (upper.contains("DEBUG ") && !upper.contains("DEBUG transform") && !upper.contains("DEBUG check") 
+               && !upper.contains("DEBUG remove") && !upper.contains("DEBUG isAt") && !upper.contains("DEBUG isReturn")) {
+            // Only treat as DEBUG if it's NOT a decompiler control flow log
+            // Control flow logs (transformJump, checkEnd, etc.) stay as DEBUG
+            if (upper.contains("DEBUG Compiler") || upper.contains("DEBUG FileDecompiler") 
+                  || upper.contains("DEBUG external") || upper.contains("DEBUG Registry")
+                  || upper.contains("DEBUG CompilerExecution") || upper.contains("DEBUG loadNssFile")
+                  || upper.contains("DEBUG decompile:") || upper.contains("DEBUG capture")) {
+               // These should have been changed to INFO, but handle legacy
+               return LogSeverity.INFO;
+            }
+            return LogSeverity.DEBUG;
+         } else if (upper.contains("[INFO]") || upper.contains("INFO:") || upper.contains("[NCSDecomp]")) {
+            return LogSeverity.INFO;
+         } else if (upper.contains("[WARN]") || upper.contains("WARNING:") || upper.contains("WARNING -")) {
+            return LogSeverity.WARNING;
+         } else if (upper.contains("[ERROR]") || upper.contains("ERROR:") || upper.contains("EXCEPTION")) {
+            return LogSeverity.ERROR;
+         }
+         // Default to INFO for unmarked logs
+         return LogSeverity.INFO;
+      }
+      
+      /**
+       * Checks if log should be shown based on current filter level.
+       */
+      private static boolean shouldShowLog(LogSeverity severity, Decompiler decompiler) {
+         if (decompiler == null || decompiler.logLevelFilter == null) {
+            return true;
+         }
+         String selectedLevel = (String) decompiler.logLevelFilter.getSelectedItem();
+         if (selectedLevel == null) {
+            return true;
+         }
+         
+         int selectedIndex = getSeverityIndex(selectedLevel);
+         int logIndex = severity.ordinal();
+         
+         // Show if log severity is >= selected filter level
+         return logIndex >= selectedIndex;
+      }
+      
+      /**
+       * Gets severity index for comparison.
+       */
+      private static int getSeverityIndex(String level) {
+         for (int i = 0; i < LOG_LEVELS.length; i++) {
+            if (LOG_LEVELS[i].equals(level)) {
+               return i;
+            }
+         }
+         return DEFAULT_LOG_LEVEL_INDEX;
+      }
+      
+      /**
+       * Gets color for log severity (industry standard colors).
+       */
+      private static java.awt.Color getColorForSeverity(LogSeverity severity) {
+         switch (severity) {
+            case TRACE:
+               return new java.awt.Color(128, 128, 128); // Gray
+            case DEBUG:
+               return new java.awt.Color(0, 128, 0); // Green
+            case INFO:
+               return new java.awt.Color(0, 0, 0); // Black
+            case WARNING:
+               return new java.awt.Color(255, 140, 0); // Orange
+            case ERROR:
+               return new java.awt.Color(220, 20, 60); // Crimson red
+            default:
+               return java.awt.Color.BLACK;
+         }
+      }
+      
 
       /**
        * Custom OutputStream that writes to both the original PrintStream and the GUI
@@ -339,12 +487,14 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
        */
       private static class DualOutputStream extends OutputStream {
          private final PrintStream original;
-         private final JTextArea guiLog;
+         private final JTextPane guiLog;
+         private final Decompiler decompiler;
          private final StringBuilder lineBuffer = new StringBuilder();
 
-         public DualOutputStream(PrintStream original, JTextArea guiLog) {
+         public DualOutputStream(PrintStream original, JTextPane guiLog, Decompiler decompiler) {
             this.original = original;
             this.guiLog = guiLog;
+            this.decompiler = decompiler;
          }
 
          @Override
@@ -388,12 +538,10 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
          }
 
          private void appendToGui(String text) {
-            if (text != null && guiLog != null) {
-               SwingUtilities.invokeLater(() -> {
-                  guiLog.append(text);
-                  // Auto-scroll to bottom
-                  guiLog.setCaretPosition(guiLog.getDocument().getLength());
-               });
+            // Delegate to static method for color coding
+            if (decompiler != null && guiLog != null) {
+               javax.swing.text.StyledDocument doc = guiLog.getStyledDocument();
+               DualOutputPrintStream.appendToGuiLog(text, guiLog, doc, decompiler);
             }
          }
       }
@@ -1236,6 +1384,8 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
          settings.show();
       } else if (cmd.equals("Clear")) {
          this.status.setText("");
+      } else if (cmd.equals("FilterLogs")) {
+         filterLogs();
       } else if (cmd.equals("View Byte Code")) {
          if (this.jTB.getSelectedIndex() >= 0) {
             this.setTabComponentPanel(1);
@@ -1643,9 +1793,9 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
     * @param file The NSS file to load
     */
    private void loadNssFile(File file) {
-      this.status.append("Loading NSS file...");
+      this.appendStatus("[INFO] Loading NSS file...\n");
       this.statusScrollPane.getVerticalScrollBar().setValue(this.statusScrollPane.getVerticalScrollBar().getMaximum());
-      this.status.append(file.getName() + ": ");
+      this.appendStatus("[INFO] " + file.getName() + ": ");
 
       String fileContent = null;
       try {
@@ -1653,7 +1803,7 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
       fileContent = new String(java.nio.file.Files.readAllBytes(file.toPath()),
          java.nio.charset.StandardCharsets.UTF_8);
       } catch (java.io.IOException e) {
-      this.status.append("error reading file: " + e.getMessage() + "\n");
+      this.appendStatus("[ERROR] error reading file: " + e.getMessage() + "\n");
       JOptionPane.showMessageDialog(null, "Error reading NSS file: " + e.getMessage());
       return;
       }
@@ -1700,14 +1850,14 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
             if (rightScrollPane.getViewport().getView() instanceof JTextPane) {
                JTextPane roundTripPane = (JTextPane) rightScrollPane.getViewport().getView();
 
-               System.err.println("DEBUG loadNssFile: Starting round-trip for NSS file: " + file.getAbsolutePath());
+               System.out.println("[INFO] loadNssFile: Starting round-trip for NSS file: " + file.getAbsolutePath());
 
                // Compile the NSS file to NCS, then decompile it
                File compiledNcs = null;
                try {
                   // Use CompilerUtil to get compiler from Settings (GUI mode - NO FALLBACKS)
                   File compiler = CompilerUtil.getCompilerFromSettingsOrNull();
-                  System.err.println("DEBUG loadNssFile: Found compiler via CompilerUtil: " +
+                  System.out.println("[INFO] loadNssFile: Found compiler via CompilerUtil: " +
                   (compiler != null ? compiler.getAbsolutePath() : "null"));
 
                   if (compiler != null && compiler.exists()) {
@@ -1727,7 +1877,7 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
                   boolean isK2 = gameVariant.equals("k2") || gameVariant.equals("tsl") || gameVariant.equals("2");
                   // Also update the static field for consistency
                   FileDecompiler.isK2Selected = isK2;
-                  System.err.println("DEBUG loadNssFile: Compiling NSS with isK2: " + isK2 + " (from Settings: " + gameVariant + ")");
+                  System.out.println("[INFO] loadNssFile: Compiling NSS with isK2: " + isK2 + " (from Settings: " + gameVariant + ")");
 
                   // nwscript.nss handling is now done by CompilerExecutionWrapper.prepareExecutionEnvironment()
 
@@ -1753,7 +1903,7 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
                   try {
                      // First attempt: compile without registry spoofing
                      String[] cmd = wrapper.getCompileArgs(includeDirs);
-                     System.err.println("DEBUG loadNssFile: Running compiler (first attempt, no registry spoofing): " + java.util.Arrays.toString(cmd));
+                     System.out.println("[INFO] loadNssFile: Running compiler (first attempt, no registry spoofing): " + java.util.Arrays.toString(cmd));
                      ProcessBuilder pb = new ProcessBuilder(cmd);
                      pb.directory(wrapper.getWorkingDirectory());
                      pb.environment().putAll(wrapper.getEnvironmentOverrides());
@@ -1772,18 +1922,18 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
                      finished = proc.waitFor(25, java.util.concurrent.TimeUnit.SECONDS);
                      if (!finished) {
                         proc.destroyForcibly();
-                        System.err.println("DEBUG loadNssFile: Compiler timed out");
+                        System.out.println("[INFO] loadNssFile: Compiler timed out");
                      } else {
                         int exitCode = proc.exitValue();
-                        System.err.println("DEBUG loadNssFile: Compiler exit code: " + exitCode);
+                        System.out.println("[INFO] loadNssFile: Compiler exit code: " + exitCode);
                         String compilerOutput = output.toString();
                         if (!compilerOutput.trim().isEmpty()) {
-                        System.err.println("DEBUG loadNssFile: Compiler output:\n" + compilerOutput.trim());
+                        System.out.println("[INFO] loadNssFile: Compiler output:\n" + compilerOutput.trim());
                         }
 
                         // Check if we need registry spoofing (look for NwnStdLoader error)
                         if (!compiledNcs.exists() && compilerOutput.contains("Error: Couldn't initialize the NwnStdLoader")) {
-                        System.err.println("DEBUG loadNssFile: Detected NwnStdLoader error - registry spoofing required");
+                        System.out.println("[INFO] loadNssFile: Detected NwnStdLoader error - registry spoofing required");
                         needsRegistrySpoof = true;
                         }
                      }
@@ -1794,17 +1944,17 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
                         if (spoofer instanceof RegistrySpoofer) {
                            try {
                               ((RegistrySpoofer) spoofer).activate();
-                              System.err.println("DEBUG loadNssFile: Registry spoofing activated, retrying compilation");
+                              System.out.println("[INFO] loadNssFile: Registry spoofing activated, retrying compilation");
                            } catch (SecurityException e) {
-                              System.err.println("DEBUG loadNssFile: Registry spoofing failed (permission denied): " + e.getMessage());
-                              System.err.println("DEBUG loadNssFile: Continuing without registry spoofing");
+                              System.out.println("[INFO] loadNssFile: Registry spoofing failed (permission denied): " + e.getMessage());
+                              System.out.println("[INFO] loadNssFile: Continuing without registry spoofing");
                            }
                         }
 
                         // Retry compilation with registry spoofing
                         output.setLength(0);
                         String[] cmd2 = wrapper.getCompileArgs(includeDirs);
-                        System.err.println("DEBUG loadNssFile: Running compiler (retry with registry spoofing): " + java.util.Arrays.toString(cmd2));
+                        System.out.println("[INFO] loadNssFile: Running compiler (retry with registry spoofing): " + java.util.Arrays.toString(cmd2));
                         ProcessBuilder pb2 = new ProcessBuilder(cmd2);
                         pb2.directory(wrapper.getWorkingDirectory());
                         pb2.environment().putAll(wrapper.getEnvironmentOverrides());
@@ -1823,22 +1973,22 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
                         finished = proc.waitFor(25, java.util.concurrent.TimeUnit.SECONDS);
                         if (!finished) {
                            proc.destroyForcibly();
-                           System.err.println("DEBUG loadNssFile: Compiler timed out (retry)");
+                           System.out.println("[INFO] loadNssFile: Compiler timed out (retry)");
                         } else {
                            int exitCode = proc.exitValue();
-                           System.err.println("DEBUG loadNssFile: Compiler exit code (retry): " + exitCode);
+                           System.out.println("[INFO] loadNssFile: Compiler exit code (retry): " + exitCode);
                            String compilerOutput = output.toString().trim();
                            if (!compilerOutput.isEmpty()) {
-                              System.err.println("DEBUG loadNssFile: Compiler output (retry):\n" + compilerOutput);
+                              System.out.println("[INFO] loadNssFile: Compiler output (retry):\n" + compilerOutput);
                            }
                         }
                         } catch (Exception spooferEx) {
-                        System.err.println("DEBUG loadNssFile: Exception with registry spoofer: " + spooferEx.getMessage());
+                        System.out.println("[INFO] loadNssFile: Exception with registry spoofer: " + spooferEx.getMessage());
                         // Continue - we've already tried once without spoofing
                         }
                      }
 
-                     System.err.println("DEBUG loadNssFile: Checking for compiled NCS at: " + compiledNcs.getAbsolutePath());
+                     System.out.println("[INFO] loadNssFile: Checking for compiled NCS at: " + compiledNcs.getAbsolutePath());
                      if (compiledNcs.exists()) {
                         System.err.println(
                         "DEBUG loadNssFile: Compiled NCS exists at: " + compiledNcs.getAbsolutePath());
@@ -1846,19 +1996,19 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
                         // Capture bytecode from the first compiled NCS (NSS->NCS) as "original bytecode" (left panel)
                         boolean firstBytecodeCaptured = this.fileDecompiler.captureBytecodeForNssFile(file, compiledNcs, isK2, true);
                         if (firstBytecodeCaptured) {
-                        System.err.println("DEBUG loadNssFile: Successfully captured first bytecode from compiled NCS (left panel)");
+                        System.out.println("[INFO] loadNssFile: Successfully captured first bytecode from compiled NCS (left panel)");
                         } else {
-                        System.err.println("DEBUG loadNssFile: Warning - Could not capture first bytecode (left panel will show placeholder)");
+                        System.out.println("[INFO] loadNssFile: Warning - Could not capture first bytecode (left panel will show placeholder)");
                         }
 
                         // Decompile the compiled NCS to get round-trip NSS
                         String gameFlag = isK2 ? "k2" : "k1";
                         String roundTripCode = RoundTripUtil.decompileNcsToNss(compiledNcs, gameFlag);
-                        System.err.println("DEBUG loadNssFile: Round-trip code result: " +
+                        System.out.println("[INFO] loadNssFile: Round-trip code result: " +
                         (roundTripCode != null ? "not null, length=" + roundTripCode.length() : "null"));
 
                         if (roundTripCode != null && !roundTripCode.trim().isEmpty()) {
-                        System.err.println("DEBUG loadNssFile: Setting round-trip code in right panel");
+                        System.out.println("[INFO] loadNssFile: Setting round-trip code in right panel");
                         NWScriptSyntaxHighlighter.setSkipHighlighting(roundTripPane, true);
                         roundTripPane.setText(roundTripCode);
                         NWScriptSyntaxHighlighter.setSkipHighlighting(roundTripPane, false);
@@ -1884,24 +2034,24 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
                               // Capture bytecode from second compiled NCS (NSS->NCS->NSS->NCS) as "new bytecode" (right panel)
                               boolean secondBytecodeCaptured = this.fileDecompiler.captureBytecodeForNssFile(file, secondCompiledNcs, isK2, false);
                               if (secondBytecodeCaptured) {
-                              System.err.println("DEBUG loadNssFile: Successfully captured second bytecode from round-trip compiled NCS (right panel)");
+                              System.out.println("[INFO] loadNssFile: Successfully captured second bytecode from round-trip compiled NCS (right panel)");
                               } else {
-                              System.err.println("DEBUG loadNssFile: Warning - Could not capture second bytecode (right panel will show placeholder)");
+                              System.out.println("[INFO] loadNssFile: Warning - Could not capture second bytecode (right panel will show placeholder)");
                               }
                            } else {
-                              System.err.println("DEBUG loadNssFile: Round-trip NSS compilation failed, cannot capture second bytecode");
+                              System.out.println("[INFO] loadNssFile: Round-trip NSS compilation failed, cannot capture second bytecode");
                            }
                         } catch (Exception secondBytecodeEx) {
-                           System.err.println("DEBUG loadNssFile: Error capturing second bytecode: " + secondBytecodeEx.getMessage());
+                           System.out.println("[INFO] loadNssFile: Error capturing second bytecode: " + secondBytecodeEx.getMessage());
                            // Continue - right panel will show placeholder
                         }
                         } else {
-                        System.err.println("DEBUG loadNssFile: Round-trip code is null or empty");
+                        System.out.println("[INFO] loadNssFile: Round-trip code is null or empty");
                         roundTripPane.setText(
                            "// Round-trip decompiled code not available.\n// The compiled NCS could not be decompiled.");
                         }
                      } else {
-                        System.err.println("DEBUG loadNssFile: Compiled NCS does not exist after compilation");
+                        System.out.println("[INFO] loadNssFile: Compiled NCS does not exist after compilation");
                         // Show actual compiler error output instead of generic message
                         StringBuilder errorMsg = new StringBuilder();
                         errorMsg.append("// Round-trip decompiled code not available.\n");
@@ -1927,7 +2077,7 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
                         roundTripPane.setText(errorMsg.toString());
                      }
                   } catch (Exception compileEx) {
-                     System.err.println("DEBUG loadNssFile: Exception during compilation: " + compileEx.getMessage());
+                     System.out.println("[INFO] loadNssFile: Exception during compilation: " + compileEx.getMessage());
                      compileEx.printStackTrace();
                      // Don't throw - let finally block execute cleanup
                   } finally {
@@ -1935,12 +2085,12 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
                      wrapper.cleanup();
                   }
                   } else {
-                  System.err.println("DEBUG loadNssFile: Compiler not found");
+                  System.out.println("[INFO] loadNssFile: Compiler not found");
                   roundTripPane.setText(
                      "// Round-trip decompiled code not available.\n// Compiler (nwnnsscomp.exe) not found.");
                   }
                } catch (Exception e) {
-                  System.err.println("DEBUG loadNssFile: Error during round-trip: " + e.getMessage());
+                  System.out.println("[INFO] loadNssFile: Error during round-trip: " + e.getMessage());
                   e.printStackTrace();
                   roundTripPane
                   .setText("// Round-trip decompiled code not available.\n// Error: " + e.getMessage());
@@ -1976,7 +2126,7 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
       // This prevents the file from being marked as dirty during initial load
       filesBeingLoaded.remove(file);
 
-      this.status.append("loaded successfully\n");
+      this.appendStatus("[INFO] loaded successfully\n");
 
       // Update workspace visibility after adding a file
       this.updateWorkspaceCard();
@@ -1986,9 +2136,9 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
    }
 
    private void decompile(File file) {
-      this.status.append("Decompiling...");
+      this.appendStatus("[INFO] Decompiling...\n");
       this.statusScrollPane.getVerticalScrollBar().setValue(this.statusScrollPane.getVerticalScrollBar().getMaximum());
-      this.status.append(file.getName() + ": ");
+      this.appendStatus("[INFO] " + file.getName() + ": ");
       int result = 2;
       String generatedCode = null;
       Hashtable<String, Vector<Variable>> vars = null;
@@ -2000,7 +2150,7 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
          vars = this.fileDecompiler.getVariableData(file);
       } catch (Exception unexpected) {
          // Catch any other unexpected exceptions
-         this.status.append("unexpected error: " + unexpected.getMessage() + "\n");
+         this.appendStatus("[ERROR] unexpected error: " + unexpected.getMessage() + "\n");
          generatedCode = "// Unexpected Decompilation Error\n" + "// File: " + file.getName() + "\n" + "// Error: "
                + unexpected.getMessage() + "\n" + "void main() {\n    // Unexpected error occurred\n}\n";
          result = 2; // PARTIAL_COMPILE - we're showing something
@@ -2107,7 +2257,7 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
                      JTextPane roundTripPane = (JTextPane) rightScrollPane.getViewport().getView();
 
                      // Auto-trigger round-trip validation on load using temp directory
-                     System.err.println("DEBUG decompile: Auto-triggering round-trip validation on load");
+                     System.out.println("[INFO] decompile: Auto-triggering round-trip validation on load");
 
                      try {
                         // Create temp directory for round-trip
@@ -2125,34 +2275,34 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
                         // Write the generated code to temp file
                         java.nio.file.Files.write(tempNssFile.toPath(),
                               finalGeneratedCode.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-                        System.err.println("DEBUG decompile: Saved temp NSS to: " + tempNssFile.getAbsolutePath());
+                        System.out.println("[INFO] decompile: Saved temp NSS to: " + tempNssFile.getAbsolutePath());
 
                         // Compile the temp NSS file directly (without cleanup) for round-trip display
                         // Use tempDir explicitly to ensure output is in temp
                         File recompiledNcs = this.fileDecompiler.compileNssToNcs(tempNssFile, tempDir);
-                        System.err.println("DEBUG decompile: Compilation result: "
+                        System.out.println("[INFO] decompile: Compilation result: "
                               + (recompiledNcs != null ? recompiledNcs.getAbsolutePath() : "null"));
-                        System.err.println("DEBUG decompile: Recompiled NCS exists: "
+                        System.out.println("[INFO] decompile: Recompiled NCS exists: "
                               + (recompiledNcs != null && recompiledNcs.exists()));
 
                         if (recompiledNcs != null && recompiledNcs.exists()) {
                            // Capture bytecode from recompiled NCS (NCS->NSS->NCS) as "new bytecode" (right panel)
                            boolean newBytecodeCaptured = this.fileDecompiler.captureBytecodeFromNcs(file, recompiledNcs, FileDecompiler.isK2Selected, false);
                            if (newBytecodeCaptured) {
-                              System.err.println("DEBUG decompile: Successfully captured new bytecode from recompiled NCS (right panel)");
+                              System.out.println("[INFO] decompile: Successfully captured new bytecode from recompiled NCS (right panel)");
                            } else {
-                              System.err.println("DEBUG decompile: Warning - Could not capture new bytecode (right panel will show placeholder)");
+                              System.out.println("[INFO] decompile: Warning - Could not capture new bytecode (right panel will show placeholder)");
                            }
 
                            // Decompile the recompiled NCS to show round-trip result
                            String gameFlag = FileDecompiler.isK2Selected ? "k2" : "k1";
-                           System.err.println("DEBUG decompile: Decompiling recompiled NCS with gameFlag: " + gameFlag);
+                           System.out.println("[INFO] decompile: Decompiling recompiled NCS with gameFlag: " + gameFlag);
                            String roundTripCode = RoundTripUtil.decompileNcsToNss(recompiledNcs, gameFlag);
-                           System.err.println("DEBUG decompile: Round-trip code result: "
+                           System.out.println("[INFO] decompile: Round-trip code result: "
                                  + (roundTripCode != null ? "not null, length=" + roundTripCode.length() : "null"));
 
                            if (roundTripCode != null && !roundTripCode.trim().isEmpty()) {
-                              System.err.println("DEBUG decompile: Setting round-trip code in right panel");
+                              System.out.println("[INFO] decompile: Setting round-trip code in right panel");
                               NWScriptSyntaxHighlighter.setSkipHighlighting(roundTripPane, true);
                               roundTripPane.setText(roundTripCode);
                               NWScriptSyntaxHighlighter.setSkipHighlighting(roundTripPane, false);
@@ -2184,7 +2334,7 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
                            // Ignore cleanup errors
                         }
                      } catch (Exception ex) {
-                        System.err.println("DEBUG decompile: Error during auto-trigger round-trip: " + ex.getMessage());
+                        System.out.println("[INFO] decompile: Error during auto-trigger round-trip: " + ex.getMessage());
                         ex.printStackTrace();
                         // CRITICAL: Only set error message in RIGHT pane (round-trip panel), NEVER
                         // touch left pane
@@ -2258,19 +2408,19 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
       // Update status based on result - code is already shown above
       switch (result) {
       case 0:
-         this.status.append("failure - validation failed\n");
+         this.appendStatus("[WARNING] failure - validation failed\n");
          break;
       case 1:
-         this.status.append("success - full round-trip validation passed\n");
+         this.appendStatus("[INFO] success - full round-trip validation passed\n");
          break;
       case 2:
-         this.status.append("partial - decompiled successfully (nwnnsscomp validation skipped or failed)\n");
+         this.appendStatus("[INFO] partial - decompiled successfully (nwnnsscomp validation skipped or failed)\n");
          break;
       case 3:
-         this.status.append("partial - decompiled but bytecode comparison showed differences\n");
+         this.appendStatus("[WARNING] partial - decompiled but bytecode comparison showed differences\n");
          break;
       default:
-         this.status.append("unknown result code: " + result + "\n");
+         this.appendStatus("[WARNING] unknown result code: " + result + "\n");
          break;
       }
 
@@ -2531,7 +2681,7 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
          // Ensure we use the absolute path of the dropped/opened file
          File absoluteFile = fileToOpen.getAbsoluteFile();
          if (!absoluteFile.exists()) {
-            this.status.append("Warning: File does not exist: " + absoluteFile.getAbsolutePath() + "\n");
+            this.appendStatus("[WARNING] File does not exist: " + absoluteFile.getAbsolutePath() + "\n");
             continue;
          }
 
@@ -2735,13 +2885,13 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
          if (tabComponent instanceof JPanel) {
             this.updateTabLabel((JPanel) tabComponent, false);
          }
-         this.status.append("Saved " + newFile.getName() + " to " + newFile.getParent() + "\n");
+         this.appendStatus("[INFO] Saved " + newFile.getName() + " to " + newFile.getParent() + "\n");
          return;
       }
 
       // Only do round-trip validation if the original file exists
       if (unsavedFiles.contains(this.file)) {
-         this.status.append("Recompiling..." + this.file.getName() + ": ");
+         this.appendStatus("[INFO] Recompiling..." + this.file.getName() + ": ");
          int result2 = 2;
 
          try {
@@ -2752,7 +2902,7 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
 
          switch (result2) {
          case 0:
-            this.status.append("failure\n");
+            this.appendStatus("[ERROR] failure\n");
             break;
          case 1:
             this.panels = (JComponent[]) this.jTB.getClientProperty((JComponent) this.jTB.getTabComponentAt(index));
@@ -2805,7 +2955,7 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
                this.hash_TabComponent2Func2VarVec.put(selectedTab, this.hash_Func2VarVec);
                this.hash_TabComponent2TreeModel.put(selectedTab, this.jTree.getModel());
             }
-            this.status.append("success\n");
+            this.appendStatus("[INFO] success\n");
             break;
          case 2:
             // Refresh bytecode views
@@ -2849,7 +2999,7 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
             }
 
             this.setTabComponentPanel(1);
-            this.status.append("partial-could not recompile\n");
+            this.appendStatus("[WARNING] partial-could not recompile\n");
             break;
          case 3:
             // Refresh bytecode views
@@ -2913,7 +3063,7 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
             }
 
             this.setTabComponentPanel(1);
-            this.status.append("partial-byte code does not match\n");
+            this.appendStatus("[WARNING] partial-byte code does not match\n");
          }
 
          // Mark as saved (already done in case statements above, but ensure it's done
@@ -3158,5 +3308,43 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
    private String getShortName(File in) {
       int i = in.getAbsolutePath().lastIndexOf(46);
       return i == -1 ? in.getAbsolutePath() : in.getAbsolutePath().substring(0, i);
+   }
+
+   /**
+    * Filters the log display based on the selected log level.
+    * Re-applies all log entries with proper filtering.
+    */
+   private void filterLogs() {
+      // For now, filtering is done at append time, so we just need to refresh
+      // In a full implementation, we could store all logs and re-render, but
+      // for simplicity, we'll just ensure new logs are filtered correctly
+      // The filter combobox change will affect future log entries
+   }
+
+   /**
+    * Helper method to append text to status log with INFO severity.
+    */
+   private void appendStatus(String text) {
+      if (text != null && this.status != null) {
+         try {
+            javax.swing.text.StyledDocument doc = this.status.getStyledDocument();
+            javax.swing.text.SimpleAttributeSet attr = new javax.swing.text.SimpleAttributeSet();
+            javax.swing.text.StyleConstants.setForeground(attr, java.awt.Color.BLACK);
+            javax.swing.text.StyleConstants.setFontFamily(attr, "Consolas");
+            javax.swing.text.StyleConstants.setFontSize(attr, 11);
+            int start = doc.getLength();
+            doc.insertString(start, text, attr);
+            this.status.setCaretPosition(doc.getLength());
+         } catch (javax.swing.text.BadLocationException e) {
+            // Fallback
+            try {
+               javax.swing.text.StyledDocument doc = this.status.getStyledDocument();
+               doc.insertString(doc.getLength(), text, null);
+               this.status.setCaretPosition(doc.getLength());
+            } catch (javax.swing.text.BadLocationException e2) {
+               // Ignore
+            }
+         }
+      }
    }
 }

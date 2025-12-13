@@ -47,6 +47,8 @@ public class CompilerExecutionWrapper {
    private final List<File> copiedIncludeFiles = new ArrayList<>();
    private final List<File> copiedNwscriptFiles = new ArrayList<>();
    private File originalNwscriptBackup = null;
+   private File copiedSourceFile = null; // When using registry spoofing, source is copied to spoofed directory
+   private File actualSourceFile = null; // The actual source file to use (original or copied)
    
    /**
     * Creates a new compiler execution wrapper.
@@ -75,13 +77,76 @@ public class CompilerExecutionWrapper {
     * @throws IOException If preparation fails
     */
    public void prepareExecutionEnvironment(List<File> includeDirs) throws IOException {
-      // Pattern 1: Include file abstraction
-      prepareIncludeFiles(includeDirs);
-      
-      // Pattern 2: nwscript.nss abstraction
+      // Pattern 2: nwscript.nss abstraction (must be done first for registry spoofing logic)
       prepareNwscriptFile();
       
+      // If registry spoofing is needed, copy everything to the spoofed directory
+      if (needsRegistrySpoofing()) {
+         prepareRegistrySpoofedEnvironment(includeDirs);
+      } else {
+         // Pattern 1: Include file abstraction (normal path)
+         prepareIncludeFiles(includeDirs);
+         actualSourceFile = sourceFile;
+      }
+      
       // Additional patterns handled automatically during execution
+   }
+   
+   /**
+    * Checks if registry spoofing will be used for this compiler.
+    */
+   private boolean needsRegistrySpoofing() {
+      return compiler == KnownExternalCompilers.KOTOR_TOOL || compiler == KnownExternalCompilers.KOTOR_SCRIPTING_TOOL;
+   }
+   
+   /**
+    * Prepares environment for registry spoofing by copying source file, includes, and nwscript.nss
+    * to the registry-spoofed directory (tools/).
+    */
+   private void prepareRegistrySpoofedEnvironment(List<File> includeDirs) throws IOException {
+      File toolsDir = compilerFile.getParentFile(); // tools/ directory (where registry is spoofed)
+      if (toolsDir == null || !toolsDir.exists()) {
+         throw new IOException("Compiler directory does not exist: " + (toolsDir != null ? toolsDir.getAbsolutePath() : "null"));
+      }
+      
+      System.out.println("[INFO] CompilerExecutionWrapper: Preparing registry-spoofed environment in: " + toolsDir.getAbsolutePath());
+      
+      // Copy source file to tools directory
+      copiedSourceFile = new File(toolsDir, sourceFile.getName());
+      System.out.println("[INFO] CompilerExecutionWrapper: COPYING source file: " + sourceFile.getAbsolutePath() + " -> " + copiedSourceFile.getAbsolutePath());
+      Files.copy(sourceFile.toPath(), copiedSourceFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+      actualSourceFile = copiedSourceFile;
+      System.out.println("[INFO] CompilerExecutionWrapper: Copied source file to spoofed directory: " + copiedSourceFile.getAbsolutePath());
+      
+      // Copy include files to tools directory
+      if (includeDirs != null && !includeDirs.isEmpty()) {
+         Set<String> neededIncludes = extractIncludeFiles(sourceFile);
+         for (String includeName : neededIncludes) {
+            File destFile = new File(toolsDir, includeName);
+            // Skip if already exists
+            if (destFile.exists()) {
+               System.out.println("[INFO] CompilerExecutionWrapper: Include file already exists in spoofed directory: " + includeName);
+               continue;
+            }
+            
+            // Search for include file in include directories
+            for (File includeDir : includeDirs) {
+               if (includeDir != null && includeDir.exists()) {
+                  File includeFile = new File(includeDir, includeName);
+                  if (includeFile.exists() && includeFile.isFile()) {
+                     System.out.println("[INFO] CompilerExecutionWrapper: COPYING include file: " + includeFile.getAbsolutePath() + " -> " + destFile.getAbsolutePath());
+                     Files.copy(includeFile.toPath(), destFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                     copiedIncludeFiles.add(destFile);
+                     System.out.println("[INFO] CompilerExecutionWrapper: Copied include file to spoofed directory: " + includeName + " -> " + destFile.getAbsolutePath());
+                     break;
+                  }
+               }
+            }
+         }
+      }
+      
+      // nwscript.nss should already be in tools directory from prepareNwscriptFile()
+      System.out.println("[INFO] CompilerExecutionWrapper: Registry-spoofed environment ready. Source: " + actualSourceFile.getAbsolutePath());
    }
    
    /**
@@ -120,9 +185,10 @@ public class CompilerExecutionWrapper {
                if (includeDir != null && includeDir.exists()) {
                   File includeFile = new File(includeDir, includeName);
                   if (includeFile.exists() && includeFile.isFile()) {
+                     System.out.println("[INFO] CompilerExecutionWrapper: COPYING include file: " + includeFile.getAbsolutePath() + " -> " + destFile.getAbsolutePath());
                      Files.copy(includeFile.toPath(), destFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
                      copiedIncludeFiles.add(destFile);
-                     System.err.println("DEBUG CompilerExecutionWrapper: Copied include file: " + includeName + " from " + includeFile.getAbsolutePath());
+                     System.out.println("[INFO] CompilerExecutionWrapper: Copied include file: " + includeName + " from " + includeFile.getAbsolutePath());
                      break;
                   }
                }
@@ -147,7 +213,7 @@ public class CompilerExecutionWrapper {
       // Determine which nwscript.nss to use
       File nwscriptSource = determineNwscriptSource();
       if (nwscriptSource == null || !nwscriptSource.exists()) {
-         System.err.println("DEBUG CompilerExecutionWrapper: Warning: nwscript.nss source not found");
+         System.out.println("[INFO] CompilerExecutionWrapper: Warning: nwscript.nss source not found");
          return;
       }
       
@@ -179,7 +245,7 @@ public class CompilerExecutionWrapper {
          // Copy the appropriate nwscript.nss
          Files.copy(nwscriptSource.toPath(), compilerNwscript.toPath(), StandardCopyOption.REPLACE_EXISTING);
          copiedNwscriptFiles.add(compilerNwscript);
-         System.err.println("DEBUG CompilerExecutionWrapper: Copied nwscript.nss: " + nwscriptSource.getName() + " -> " + compilerNwscript.getAbsolutePath());
+         System.out.println("[INFO] CompilerExecutionWrapper: Copied nwscript.nss: " + nwscriptSource.getName() + " -> " + compilerNwscript.getAbsolutePath());
       }
    }
    
@@ -222,7 +288,7 @@ public class CompilerExecutionWrapper {
                Pattern.MULTILINE);
          return pattern.matcher(content).find();
       } catch (Exception e) {
-         System.err.println("DEBUG CompilerExecutionWrapper: Failed to check for ASC nwscript requirement: " + e.getMessage());
+         System.out.println("[INFO] CompilerExecutionWrapper: Failed to check for ASC nwscript requirement: " + e.getMessage());
          return false;
       }
    }
@@ -245,7 +311,7 @@ public class CompilerExecutionWrapper {
             includes.add(includeName);
          }
       } catch (Exception e) {
-         System.err.println("DEBUG CompilerExecutionWrapper: Failed to parse includes from source: " + e.getMessage());
+         System.out.println("[INFO] CompilerExecutionWrapper: Failed to parse includes from source: " + e.getMessage());
       }
       return includes;
    }
@@ -262,7 +328,7 @@ public class CompilerExecutionWrapper {
             || !supportsGameFlag()) {
          File compilerDir = compilerFile.getParentFile();
          if (compilerDir != null && compilerDir.exists()) {
-            System.err.println("DEBUG CompilerExecutionWrapper: Using compiler directory as working dir: "
+            System.out.println("[INFO] CompilerExecutionWrapper: Using compiler directory as working dir: "
                   + compilerDir.getAbsolutePath());
             return compilerDir;
          }
@@ -285,8 +351,21 @@ public class CompilerExecutionWrapper {
    /**
     * Gets the formatted compile command arguments.
     * Pattern 4: Output path normalization is handled by NwnnsscompConfig.
+    * When registry spoofing is used, this uses the copied source file in the spoofed directory.
     */
    public String[] getCompileArgs(List<File> includeDirs) {
+      // If we copied the source file for registry spoofing, we need to create a new config with the copied file
+      if (actualSourceFile != null && !actualSourceFile.equals(sourceFile)) {
+         try {
+            // Create a temporary config with the copied source file
+            NwnnsscompConfig spoofedConfig = new NwnnsscompConfig(compilerFile, actualSourceFile, outputFile, isK2);
+            return spoofedConfig.getCompileArgs(compilerFile.getAbsolutePath(), includeDirs);
+         } catch (IOException e) {
+            System.out.println("[INFO] CompilerExecutionWrapper: Failed to create spoofed config, using original: " + e.getMessage());
+            // Fall back to original config
+            return config.getCompileArgs(compilerFile.getAbsolutePath(), includeDirs);
+         }
+      }
       return config.getCompileArgs(compilerFile.getAbsolutePath(), includeDirs);
    }
    
@@ -295,15 +374,26 @@ public class CompilerExecutionWrapper {
     * Pattern 5: Temporary file management.
     */
    public void cleanup() {
+      // Clean up copied source file (if registry spoofing was used)
+      if (copiedSourceFile != null && copiedSourceFile.exists()) {
+         try {
+            copiedSourceFile.delete();
+            System.out.println("[INFO] CompilerExecutionWrapper: Cleaned up copied source file: " + copiedSourceFile.getName());
+         } catch (Exception e) {
+            System.out.println("[INFO] CompilerExecutionWrapper: Failed to clean up copied source file " + copiedSourceFile.getName() + ": " + e.getMessage());
+         }
+         copiedSourceFile = null;
+      }
+      
       // Clean up copied include files
       for (File copiedFile : copiedIncludeFiles) {
          try {
             if (copiedFile.exists()) {
                copiedFile.delete();
-               System.err.println("DEBUG CompilerExecutionWrapper: Cleaned up include file: " + copiedFile.getName());
+               System.out.println("[INFO] CompilerExecutionWrapper: Cleaned up include file: " + copiedFile.getName());
             }
          } catch (Exception e) {
-            System.err.println("DEBUG CompilerExecutionWrapper: Failed to clean up include file " + copiedFile.getName() + ": " + e.getMessage());
+            System.out.println("[INFO] CompilerExecutionWrapper: Failed to clean up include file " + copiedFile.getName() + ": " + e.getMessage());
          }
       }
       copiedIncludeFiles.clear();
@@ -316,12 +406,12 @@ public class CompilerExecutionWrapper {
                File compilerNwscript = new File(compilerDir, "nwscript.nss");
                if (compilerNwscript.exists()) {
                   Files.copy(originalNwscriptBackup.toPath(), compilerNwscript.toPath(), StandardCopyOption.REPLACE_EXISTING);
-                  System.err.println("DEBUG CompilerExecutionWrapper: Restored original nwscript.nss");
+                  System.out.println("[INFO] CompilerExecutionWrapper: Restored original nwscript.nss");
                }
             }
             originalNwscriptBackup.delete();
          } catch (Exception e) {
-            System.err.println("DEBUG CompilerExecutionWrapper: Failed to restore original nwscript.nss: " + e.getMessage());
+            System.out.println("[INFO] CompilerExecutionWrapper: Failed to restore original nwscript.nss: " + e.getMessage());
          }
       }
       
@@ -366,7 +456,7 @@ public class CompilerExecutionWrapper {
       envOverrides.put("NWN_ROOT", resolvedRoot);
       envOverrides.put("NWNDir", resolvedRoot);
       envOverrides.put("KOTOR_ROOT", resolvedRoot);
-      System.err.println("DEBUG CompilerExecutionWrapper: Applied environment overrides for legacy compiler. "
+      System.out.println("[INFO] CompilerExecutionWrapper: Applied environment overrides for legacy compiler. "
             + "NWN_ROOT=" + resolvedRoot + ", compiler=" + compiler.getName());
    }
 
@@ -411,11 +501,11 @@ public class CompilerExecutionWrapper {
          File toolsDir = new File(System.getProperty("user.dir"), "tools");
          try {
             RegistrySpoofer spoofer = new RegistrySpoofer(toolsDir, isK2);
-            System.err.println("DEBUG CompilerExecutionWrapper: Created RegistrySpoofer for " + compiler.getName());
+            System.out.println("[INFO] CompilerExecutionWrapper: Created RegistrySpoofer for " + compiler.getName());
             return spoofer;
          } catch (UnsupportedOperationException e) {
             // Not on Windows - fall back to NoOp
-            System.err.println("DEBUG CompilerExecutionWrapper: Registry spoofing not supported, using NoOp: " + e.getMessage());
+            System.out.println("[INFO] CompilerExecutionWrapper: Registry spoofing not supported, using NoOp: " + e.getMessage());
             return new NoOpRegistrySpoofer();
          }
       } else {

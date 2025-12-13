@@ -74,7 +74,7 @@ public class RegistrySpoofer implements AutoCloseable {
 
       // Read original value
       this.originalValue = readRegistryValue(this.registryPath, this.keyName);
-      System.err.println("DEBUG RegistrySpoofer: Created spoofer for " + (isK2 ? "K2" : "K1") +
+      System.out.println("[INFO] RegistrySpoofer: Created spoofer for " + (isK2 ? "K2" : "K1") +
             ", registryPath=" + this.registryPath + ", spoofedPath=" + this.spoofedPath +
             ", originalValue=" + (this.originalValue != null ? this.originalValue : "(null)"));
    }
@@ -95,11 +95,16 @@ public class RegistrySpoofer implements AutoCloseable {
    public RegistrySpoofer activate() {
       // Log current registry state BEFORE attempting change
       String currentValue = readRegistryValue(this.registryPath, this.keyName);
-      System.err.println("DEBUG RegistrySpoofer: BEFORE activation - registry key " + this.registryPath +
+      System.out.println("[INFO] RegistrySpoofer: BEFORE activation - registry key " + this.registryPath +
             "\\" + this.keyName + " = " + (currentValue != null ? currentValue : "(null/not set)"));
 
+      // ALWAYS create required file structure (chitin.key, override/, etc.) - even if registry already matches
+      // This ensures the files exist and are valid (previous runs may have left corrupt files)
+      createRequiredFileStructure(this.spoofedPath);
+
       if (this.originalValue != null && this.originalValue.equals(this.spoofedPath)) {
-         System.err.println("DEBUG RegistrySpoofer: Registry value already matches spoofed path, skipping");
+         System.out.println("[INFO] RegistrySpoofer: Registry value already matches spoofed path, skipping registry write");
+         // File structure already created above, we're done
          return this;
       }
 
@@ -108,36 +113,37 @@ public class RegistrySpoofer implements AutoCloseable {
 
          // Verify the registry was actually set
          String verifyValue = readRegistryValue(this.registryPath, this.keyName);
-         System.err.println("DEBUG RegistrySpoofer: AFTER write - registry key " + this.registryPath +
+         System.out.println("[INFO] RegistrySpoofer: AFTER write - registry key " + this.registryPath +
                "\\" + this.keyName + " = " + (verifyValue != null ? verifyValue : "(null/not set)"));
 
          if (verifyValue != null && verifyValue.equals(this.spoofedPath)) {
             this.wasModified = true;
-            System.err.println("DEBUG RegistrySpoofer: Successfully set and verified registry key " + this.registryPath +
+            System.out.println("[INFO] RegistrySpoofer: Successfully set and verified registry key " + this.registryPath +
                   "\\" + this.keyName + " to " + this.spoofedPath);
          } else {
-            System.err.println("DEBUG RegistrySpoofer: WARNING - Registry write appeared to succeed but verification failed! " +
+            System.out.println("[INFO] RegistrySpoofer: WARNING - Registry write appeared to succeed but verification failed! " +
                   "Expected: " + this.spoofedPath + ", Got: " + verifyValue);
          }
       } catch (SecurityException e) {
-         System.err.println("DEBUG RegistrySpoofer: Failed to set registry key: " + e.getMessage());
+         System.out.println("[INFO] RegistrySpoofer: Failed to set registry key: " + e.getMessage());
 
          // ALWAYS attempt elevation when we see the NwnStdLoader error (it's REQUIRED)
          // The elevation prompt should always be shown
-         System.err.println("DEBUG RegistrySpoofer: Attempting elevated registry write (REQUIRED for NwnStdLoader error)...");
+         System.out.println("[INFO] RegistrySpoofer: Attempting elevated registry write (REQUIRED for NwnStdLoader error)...");
          if (attemptElevatedRegistryWrite()) {
             // Verify the registry was actually set after elevation
             String verifyValue = readRegistryValue(this.registryPath, this.keyName);
-            System.err.println("DEBUG RegistrySpoofer: AFTER elevation - registry key " + this.registryPath +
+            System.out.println("[INFO] RegistrySpoofer: AFTER elevation - registry key " + this.registryPath +
                   "\\" + this.keyName + " = " + (verifyValue != null ? verifyValue : "(null/not set)"));
 
             if (verifyValue != null && verifyValue.equals(this.spoofedPath)) {
                // Successfully set via elevation
                this.wasModified = true;
-               System.err.println("DEBUG RegistrySpoofer: Successfully set and verified registry key via elevation");
+               System.out.println("[INFO] RegistrySpoofer: Successfully set and verified registry key via elevation");
+               // File structure already created at the start of activate()
                return this;
             } else {
-               System.err.println("DEBUG RegistrySpoofer: WARNING - Elevation appeared to succeed but registry verification failed! " +
+               System.out.println("[INFO] RegistrySpoofer: WARNING - Elevation appeared to succeed but registry verification failed! " +
                      "Expected: " + this.spoofedPath + ", Got: " + verifyValue);
                // Show informational message after verification failure
                showSubsequentElevationMessage();
@@ -157,23 +163,37 @@ public class RegistrySpoofer implements AutoCloseable {
    /**
     * Restores the original registry value.
     * This is automatically called when the spoofer is closed in a try-with-resources block.
+    * CRITICAL: This MUST restore the registry to its original state, even if that means deleting the key.
     */
    @Override
    public void close() {
-      if (this.wasModified && this.originalValue != null && !this.originalValue.equals(this.spoofedPath)) {
-         try {
+      if (!this.wasModified) {
+         // Nothing was changed, nothing to restore
+         return;
+      }
+
+      try {
+         if (this.originalValue == null) {
+            // Original value didn't exist - delete the registry key we created
+            deleteRegistryValue(this.registryPath, this.keyName);
+            System.out.println("[INFO] RegistrySpoofer: Deleted registry key " + this.registryPath +
+                  "\\" + this.keyName + " (it didn't exist originally)");
+         } else if (!this.originalValue.equals(this.spoofedPath)) {
+            // Restore to original value
             writeRegistryValue(this.registryPath, this.keyName, this.originalValue);
-            System.err.println("DEBUG RegistrySpoofer: Restored registry key " + this.registryPath +
+            System.out.println("[INFO] RegistrySpoofer: Restored registry key " + this.registryPath +
                   "\\" + this.keyName + " to original value: " + this.originalValue);
-         } catch (Exception e) {
-            System.err.println("DEBUG RegistrySpoofer: Failed to restore registry key: " + e.getMessage());
-            // Don't throw - we've done our best to restore
+         } else {
+            // Original value was the same as spoofed path, so no change needed
+            System.out.println("[INFO] RegistrySpoofer: Registry key already matches original value, no restoration needed");
          }
-      } else if (this.wasModified && this.originalValue == null) {
-         // Original value didn't exist - we could try to delete it, but that's more complex
-         // Just log a warning
-         System.err.println("DEBUG RegistrySpoofer: Registry key was created but original value was null. " +
-               "Key will remain set to spoofed path.");
+      } catch (Exception e) {
+         System.out.println("[INFO] RegistrySpoofer: Failed to restore registry key: " + e.getMessage());
+         e.printStackTrace();
+         // Don't throw - we've done our best to restore, but log the error
+      } finally {
+         // Always reset the flag so we don't try again
+         this.wasModified = false;
       }
    }
 
@@ -276,8 +296,77 @@ public class RegistrySpoofer implements AutoCloseable {
          }
          return null;
       } catch (Exception e) {
-         System.err.println("DEBUG RegistrySpoofer: Error reading registry value: " + e.getMessage());
+         System.out.println("[INFO] RegistrySpoofer: Error reading registry value: " + e.getMessage());
          return null;
+      }
+   }
+
+   /**
+    * Deletes a registry value using Windows registry commands.
+    *
+    * @param registryPath Full registry path (e.g., "HKEY_LOCAL_MACHINE\\SOFTWARE\\BioWare\\SW\\KOTOR")
+    * @param keyName Name of the value to delete
+    * @throws SecurityException If registry modification fails due to permissions
+    */
+   private static void deleteRegistryValue(String registryPath, String keyName) {
+      try {
+         // Parse registry path
+         int firstBackslash = registryPath.indexOf('\\');
+         if (firstBackslash < 0) {
+            throw new IllegalArgumentException("Invalid registry path: " + registryPath);
+         }
+         String hive = registryPath.substring(0, firstBackslash);
+         String keyPath = registryPath.substring(firstBackslash + 1);
+
+         // Convert hive name to reg.exe format
+         String regHive;
+         if (hive.equals("HKEY_LOCAL_MACHINE")) {
+            regHive = "HKLM";
+         } else if (hive.equals("HKEY_CURRENT_USER")) {
+            regHive = "HKCU";
+         } else if (hive.equals("HKEY_CLASSES_ROOT")) {
+            regHive = "HKCR";
+         } else if (hive.equals("HKEY_USERS")) {
+            regHive = "HKU";
+         } else if (hive.equals("HKEY_CURRENT_CONFIG")) {
+            regHive = "HKCC";
+         } else {
+            throw new IllegalArgumentException("Unsupported registry hive: " + hive);
+         }
+
+         // Delete the registry value
+         ProcessBuilder pb = new ProcessBuilder("reg", "delete", regHive + "\\" + keyPath, "/v", keyName, "/f");
+         pb.redirectErrorStream(true);
+         Process proc = pb.start();
+
+         // Read output
+         StringBuilder output = new StringBuilder();
+         try (java.io.BufferedReader reader = new java.io.BufferedReader(
+               new java.io.InputStreamReader(proc.getInputStream()))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+               output.append(line).append("\n");
+            }
+         }
+
+         int exitCode = proc.waitFor();
+         if (exitCode != 0) {
+            String errorMsg = output.toString();
+            if (errorMsg.contains("access") || errorMsg.contains("denied") || errorMsg.contains("privilege")) {
+               throw new SecurityException("Access denied. Administrator privileges required. " + errorMsg);
+            }
+            // If key doesn't exist, that's okay - it means it's already deleted
+            if (!errorMsg.toLowerCase().contains("the system cannot find")) {
+               throw new RuntimeException("Failed to delete registry value. Exit code: " + exitCode + ", Error: " + errorMsg);
+            }
+         }
+      } catch (SecurityException e) {
+         throw e;
+      } catch (Exception e) {
+         if (e.getCause() instanceof SecurityException) {
+            throw (SecurityException) e.getCause();
+         }
+         throw new RuntimeException("Error deleting registry value: " + e.getMessage(), e);
       }
    }
 
@@ -374,7 +463,7 @@ public class RegistrySpoofer implements AutoCloseable {
          Path markerPath = Paths.get(System.getProperty("user.dir"), DONT_SHOW_INFO_MARKER_FILE);
          Files.createFile(markerPath);
       } catch (Exception e) {
-         System.err.println("DEBUG RegistrySpoofer: Failed to create don't show info marker: " + e.getMessage());
+         System.out.println("[INFO] RegistrySpoofer: Failed to create don't show info marker: " + e.getMessage());
       }
    }
 
@@ -396,7 +485,7 @@ public class RegistrySpoofer implements AutoCloseable {
       boolean userApproved = showPromptOnEDT("Registry Access Required", message);
 
       if (!userApproved) {
-         System.err.println("DEBUG RegistrySpoofer: User declined elevation prompt");
+         System.out.println("[INFO] RegistrySpoofer: User declined elevation prompt");
          return false;
       }
 
@@ -439,8 +528,8 @@ public class RegistrySpoofer implements AutoCloseable {
 
          Files.write(tempBatch.toPath(), batchContent.getBytes("UTF-8"));
 
-         System.err.println("DEBUG RegistrySpoofer: Created temporary batch file: " + tempBatch.getAbsolutePath());
-         System.err.println("DEBUG RegistrySpoofer: Batch file content:\n" + batchContent);
+         System.out.println("[INFO] RegistrySpoofer: Created temporary batch file: " + tempBatch.getAbsolutePath());
+         System.out.println("[INFO] RegistrySpoofer: Batch file content:\n" + batchContent);
 
          // Run the batch file elevated using PowerShell
          // Note: -NoNewWindow doesn't work with -Verb RunAs, so we omit it
@@ -448,7 +537,7 @@ public class RegistrySpoofer implements AutoCloseable {
          String batchPath = tempBatch.getAbsolutePath().replace("'", "''"); // Escape single quotes for PowerShell
          String psCommand = "Start-Process -FilePath '" + batchPath + "' -Verb RunAs -Wait";
 
-         System.err.println("DEBUG RegistrySpoofer: Executing PowerShell command: " + psCommand);
+         System.out.println("[INFO] RegistrySpoofer: Executing PowerShell command: " + psCommand);
 
          ProcessBuilder pb = new ProcessBuilder("powershell", "-Command", psCommand);
          pb.redirectErrorStream(true);
@@ -467,30 +556,30 @@ public class RegistrySpoofer implements AutoCloseable {
 
          int exitCode = proc.waitFor();
 
-         System.err.println("DEBUG RegistrySpoofer: PowerShell exit code: " + exitCode);
+         System.out.println("[INFO] RegistrySpoofer: PowerShell exit code: " + exitCode);
          String outputStr = output.toString();
          if (!outputStr.trim().isEmpty()) {
-            System.err.println("DEBUG RegistrySpoofer: PowerShell output: " + outputStr);
+            System.out.println("[INFO] RegistrySpoofer: PowerShell output: " + outputStr);
          }
 
          // Clean up temp file
          try {
             tempBatch.delete();
-            System.err.println("DEBUG RegistrySpoofer: Deleted temporary batch file");
+            System.out.println("[INFO] RegistrySpoofer: Deleted temporary batch file");
          } catch (Exception e) {
-            System.err.println("DEBUG RegistrySpoofer: Failed to delete temp file: " + e.getMessage());
+            System.out.println("[INFO] RegistrySpoofer: Failed to delete temp file: " + e.getMessage());
          }
 
          if (exitCode == 0) {
-            System.err.println("DEBUG RegistrySpoofer: Elevated process completed successfully");
+            System.out.println("[INFO] RegistrySpoofer: Elevated process completed successfully");
             return true;
          } else {
-            System.err.println("DEBUG RegistrySpoofer: Elevated registry write failed. Exit code: " + exitCode +
+            System.out.println("[INFO] RegistrySpoofer: Elevated registry write failed. Exit code: " + exitCode +
                   ", Output: " + outputStr);
             return false;
          }
       } catch (Exception e) {
-         System.err.println("DEBUG RegistrySpoofer: Exception during elevated registry write: " + e.getMessage());
+         System.out.println("[INFO] RegistrySpoofer: Exception during elevated registry write: " + e.getMessage());
          e.printStackTrace();
          return false;
       }
@@ -518,7 +607,7 @@ public class RegistrySpoofer implements AutoCloseable {
             });
             return result[0];
          } catch (Exception e) {
-            System.err.println("DEBUG RegistrySpoofer: Exception showing prompt: " + e.getMessage());
+            System.out.println("[INFO] RegistrySpoofer: Exception showing prompt: " + e.getMessage());
             return false;
          }
       }
@@ -531,7 +620,7 @@ public class RegistrySpoofer implements AutoCloseable {
    private void showSubsequentElevationMessage() {
       // Check if user has previously chosen "don't show again"
       if (!shouldShowInfoMessage()) {
-         System.err.println("DEBUG RegistrySpoofer: Skipping info message (user chose 'don't show again')");
+         System.out.println("[INFO] RegistrySpoofer: Skipping info message (user chose 'don't show again')");
          return;
       }
 
@@ -549,7 +638,7 @@ public class RegistrySpoofer implements AutoCloseable {
                showInfoMessageWithCheckbox(message);
             });
          } catch (Exception e) {
-            System.err.println("DEBUG RegistrySpoofer: Exception showing subsequent message: " + e.getMessage());
+            System.out.println("[INFO] RegistrySpoofer: Exception showing subsequent message: " + e.getMessage());
          }
       }
    }
@@ -572,7 +661,108 @@ public class RegistrySpoofer implements AutoCloseable {
       // If user checked "don't show again", mark it
       if (dontShowAgain.isSelected()) {
          markDontShowInfoMessage();
-         System.err.println("DEBUG RegistrySpoofer: User chose 'don't show again' for info message");
+         System.out.println("[INFO] RegistrySpoofer: User chose 'don't show again' for info message");
       }
+   }
+
+   /**
+    * Creates the required file structure that nwnnsscomp expects in the registry path.
+    * Based on reverse engineering, nwnnsscomp checks for:
+    * - chitin.key (REQUIRED - if missing/invalid, initialization fails)
+    * - patch.key, xp1.key, xp1patch.key (optional, only checked if chitin.key is valid)
+    * - override/, modules/, hak/ directories (optional)
+    * <p>
+    * The chitin.key file is a BioWare KEY file format with specific structure:
+    * - "KEY " magic (4 bytes ASCII)
+    * - "V1  " version (4 bytes ASCII)
+    * - BIF count (4 bytes, little endian)
+    * - Key count (4 bytes, little endian)
+    * - Offset to file table (4 bytes, little endian)
+    * - Offset to key table (4 bytes, little endian)
+    * - Build year (4 bytes, little endian)
+    * - Build day (4 bytes, little endian)
+    *
+    * @param installationPath The installation path (from registry) where files should be created
+    */
+   private void createRequiredFileStructure(String installationPath) {
+      try {
+         File installDir = new File(installationPath);
+         if (!installDir.exists()) {
+            System.out.println("[INFO] RegistrySpoofer: Installation directory doesn't exist, creating: " + installationPath);
+            if (!installDir.mkdirs()) {
+               System.out.println("[INFO] RegistrySpoofer: WARNING - Failed to create installation directory: " + installationPath);
+               return;
+            }
+         }
+
+         // Create chitin.key - this is CRITICAL for initialization
+         // ALWAYS recreate it to ensure it's valid (previous versions may have been corrupt)
+         File chitinKey = new File(installDir, "chitin.key");
+         System.out.println("[INFO] RegistrySpoofer: Creating chitin.key file: " + chitinKey.getAbsolutePath());
+
+         // BioWare KEY file format - MUST use LITTLE ENDIAN for integers
+         byte[] keyFile = new byte[32]; // Header is 32 bytes (0x20)
+
+         // Bytes 0-3: Magic "KEY " (ASCII)
+         keyFile[0] = 'K';
+         keyFile[1] = 'E';
+         keyFile[2] = 'Y';
+         keyFile[3] = ' ';
+
+         // Bytes 4-7: Version "V1  " (ASCII)
+         keyFile[4] = 'V';
+         keyFile[5] = '1';
+         keyFile[6] = ' ';
+         keyFile[7] = ' ';
+
+         // Bytes 8-11: BIF count = 0 (little endian)
+         writeLittleEndianInt(keyFile, 8, 0);
+
+         // Bytes 12-15: Key count = 0 (little endian)
+         writeLittleEndianInt(keyFile, 12, 0);
+
+         // Bytes 16-19: Offset to file table = 32 (0x20, end of header, little endian)
+         writeLittleEndianInt(keyFile, 16, 32);
+
+         // Bytes 20-23: Offset to key table = 32 (0x20, end of header, little endian)
+         writeLittleEndianInt(keyFile, 20, 32);
+
+         // Bytes 24-27: Build year = 2003 (little endian)
+         writeLittleEndianInt(keyFile, 24, 2003);
+
+         // Bytes 28-31: Build day = 1 (little endian)
+         writeLittleEndianInt(keyFile, 28, 1);
+
+         Files.write(chitinKey.toPath(), keyFile);
+         System.out.println("[INFO] RegistrySpoofer: Created valid chitin.key file (size: " + chitinKey.length() + " bytes, header: KEY V1)");
+
+         // Create required directories - these ARE checked by the loader
+         String[] dirs = { "override", "modules", "hak" };
+         for (String dirName : dirs) {
+            File dir = new File(installDir, dirName);
+            if (!dir.exists()) {
+               if (dir.mkdirs()) {
+                  System.out.println("[INFO] RegistrySpoofer: Created directory: " + dir.getAbsolutePath());
+               } else {
+                  System.out.println("[INFO] RegistrySpoofer: WARNING - Failed to create directory: " + dir.getAbsolutePath());
+               }
+            }
+         }
+
+      } catch (Exception e) {
+         System.out.println("[INFO] RegistrySpoofer: WARNING - Failed to create required file structure: " + e.getMessage());
+         e.printStackTrace();
+         // Don't throw - this is not critical enough to fail the whole operation
+      }
+   }
+
+   /**
+    * Writes an integer in little-endian format to a byte array at the specified offset.
+    */
+   private static void writeLittleEndianInt(byte[] array, int offset, int value) {
+      array[offset] = (byte) (value & 0xFF);
+      array[offset + 1] = (byte) ((value >> 8) & 0xFF);
+      array[offset + 2] = (byte) ((value >> 16) & 0xFF);
+      array[offset + 3] = (byte) ((value >> 24) & 0xFF);
    }
 }
