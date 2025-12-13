@@ -20,13 +20,122 @@ used by TSLRP (The Sith Lords Restoration Project) and was released to the publi
 ---------------
 What's New
 ---------------
-This version includes:
-    - Near complete rewrite for modern java projects
-	- Self-contained Windows executables (no Java installation required)
-	- Command-line interface (CLI) for headless operation
-	- Support for both KotOR 1 and KotOR 2/TSL
-	- Improved nwscript.nss file discovery
-	- Modern build system using jpackage
+This version represents a complete modernization of the original DeNCS tool with extensive
+new features and improvements. Here are the major additions:
+
+MAJOR NEW FEATURES:
+
+1. COMPLETE GUI APPLICATION
+   - Fully redesigned graphical user interface with modern layout
+   - Tabbed interface for working with multiple scripts simultaneously
+   - Drag-and-drop support for opening files
+   - Empty state view when no files are open
+   - Visual indicators for unsaved files (dirty state tracking)
+   - Help links and sponsor shortcuts integrated into the interface
+
+2. ROUND-TRIP COMPILATION AND DECOMPILATION
+   - Open and edit both .nss (source) and .ncs (compiled) files
+   - Side-by-side dual-pane view showing original and decompiled code
+   - Automatic round-trip verification (compile decompiled code and compare bytecode)
+   - Full compiler integration - compile your edited scripts directly in the GUI
+   - View bytecode for both NSS and NCS files with syntax highlighting
+
+3. SYNTAX HIGHLIGHTING
+   - Comprehensive syntax highlighting for NWScript source code
+   - Color-coded keywords, functions, variables, strings, and comments
+   - Syntax highlighting for bytecode views (instruction highlighting)
+   - Smart highlighting that adapts to code structure
+   - Debounced updates to prevent UI freezing during typing
+
+4. KOTOR 2/TSL SUPPORT
+   - Full support for Knights of the Old Republic II: The Sith Lords
+   - Separate nwscript.nss files for K1 and K2 with automatic detection
+   - Automatic game variant detection based on script content
+   - Support for TSL-specific action signatures and functions
+
+5. UNDO/REDO AND EDITING FEATURES
+   - Full undo/redo support for all text editing
+   - Dirty state tracking - know which files have unsaved changes
+   - Post-save refresh to update views automatically
+   - Keyboard shortcuts for common operations (Ctrl+S, Ctrl+Z, etc.)
+
+6. SELF-CONTAINED EXECUTABLES (CROSS-PLATFORM)
+   - Windows: Standalone .exe files (no Java installation required)
+   - macOS: Native .app bundles
+   - Linux: Native executable binaries
+   - All dependencies bundled - just download and run
+   - No configuration needed - everything works out of the box
+
+7. COMMAND-LINE INTERFACE (CLI)
+   - Full-featured CLI for headless operation and automation
+   - Batch processing of entire directories recursively
+   - Output to files or stdout for piping to other tools
+   - Comprehensive command-line options matching all GUI features
+
+8. WINDOWS REGISTRY SPOOFING FOR LEGACY COMPILERS
+   - Automatic handling of registry requirements for old nwnnsscomp versions
+   - User-friendly elevation prompts when administrator access is needed
+   - Seamless integration - works automatically in the background
+   - Support for multiple compiler variants (kscript, ktool, tslpatcher)
+
+9. MULTIPLE COMPILER SUPPORT
+   - Support for nwnnsscomp_kscript.exe (KOTOR Scripting Tool)
+   - Support for nwnnsscomp_ktool.exe (KOTOR Tool)
+   - Support for nwnnsscomp_tslpatcher.exe (TSLPatcher variant)
+   - Automatic compiler detection with priority-based selection
+   - Visual compiler detection indicator with detailed metadata
+   - Fallback mechanisms to find compilers in multiple locations
+
+10. ADVANCED DECOMPILATION ENGINE
+    - Call-graph prototyping engine for intelligent type inference
+    - Automatic function signature detection
+    - Prefer switches option - generate switch statements instead of if-elseif chains
+    - State recovery - continue decompilation from partial results
+    - Enhanced error handling that preserves partial decompilation results
+    - Comprehensive normalization for accurate round-trip testing
+
+11. COMPREHENSIVE SETTINGS DIALOG
+    - All CLI options available in GUI settings
+    - Separate configuration for K1 and K2 nwscript paths
+    - Compiler path configuration with smart defaults
+    - Game variant selection (K1/K2)
+    - Encoding, file extension, and output customization options
+    - Settings persist between sessions
+
+12. BYTECODE VIEWING AND ANALYSIS
+    - View original bytecode for NCS files
+    - View compiled bytecode for NSS files
+    - Side-by-side bytecode comparison for round-trip verification
+    - Syntax highlighting for bytecode instructions
+    - Navigate between source code and bytecode views seamlessly
+
+13. IMPROVED USER EXPERIENCE
+    - Default view selection based on file type (NSS vs NCS)
+    - Tree navigation with search/filter functionality
+    - Status bar with detailed information
+    - Integrated logging - see compiler output and errors in GUI
+    - Empty state guidance when no files are open
+    - Better error messages with actionable suggestions
+
+14. CROSS-PLATFORM COMPILER EXECUTION
+    - Wine support for running Windows compilers on Linux/Mac
+    - Automatic compiler detection across platforms
+    - Fallback to JAR directory tools folder when needed
+    - Comprehensive diagnostic information when compilers fail
+
+15. MODERN BUILD SYSTEM
+    - jpackage-based build system for native executables
+    - Cross-platform build scripts (PowerShell for Windows, compatible with macOS/Linux)
+    - Automated distribution packaging
+    - Example scripts included in distribution
+
+TECHNICAL IMPROVEMENTS:
+    - Near complete rewrite for modern Java projects
+    - Improved nwscript.nss file discovery with multiple fallback locations
+    - Enhanced file path handling for drag-drop and new files
+    - Better thread management for file operations
+    - Comprehensive logging and debugging capabilities
+    - Robust error handling and recovery mechanisms
 
 ---------------
 Requirements

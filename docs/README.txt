@@ -6,38 +6,81 @@
 
 ## Welcome
 
-**NCSDecomp** is a tool that converts compiled KotOR game scripts (`.ncs` files) back into readable source code (`.nss` files). This version includes both a simple-to-use Windows program and command-line tools.
+**NCSDecomp** is a tool that converts compiled KotOR game scripts (`.ncs` files) back into readable source code (`.nss` files). 
+
+**What does this mean?** If you have a compiled script file from Knights of the Old Republic or Knights of the Old Republic II, this tool can turn it back into the original source code that you can read and edit. It's like having a translator that converts the game's internal script format back into human-readable code.
+
+This version includes:
+- **A simple graphical program** (GUI) - Just double-click to open and use
+- **Command-line tools** (CLI) - For advanced users who want to automate tasks
+- **Works with both games** - KotOR 1 and KotOR 2/TSL are fully supported
 
 ---
 
 ## 🚀 Quick Start Guide
 
-### Option 1: Using the Self-Contained Executable (Easiest!)
+### For Most Users: Use the Graphical Program (GUI)
 
-1. **Download** the `NCSDecompCLI` folder (for command-line) or `NCSDecomp` folder (for GUI)
-2. **For CLI:**
-   - **Windows:** Navigate to the `NCSDecompCLI` folder and run `NCSDecompCLI.exe` from Command Prompt
-   - **macOS/Linux:** Navigate to the `NCSDecompCLI` folder and run `./NCSDecompCLI` from Terminal
-3. **For GUI:**
-   - **Windows:** Navigate to the `NCSDecomp` folder and double-click `NCSDecomp.exe`
-   - **macOS:** Navigate to the `NCSDecomp` folder and double-click `NCSDecomp.app`
-   - **Linux:** Navigate to the `NCSDecomp` folder and run `./NCSDecomp`
+**This is the easiest way to use NCSDecomp!**
 
-That's it! No Java installation needed - everything is included in the folders.
+1. **Find the `NCSDecomp` folder** in your download
+2. **Double-click the program:**
+   - **Windows:** Double-click `NCSDecomp.exe`
+   - **macOS:** Double-click `NCSDecomp.app`
+   - **Linux:** Double-click `NCSDecomp` (or run `./NCSDecomp` from terminal)
+3. **That's it!** The program will open and you can:
+   - Drag and drop `.ncs` files to decompile them
+   - Open `.nss` files to view or edit them
+   - Use File → Open to browse for files
+   - Edit code with syntax highlighting
+   - Save your changes
 
-### Option 2: Using the JAR File
+**No Java installation needed** - everything is included! The program is completely self-contained.
 
-If you prefer the JAR version, you'll need Java installed on your computer. Then you can run:
+### For Advanced Users: Command-Line Interface (CLI)
+
+If you prefer using the command line or want to automate tasks:
+
+1. **Find the `NCSDecompCLI` folder** in your download
+2. **Open Command Prompt (Windows) or Terminal (Mac/Linux)**
+3. **Navigate to the folder** and run:
+   - **Windows:** `NCSDecompCLI.exe --help` (to see all options)
+   - **macOS/Linux:** `./NCSDecompCLI --help`
+
+See the examples below for common usage.
+
+### Alternative: Using the JAR File
+
+If you already have Java installed on your computer, you can use the JAR file instead:
 
 ```bash
 java -jar NCSDecomp-CLI.jar [options]
 ```
 
+**Note:** Most users should use the self-contained executable instead - it's easier and doesn't require Java!
+
 ---
 
 ## 📖 How to Use
 
-### Opening Terminal/Command Prompt
+### Using the Graphical Program (Recommended for Beginners)
+
+1. **Open the program** by double-clicking `NCSDecomp.exe` (Windows) or `NCSDecomp.app` (Mac)
+2. **Open a file:**
+   - Drag and drop a `.ncs` or `.nss` file onto the window, OR
+   - Click File → Open and browse for your file
+3. **View the code:** The decompiled source code will appear in the main window
+4. **Edit if needed:** You can edit the code directly - syntax highlighting makes it easy to read
+5. **Save your work:** Press Ctrl+S (Windows/Linux) or Cmd+S (Mac) to save
+
+**Tips:**
+- You can open multiple files at once - each appears in its own tab
+- The program automatically detects whether you're working with KotOR 1 or KotOR 2 scripts
+- If you see an asterisk (*) on a tab, that file has unsaved changes
+
+### Using the Command Line (For Advanced Users)
+
+**First, open Terminal/Command Prompt:**
 
 **Windows:**
 1. Press `Windows Key + R`
@@ -56,9 +99,9 @@ java -jar NCSDecomp-CLI.jar [options]
    cd /path/to/NCSDecomp
    ```
 
-### Basic Examples
+### Command-Line Examples
 
-**Note:** You can run the executable from any directory. If you're in the `NCSDecompCLI` folder, use `NCSDecompCLI.exe` (Windows) or `./NCSDecompCLI` (macOS/Linux). If you're in the parent directory, use `NCSDecompCLI\NCSDecompCLI.exe` (Windows) or `./NCSDecompCLI/NCSDecompCLI` (macOS/Linux).
+**Note:** Make sure you're in the `NCSDecompCLI` folder, or use the full path to the executable.
 
 #### Decompile a Single File (KotOR 2 / TSL)
 
@@ -135,25 +178,26 @@ This displays the code directly in the terminal/command window instead of saving
 
 ## 🎮 Game Mode Selection
 
-NCSDecomp needs to know which game you're working with:
+NCSDecomp works with both KotOR games! The program usually detects which game automatically, but you can specify:
 
-- **`--k1`** or **`--game=k1`** - For Knights of the Old Republic (KotOR 1)
-- **`--k2`** or **`--tsl`** or **`--game=k2`** - For Knights of the Old Republic II: The Sith Lords (TSL)
+- **`--k1`** - For Knights of the Old Republic (KotOR 1)
+- **`--k2`** or **`--tsl`** - For Knights of the Old Republic II: The Sith Lords (TSL)
 
-If you don't specify, it defaults to KotOR 1 mode.
+**In the GUI:** The program automatically detects the game based on the script. You can also change it in Settings if needed.
+
+**In the CLI:** If you don't specify, it defaults to KotOR 1 mode. Add `--k2` to your command for KotOR 2 scripts.
 
 ---
 
 ## 📁 Required Files
 
-For the **CLI version** (`NCSDecompCLI.exe`), the required files are automatically included:
+**Good news:** All required files are automatically included! You don't need to do anything.
 
-- `k1_nwscript.nss` - Required for KotOR 1 scripts (automatically in `app` folder)
-- `tsl_nwscript.nss` - Required for KotOR 2/TSL scripts (automatically in `app` folder)
+The program includes:
+- `k1_nwscript.nss` - Definitions for KotOR 1 scripts
+- `tsl_nwscript.nss` - Definitions for KotOR 2/TSL scripts
 
-**Note:** The self-contained `NCSDecompCLI.exe` includes these files automatically in the `app` subdirectory. The executable will find them automatically - no manual setup needed!
-
-If using the JAR version, you need to have them in your current working directory.
+These files are automatically found by the program - no setup needed! They're included in the `tools` folder in the distribution.
 
 ---
 
@@ -231,45 +275,81 @@ This creates `script_decompiled.nss` instead of `script.nss`.
 
 ### "Error: nwscript file not found"
 
-**Problem**: Missing `nwscript.nss` file
+**What this means:** The program can't find the game definition files it needs.
 
-**Solution**:
-
-- For `NCSDecompCLI.exe`: The files should be automatically in the `app` subdirectory. If you get this error, ensure the executable folder structure is intact and the `app` folder contains the nwscript files.
-- For JAR version: Make sure `k1_nwscript.nss` or `tsl_nwscript.nss` is in the `tools/` directory (or current working directory for legacy support).
-- You can also use `--nwscript <path>` to specify the exact location of the nwscript file.
+**How to fix:**
+- Make sure you haven't deleted or moved the `tools` folder
+- The `tools` folder should be in the same directory as the executable
+- If using the JAR version, make sure `k1_nwscript.nss` or `tsl_nwscript.nss` is in the `tools/` folder
 
 ### "No .ncs files found"
 
-**Problem**: No `.ncs` files in the specified location
+**What this means:** The program couldn't find any script files in the location you specified.
 
-**Solution**: Check that your input path is correct and contains `.ncs` files
+**How to fix:**
+- Check that the file path is correct
+- Make sure the files actually have the `.ncs` extension
+- Try navigating to the folder first and then selecting the file
 
 ### Program won't start
 
-**Windows:** Windows security might be blocking it. Right-click `NCSDecomp.exe` → Properties → Check "Unblock" → Apply
+**Windows:** 
+- Windows might be blocking the program. Right-click `NCSDecomp.exe` → Properties → Check "Unblock" → Apply
+- Try running as Administrator if you get permission errors
 
-**macOS:** You may need to allow the app in System Preferences → Security & Privacy
+**macOS:** 
+- You may need to allow the app in System Preferences → Security & Privacy
+- Right-click the app and select "Open" the first time
 
-**Linux:** Ensure the executable has execute permissions: `chmod +x NCSDecompCLI/NCSDecompCLI`
+**Linux:** 
+- Make sure the executable has permission to run: `chmod +x NCSDecompCLI/NCSDecompCLI`
+
+### Other Issues
+
+**The GUI looks strange or buttons don't work:**
+- Make sure you're using a recent version of Windows/macOS/Linux
+- Try restarting the program
+
+**Can't save files:**
+- Make sure you have write permissions in the folder you're trying to save to
+- Try saving to a different location (like your Desktop)
 
 ---
 
 ## 📚 Getting Help
 
-**Windows:**
-- Run `.\NCSDecompCLI.exe --help` for a full list of CLI options (from within the NCSDecompCLI folder)
-- Run `.\NCSDecompCLI.exe --version` for version information
+**For the GUI:**
+- Check the Help menu in the program
+- Look at the status bar at the bottom for hints and information
 
-**macOS/Linux:**
-- Run `./NCSDecompCLI --help` for a full list of CLI options (from within the NCSDecompCLI folder)
-- Run `./NCSDecompCLI --version` for version information
+**For the Command Line:**
+- Run `.\NCSDecompCLI.exe --help` (Windows) or `./NCSDecompCLI --help` (Mac/Linux) for all available options
+- Run `.\NCSDecompCLI.exe --version` (Windows) or `./NCSDecompCLI --version` (Mac/Linux) for version information
 
-- Visit [https://bolabaden.org](https://bolabaden.org) for more resources
+**Online Resources:**
+- Visit [https://bolabaden.org](https://bolabaden.org) for more information and resources
+- Check the included documentation files (README-CLI.md, README-USER.md) for detailed guides
 
 ---
 
-## 🎯 Advanced Usage
+## 🎯 What Can You Do With NCSDecomp?
+
+**Basic Usage:**
+- Decompile `.ncs` files to see the original source code
+- View and read script code from your favorite KotOR games
+- Understand how game scripts work
+
+**Advanced Usage:**
+- Edit decompiled scripts and recompile them
+- Create mods for KotOR 1 and KotOR 2
+- Analyze game scripts for research or learning
+- Batch process entire folders of scripts
+
+**Round-Trip Feature:**
+- Open both `.ncs` (compiled) and `.nss` (source) files
+- Edit source code and compile it back
+- Verify your changes by comparing bytecode
+- See side-by-side views of original and decompiled code
 
 For detailed technical documentation, see `README-TECHNICAL.md` included in this package.
 
@@ -294,7 +374,8 @@ For detailed technical documentation, see `README-TECHNICAL.md` included in this
 
 ## 📄 License
 
-This software is provided "as is" with no warranty. See the original NCSDecomp documentation for license details.
+This software is provided under the Business Source License 1.1 (BSL 1.1).
+See LICENSE.txt file in the project root for full license information.
 
 ---
 
