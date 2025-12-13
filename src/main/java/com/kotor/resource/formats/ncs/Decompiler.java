@@ -1936,6 +1936,10 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
       roundTripTextPane.setComponentPopupMenu(roundTripPopupMenu);
 
       tabComponents[0] = decompSplitPane;
+      
+      // Set initial link property for scrollbar synchronization (default to left)
+      // This will be updated when switching to this view based on content
+      this.jTB.putClientProperty(decompSplitPane, "left");
 
       // --- Bytecode Comparison Split Pane ---
       JSplitPane byteCodeSplitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
