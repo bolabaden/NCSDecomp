@@ -1601,7 +1601,6 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
          synchronized (this.allLogLines) {
             this.allLogLines.clear();
          }
-         this.status.setText("");
       } else if (cmd.equals("FilterLogs")) {
          filterLogs();
       } else if (cmd.equals("View Byte Code")) {
