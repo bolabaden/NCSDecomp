@@ -66,7 +66,7 @@ public class RoundTripUtil {
             }
 
             // Read the decompiled code
-            if (tempNssFile.exists() && tempNssFile.length() > 0) {
+            if (tempNssFile.exists() && tempNssFile.isFile() && tempNssFile.length() > 0) {
                try {
                   return new String(java.nio.file.Files.readAllBytes(tempNssFile.toPath()), StandardCharsets.UTF_8);
                } catch (java.io.IOException e) {
@@ -118,8 +118,13 @@ public class RoundTripUtil {
 
          // Ensure output directory exists
          File parentDir = nssOutputFile.getParentFile();
-         if (parentDir != null) {
-            parentDir.mkdirs();
+         if (parentDir != null && !parentDir.exists()) {
+            System.out.println("[INFO] RoundTripUtil: CREATING parent directory: " + parentDir.getAbsolutePath());
+            if (!parentDir.mkdirs()) {
+               System.err.println("[ERROR] RoundTripUtil: Failed to create parent directory: " + parentDir.getAbsolutePath());
+               throw new IOException("Failed to create parent directory: " + parentDir.getAbsolutePath());
+            }
+            System.out.println("[INFO] RoundTripUtil: Created parent directory: " + parentDir.getAbsolutePath());
          }
 
          // Use the same decompile method as the test

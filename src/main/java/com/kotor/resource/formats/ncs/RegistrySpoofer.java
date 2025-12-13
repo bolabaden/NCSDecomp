@@ -461,6 +461,13 @@ public class RegistrySpoofer implements AutoCloseable {
    private static void markDontShowInfoMessage() {
       try {
          Path markerPath = Paths.get(System.getProperty("user.dir"), DONT_SHOW_INFO_MARKER_FILE);
+         // Ensure parent directory exists
+         Path parentDir = markerPath.getParent();
+         if (parentDir != null && !Files.exists(parentDir)) {
+            System.out.println("[INFO] RegistrySpoofer: CREATING parent directory: " + parentDir.toAbsolutePath());
+            Files.createDirectories(parentDir);
+            System.out.println("[INFO] RegistrySpoofer: Created parent directory: " + parentDir.toAbsolutePath());
+         }
          System.out.println("[INFO] RegistrySpoofer: CREATING marker file: " + markerPath.toAbsolutePath());
          Files.createFile(markerPath);
          System.out.println("[INFO] RegistrySpoofer: Created marker file: " + markerPath.toAbsolutePath());
@@ -528,6 +535,16 @@ public class RegistrySpoofer implements AutoCloseable {
                "  exit /b 0\n" +
                ")\n";
 
+         // Ensure parent directory exists
+         File parentDir = tempBatch.getParentFile();
+         if (parentDir != null && !parentDir.exists()) {
+            System.out.println("[INFO] RegistrySpoofer: CREATING parent directory for batch file: " + parentDir.getAbsolutePath());
+            if (!parentDir.mkdirs()) {
+               System.err.println("[ERROR] RegistrySpoofer: Failed to create parent directory: " + parentDir.getAbsolutePath());
+               throw new IOException("Failed to create parent directory for batch file");
+            }
+            System.out.println("[INFO] RegistrySpoofer: Created parent directory: " + parentDir.getAbsolutePath());
+         }
          System.out.println("[INFO] RegistrySpoofer: CREATING temporary batch file: " + tempBatch.getAbsolutePath());
          System.out.println("[INFO] RegistrySpoofer: WRITING batch file content (length: " + batchContent.getBytes("UTF-8").length + " bytes)");
          Files.write(tempBatch.toPath(), batchContent.getBytes("UTF-8"));
@@ -743,6 +760,16 @@ public class RegistrySpoofer implements AutoCloseable {
          // Bytes 28-31: Build day = 1 (little endian)
          writeLittleEndianInt(keyFile, 28, 1);
 
+         // Ensure parent directory exists
+         File parentDir = chitinKey.getParentFile();
+         if (parentDir != null && !parentDir.exists()) {
+            System.out.println("[INFO] RegistrySpoofer: CREATING parent directory for chitin.key: " + parentDir.getAbsolutePath());
+            if (!parentDir.mkdirs()) {
+               System.err.println("[ERROR] RegistrySpoofer: Failed to create parent directory: " + parentDir.getAbsolutePath());
+               throw new IOException("Failed to create parent directory for chitin.key");
+            }
+            System.out.println("[INFO] RegistrySpoofer: Created parent directory: " + parentDir.getAbsolutePath());
+         }
          System.out.println("[INFO] RegistrySpoofer: WRITING chitin.key file: " + chitinKey.getAbsolutePath() + " (size: " + keyFile.length + " bytes)");
          Files.write(chitinKey.toPath(), keyFile);
          System.out.println("[INFO] RegistrySpoofer: Created valid chitin.key file (size: " + chitinKey.length() + " bytes, header: KEY V1)");

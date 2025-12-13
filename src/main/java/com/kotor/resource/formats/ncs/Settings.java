@@ -376,6 +376,15 @@ public class Settings extends Properties implements ActionListener {
     */
    public void load() {
       File configDir = new File(System.getProperty("user.dir"), "config");
+      // Ensure config directory exists
+      if (!configDir.exists()) {
+         System.out.println("[INFO] Settings: CREATING config directory: " + configDir.getAbsolutePath());
+         if (!configDir.mkdirs()) {
+            System.err.println("[WARNING] Settings: Failed to create config directory: " + configDir.getAbsolutePath());
+         } else {
+            System.out.println("[INFO] Settings: Created config directory: " + configDir.getAbsolutePath());
+         }
+      }
       File configFile = new File(configDir, CONFIG_FILE);
       File configToLoad = configFile;
       if (!configToLoad.exists()) {
@@ -386,14 +395,30 @@ public class Settings extends Properties implements ActionListener {
       }
 
       try {
-         System.out.println("[INFO] Settings: READING config file: " + configToLoad.getAbsolutePath());
-         try (FileInputStream fis = new FileInputStream(configToLoad)) {
-            this.load(fis);
+         // Only try to read if file exists
+         if (configToLoad.exists() && configToLoad.isFile()) {
+            System.out.println("[INFO] Settings: READING config file: " + configToLoad.getAbsolutePath());
+            try (FileInputStream fis = new FileInputStream(configToLoad)) {
+               this.load(fis);
+            }
+            System.out.println("[INFO] Settings: Read config file: " + configToLoad.getAbsolutePath());
+         } else {
+            // File doesn't exist, create default config
+            System.out.println("[INFO] Settings: Config file does not exist, creating default: " + configFile.getAbsolutePath());
+            this.reset();
+            this.save();
          }
-         System.out.println("[INFO] Settings: Read config file: " + configToLoad.getAbsolutePath());
       } catch (Exception var4) {
+         // If reading failed, try to create default config in config directory
          try {
-            new File(CONFIG_FILE).createNewFile();
+            // Ensure config directory exists before creating file
+            if (!configDir.exists()) {
+               configDir.mkdirs();
+            }
+            File defaultConfigFile = new File(configDir, CONFIG_FILE);
+            if (!defaultConfigFile.exists()) {
+               defaultConfigFile.createNewFile();
+            }
          } catch (FileNotFoundException var2) {
             var2.printStackTrace();
             System.exit(1);
@@ -422,7 +447,10 @@ public class Settings extends Properties implements ActionListener {
       File configDir = new File(System.getProperty("user.dir"), "config");
       if (!configDir.exists()) {
          System.out.println("[INFO] Settings: CREATING config directory: " + configDir.getAbsolutePath());
-         configDir.mkdirs();
+         if (!configDir.mkdirs()) {
+            System.err.println("[ERROR] Settings: Failed to create config directory: " + configDir.getAbsolutePath());
+            return;
+         }
          System.out.println("[INFO] Settings: Created config directory: " + configDir.getAbsolutePath());
       }
       File configFile = new File(configDir, CONFIG_FILE);
@@ -431,8 +459,10 @@ public class Settings extends Properties implements ActionListener {
          this.store(fos, "NCSDecomp Configuration");
          System.out.println("[INFO] Settings: Wrote config file: " + configFile.getAbsolutePath());
       } catch (FileNotFoundException var2) {
+         System.err.println("[ERROR] Settings: Config file not found: " + configFile.getAbsolutePath());
          var2.printStackTrace();
       } catch (IOException var3) {
+         System.err.println("[ERROR] Settings: IO error writing config file: " + configFile.getAbsolutePath());
          var3.printStackTrace();
       }
    }

@@ -222,7 +222,15 @@ public final class NCSDecompCLI {
                   System.out.println(code);
                } else {
                   File outFile = resolveOutput(input, outputFileOrDir, cfg);
-                  outFile.getParentFile().mkdirs(); // Ensure parent directory exists
+                  File parentDir = outFile.getParentFile();
+                  if (parentDir != null && !parentDir.exists()) {
+                     System.out.println("[INFO] NCSDecompCLI: CREATING parent directory: " + parentDir.getAbsolutePath());
+                     if (!parentDir.mkdirs()) {
+                        System.err.println("[ERROR] NCSDecompCLI: Failed to create parent directory: " + parentDir.getAbsolutePath());
+                        continue;
+                     }
+                     System.out.println("[INFO] NCSDecompCLI: Created parent directory: " + parentDir.getAbsolutePath());
+                  }
                   fd.decompileToFile(input.file, outFile, charset, cfg.overwrite);
                   if (!cfg.quiet) {
                      System.out.println("Decompiled " + input.file.getAbsolutePath() + " -> " + outFile.getAbsolutePath());

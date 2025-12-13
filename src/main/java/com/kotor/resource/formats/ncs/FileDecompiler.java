@@ -211,6 +211,15 @@ public class FileDecompiler {
    private static void loadPreferSwitchesFromConfig() {
       try {
          File configDir = new File(System.getProperty("user.dir"), "config");
+         // Ensure config directory exists (though it may not have files yet)
+         if (!configDir.exists()) {
+            System.out.println("[INFO] loadPreferSwitchesFromConfig: CREATING config directory: " + configDir.getAbsolutePath());
+            if (!configDir.mkdirs()) {
+               System.err.println("[WARNING] loadPreferSwitchesFromConfig: Failed to create config directory: " + configDir.getAbsolutePath());
+            } else {
+               System.out.println("[INFO] loadPreferSwitchesFromConfig: Created config directory: " + configDir.getAbsolutePath());
+            }
+         }
          File configFile = new File(configDir, "ncsdecomp.conf");
          if (!configFile.exists()) {
             configFile = new File(configDir, "dencs.conf");
@@ -596,7 +605,9 @@ public class FileDecompiler {
       if (parent != null) {
          if (!parent.exists()) {
             System.out.println("[INFO] decompileToFile: CREATING directory: " + parent.getAbsolutePath());
-            parent.mkdirs();
+            if (!parent.mkdirs()) {
+               throw new IOException("Failed to create output directory: " + parent.getAbsolutePath());
+            }
             System.out.println("[INFO] decompileToFile: Created directory: " + parent.getAbsolutePath());
          }
       }
@@ -818,6 +829,11 @@ public class FileDecompiler {
       BufferedReader reader = null;
 
       try {
+         // Verify file exists before reading
+         if (!file.exists() || !file.isFile()) {
+            System.err.println("[ERROR] readFile: File does not exist or is not a file: " + file.getAbsolutePath());
+            return null;
+         }
          System.out.println("[INFO] readPcodeFile: READING pcode file: " + file.getAbsolutePath());
          reader = new BufferedReader(new FileReader(file));
 
@@ -846,6 +862,13 @@ public class FileDecompiler {
     * @return null when identical; otherwise a human-readable mismatch description
     */
    private String comparePcodeFiles(File originalPcode, File newPcode) {
+      // Verify both files exist before reading
+      if (!originalPcode.exists() || !originalPcode.isFile()) {
+         return "Original pcode file does not exist: " + originalPcode.getAbsolutePath();
+      }
+      if (!newPcode.exists() || !newPcode.isFile()) {
+         return "New pcode file does not exist: " + newPcode.getAbsolutePath();
+      }
       System.out.println("[INFO] comparePcodeFiles: READING pcode files for comparison: " + originalPcode.getAbsolutePath() + " vs " + newPcode.getAbsolutePath());
       try (BufferedReader reader1 = new BufferedReader(new FileReader(originalPcode));
             BufferedReader reader2 = new BufferedReader(new FileReader(newPcode))) {
@@ -881,6 +904,15 @@ public class FileDecompiler {
     * Performs byte-for-byte comparison of two compiled NCS files.
     */
    private boolean compareBinaryFiles(File original, File generated) {
+      // Verify both files exist before reading
+      if (!original.exists() || !original.isFile()) {
+         System.err.println("[ERROR] compareBinaryFiles: Original file does not exist: " + original.getAbsolutePath());
+         return false;
+      }
+      if (!generated.exists() || !generated.isFile()) {
+         System.err.println("[ERROR] compareBinaryFiles: Generated file does not exist: " + generated.getAbsolutePath());
+         return false;
+      }
       System.out.println("[INFO] compareBinaryFiles: READING binary files for comparison: " + original.getAbsolutePath() + " vs " + generated.getAbsolutePath());
       try (BufferedInputStream a = new BufferedInputStream(new FileInputStream(original));
             BufferedInputStream b = new BufferedInputStream(new FileInputStream(generated))) {
@@ -1013,7 +1045,12 @@ public class FileDecompiler {
          // Default to temp directory to avoid creating files without user consent
          actualOutputDir = new File(System.getProperty("java.io.tmpdir"), "ncsdecomp_roundtrip");
          if (!actualOutputDir.exists()) {
-            actualOutputDir.mkdirs();
+            System.out.println("[INFO] externalDecompile: CREATING output directory: " + actualOutputDir.getAbsolutePath());
+            if (!actualOutputDir.mkdirs()) {
+               System.err.println("[ERROR] externalDecompile: Failed to create output directory: " + actualOutputDir.getAbsolutePath());
+               return null;
+            }
+            System.out.println("[INFO] externalDecompile: Created output directory: " + actualOutputDir.getAbsolutePath());
          }
       }
 
@@ -1076,6 +1113,16 @@ public class FileDecompiler {
             if (nwscriptSource.exists()) {
                if (!compilerNwscript.exists()) {
                   try {
+                     // Ensure parent directory exists before copying
+                     File parentDir = compilerNwscript.getParentFile();
+                     if (parentDir != null && !parentDir.exists()) {
+                        System.out.println("[INFO] externalDecompile: CREATING parent directory for nwscript.nss: " + parentDir.getAbsolutePath());
+                        if (!parentDir.mkdirs()) {
+                           System.err.println("[ERROR] externalDecompile: Failed to create parent directory: " + parentDir.getAbsolutePath());
+                        } else {
+                           System.out.println("[INFO] externalDecompile: Created parent directory: " + parentDir.getAbsolutePath());
+                        }
+                     }
                      System.out.println("[INFO] externalDecompile: COPYING nwscript.nss (RENAME) for decompilation: " + nwscriptSource.getAbsolutePath() + " -> " + compilerNwscript.getAbsolutePath());
                      System.out.println("[INFO] externalDecompile: Source file: " + nwscriptSource.getName() + " (K2=" + k2 + ")");
                      java.nio.file.Files.copy(nwscriptSource.toPath(), compilerNwscript.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
@@ -1217,7 +1264,10 @@ public class FileDecompiler {
          File tempDir = new File(System.getProperty("java.io.tmpdir"), "ncsdecomp_roundtrip");
          if (!tempDir.exists()) {
             System.out.println("[INFO] writeCode: CREATING directory: " + tempDir.getAbsolutePath());
-            tempDir.mkdirs();
+            if (!tempDir.mkdirs()) {
+               System.err.println("[ERROR] writeCode: Failed to create temp directory: " + tempDir.getAbsolutePath());
+               return null;
+            }
             System.out.println("[INFO] writeCode: Created directory: " + tempDir.getAbsolutePath());
          }
 
@@ -1275,13 +1325,16 @@ public class FileDecompiler {
          if (outputDir != null) {
             actualOutputDir = outputDir;
          } else {
-            // Default to temp directory to avoid creating files without user consent
-            actualOutputDir = new File(System.getProperty("java.io.tmpdir"), "ncsdecomp_roundtrip");
-            if (!actualOutputDir.exists()) {
-               System.out.println("[INFO] externalCompile: CREATING directory: " + actualOutputDir.getAbsolutePath());
-               actualOutputDir.mkdirs();
-               System.out.println("[INFO] externalCompile: Created directory: " + actualOutputDir.getAbsolutePath());
+         // Default to temp directory to avoid creating files without user consent
+         actualOutputDir = new File(System.getProperty("java.io.tmpdir"), "ncsdecomp_roundtrip");
+         if (!actualOutputDir.exists()) {
+            System.out.println("[INFO] externalCompile: CREATING directory: " + actualOutputDir.getAbsolutePath());
+            if (!actualOutputDir.mkdirs()) {
+               System.err.println("[ERROR] externalCompile: Failed to create output directory: " + actualOutputDir.getAbsolutePath());
+               return null;
             }
+            System.out.println("[INFO] externalCompile: Created directory: " + actualOutputDir.getAbsolutePath());
+         }
          }
 
          // Create output NCS file in the specified output directory
@@ -1663,6 +1716,11 @@ public class FileDecompiler {
       }
 
       try {
+         // Verify file exists before reading
+         if (!file.exists() || !file.isFile()) {
+            System.err.println("[ERROR] decompileNcs: File does not exist or is not a file: " + file.getAbsolutePath());
+            return null;
+         }
          data = new FileDecompiler.FileScriptData();
 
          // Decode bytecode - wrap in try-catch to handle corrupted files
@@ -1679,7 +1737,7 @@ public class FileDecompiler {
             // Create comprehensive fallback stub for decoding errors
             long fileSize = file.exists() ? file.length() : -1;
             String fileInfo = "File size: " + fileSize + " bytes";
-            if (fileSize > 0) {
+            if (fileSize > 0 && file.exists() && file.isFile()) {
                System.out.println("[INFO] decompileNcs: READING file header: " + file.getAbsolutePath());
                try (FileInputStream fis = new FileInputStream(file)) {
                   byte[] header = new byte[Math.min(16, (int) fileSize)];

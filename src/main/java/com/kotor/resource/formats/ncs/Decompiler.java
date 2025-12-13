@@ -2035,6 +2035,11 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
 
       String fileContent = null;
       try {
+      // Verify file exists before reading
+      if (!file.exists() || !file.isFile()) {
+         this.appendStatus("[ERROR] File does not exist or is not a file: " + file.getAbsolutePath() + "\n");
+         return;
+      }
       // Read the file content
       System.out.println("[INFO] Decompiler: READING file: " + file.getAbsolutePath());
       fileContent = new String(java.nio.file.Files.readAllBytes(file.toPath()),
@@ -2258,7 +2263,11 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
                            File tempDir = new File(System.getProperty("java.io.tmpdir"), "ncsdecomp_roundtrip");
                            if (!tempDir.exists()) {
                               System.out.println("[INFO] Decompiler: CREATING directory: " + tempDir.getAbsolutePath());
-                              tempDir.mkdirs();
+                              if (!tempDir.mkdirs()) {
+                                 System.err.println("[ERROR] Decompiler: Failed to create temp directory: " + tempDir.getAbsolutePath());
+                                 // Skip rest of round-trip processing if directory creation fails
+                                 throw new IOException("Failed to create temp directory: " + tempDir.getAbsolutePath());
+                              }
                               System.out.println("[INFO] Decompiler: Created directory: " + tempDir.getAbsolutePath());
                            }
                            String baseName = file.getName();
@@ -2266,6 +2275,15 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
                               baseName = baseName.substring(0, baseName.length() - 4);
                            }
                            File roundTripNssFile = new File(tempDir, baseName + "_roundtrip.nss");
+                           // Ensure parent directory exists
+                           File parentDir = roundTripNssFile.getParentFile();
+                           if (parentDir != null && !parentDir.exists()) {
+                              if (!parentDir.mkdirs()) {
+                                 System.err.println("[ERROR] Decompiler: Failed to create parent directory: " + parentDir.getAbsolutePath());
+                                 // Skip rest of round-trip processing if directory creation fails
+                                 throw new IOException("Failed to create parent directory: " + parentDir.getAbsolutePath());
+                              }
+                           }
                            System.out.println("[INFO] Decompiler: WRITING round-trip NSS file: " + roundTripNssFile.getAbsolutePath() + " (length: " + roundTripCode.getBytes().length + " bytes)");
                            java.nio.file.Files.write(roundTripNssFile.toPath(), roundTripCode.getBytes());
                            System.out.println("[INFO] Decompiler: Wrote round-trip NSS file: " + roundTripNssFile.getAbsolutePath());
@@ -2506,7 +2524,11 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
                         File tempDir = new File(System.getProperty("java.io.tmpdir"), "ncsdecomp_roundtrip");
                         if (!tempDir.exists()) {
                            System.out.println("[INFO] Decompiler: CREATING directory: " + tempDir.getAbsolutePath());
-                           tempDir.mkdirs();
+                           if (!tempDir.mkdirs()) {
+                              System.err.println("[ERROR] Decompiler: Failed to create temp directory: " + tempDir.getAbsolutePath());
+                              // Skip rest of round-trip processing if directory creation fails
+                              throw new IOException("Failed to create temp directory: " + tempDir.getAbsolutePath());
+                           }
                            System.out.println("[INFO] Decompiler: Created directory: " + tempDir.getAbsolutePath());
                         }
 
@@ -2515,6 +2537,16 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
                         // code
                         String baseName2 = file.getName().substring(0, file.getName().length() - 4);
                         File tempNssFile = new File(tempDir, baseName2 + ".nss");
+
+                        // Ensure parent directory exists
+                        File parentDir = tempNssFile.getParentFile();
+                        if (parentDir != null && !parentDir.exists()) {
+                           if (!parentDir.mkdirs()) {
+                              System.err.println("[ERROR] Decompiler: Failed to create parent directory: " + parentDir.getAbsolutePath());
+                              // Skip rest of round-trip processing if directory creation fails
+                              throw new IOException("Failed to create parent directory: " + parentDir.getAbsolutePath());
+                           }
+                        }
 
                         // Write the generated code to temp file
                         byte[] codeBytes = finalGeneratedCode.getBytes(java.nio.charset.StandardCharsets.UTF_8);
@@ -2715,6 +2747,16 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
             }
          }
 
+         // Ensure parent directory exists before writing
+         File outputFile = new File(canonicalPath);
+         File parentDir = outputFile.getParentFile();
+         if (parentDir != null && !parentDir.exists()) {
+            System.out.println("[INFO] Decompiler: CREATING parent directory: " + parentDir.getAbsolutePath());
+            if (!parentDir.mkdirs()) {
+               throw new IOException("Failed to create parent directory: " + parentDir.getAbsolutePath());
+            }
+            System.out.println("[INFO] Decompiler: Created parent directory: " + parentDir.getAbsolutePath());
+         }
          System.out.println("[INFO] Decompiler: WRITING file: " + canonicalPath + " (encoding: " + charset.name() + ")");
          BufferedWriter bw = new BufferedWriter(
                new java.io.OutputStreamWriter(new java.io.FileOutputStream(canonicalPath), charset));
@@ -3523,7 +3565,12 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
             // Ensure output directory exists
             File outputDirFile = newFile.getParentFile();
             if (outputDirFile != null && !outputDirFile.exists()) {
-               outputDirFile.mkdirs();
+               System.out.println("[INFO] Decompiler: CREATING output directory: " + outputDirFile.getAbsolutePath());
+               if (!outputDirFile.mkdirs()) {
+                  System.err.println("[ERROR] Decompiler: Failed to create output directory: " + outputDirFile.getAbsolutePath());
+               } else {
+                  System.out.println("[INFO] Decompiler: Created output directory: " + outputDirFile.getAbsolutePath());
+               }
             }
          }
 

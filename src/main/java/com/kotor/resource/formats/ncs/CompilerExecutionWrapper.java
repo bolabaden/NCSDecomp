@@ -104,8 +104,16 @@ public class CompilerExecutionWrapper {
     */
    private void prepareRegistrySpoofedEnvironment(List<File> includeDirs) throws IOException {
       File toolsDir = compilerFile.getParentFile(); // tools/ directory (where registry is spoofed)
-      if (toolsDir == null || !toolsDir.exists()) {
-         throw new IOException("Compiler directory does not exist: " + (toolsDir != null ? toolsDir.getAbsolutePath() : "null"));
+      if (toolsDir == null) {
+         throw new IOException("Compiler directory is null");
+      }
+      // Create tools directory if it doesn't exist
+      if (!toolsDir.exists()) {
+         System.out.println("[INFO] CompilerExecutionWrapper: CREATING tools directory: " + toolsDir.getAbsolutePath());
+         if (!toolsDir.mkdirs()) {
+            throw new IOException("Failed to create compiler directory: " + toolsDir.getAbsolutePath());
+         }
+         System.out.println("[INFO] CompilerExecutionWrapper: Created tools directory: " + toolsDir.getAbsolutePath());
       }
 
       System.out.println("[INFO] CompilerExecutionWrapper: Preparing registry-spoofed environment in: " + toolsDir.getAbsolutePath());
@@ -167,6 +175,15 @@ public class CompilerExecutionWrapper {
          if (sourceDir == null) {
             return;
          }
+         // Create source directory if it doesn't exist
+         if (!sourceDir.exists()) {
+            System.out.println("[INFO] CompilerExecutionWrapper: CREATING source directory: " + sourceDir.getAbsolutePath());
+            if (!sourceDir.mkdirs()) {
+               System.err.println("[ERROR] CompilerExecutionWrapper: Failed to create source directory: " + sourceDir.getAbsolutePath());
+               return;
+            }
+            System.out.println("[INFO] CompilerExecutionWrapper: Created source directory: " + sourceDir.getAbsolutePath());
+         }
 
          // Parse source file to find which includes are needed
          Set<String> neededIncludes = extractIncludeFiles(sourceFile);
@@ -205,6 +222,14 @@ public class CompilerExecutionWrapper {
       File compilerDir = compilerFile.getParentFile();
       if (compilerDir == null) {
          return;
+      }
+      // Create compiler directory if it doesn't exist
+      if (!compilerDir.exists()) {
+         System.out.println("[INFO] CompilerExecutionWrapper: CREATING compiler directory: " + compilerDir.getAbsolutePath());
+         if (!compilerDir.mkdirs()) {
+            throw new IOException("Failed to create compiler directory: " + compilerDir.getAbsolutePath());
+         }
+         System.out.println("[INFO] CompilerExecutionWrapper: Created compiler directory: " + compilerDir.getAbsolutePath());
       }
 
       File compilerNwscript = new File(compilerDir, "nwscript.nss");
@@ -258,6 +283,15 @@ public class CompilerExecutionWrapper {
     */
    private File determineNwscriptSource() {
       File toolsDir = new File(System.getProperty("user.dir"), "tools");
+      // Create tools directory if it doesn't exist
+      if (!toolsDir.exists()) {
+         System.out.println("[INFO] CompilerExecutionWrapper: CREATING tools directory: " + toolsDir.getAbsolutePath());
+         if (!toolsDir.mkdirs()) {
+            System.err.println("[WARNING] CompilerExecutionWrapper: Failed to create tools directory: " + toolsDir.getAbsolutePath());
+         } else {
+            System.out.println("[INFO] CompilerExecutionWrapper: Created tools directory: " + toolsDir.getAbsolutePath());
+         }
+      }
 
       if (isK2) {
          // For K2, use tsl_nwscript.nss
@@ -285,6 +319,11 @@ public class CompilerExecutionWrapper {
     */
    private boolean checkNeedsAscNwscript(File nssFile) {
       try {
+         // Verify file exists before reading
+         if (!nssFile.exists() || !nssFile.isFile()) {
+            System.err.println("[WARNING] CompilerExecutionWrapper: File does not exist for ASC check: " + nssFile.getAbsolutePath());
+            return false;
+         }
          String content = new String(Files.readAllBytes(nssFile.toPath()), java.nio.charset.StandardCharsets.UTF_8);
          // Look for ActionStartConversation calls with 11 parameters (10 commas)
          Pattern pattern = Pattern.compile(
