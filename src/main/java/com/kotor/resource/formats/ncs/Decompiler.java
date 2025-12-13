@@ -264,8 +264,17 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
             "<html><div style='text-align:center;'><h2>Drop .ncs or .nss files here</h2><div>Or use File → Open to start decompiling</div></div></html>",
             SwingConstants.CENTER);
       this.emptyStateLabel.setBorder(new EmptyBorder(32, 16, 32, 16));
+      
+      // Create support card
+      JPanel supportCard = createSupportCard();
+      
+      // Create empty panel with drag text and support card side by side
       JPanel emptyPanel = new JPanel(new BorderLayout());
-      emptyPanel.add(this.emptyStateLabel, BorderLayout.CENTER);
+      JPanel contentPanel = new JPanel(new BorderLayout(32, 0));
+      contentPanel.setBorder(new EmptyBorder(32, 32, 32, 32));
+      contentPanel.add(this.emptyStateLabel, BorderLayout.CENTER);
+      contentPanel.add(supportCard, BorderLayout.EAST);
+      emptyPanel.add(contentPanel, BorderLayout.CENTER);
       this.workspaceCards.add(emptyPanel, CARD_EMPTY);
       this.workspaceCards.add(this.jTB, CARD_TABS);
       this.dropTarget = new DropTarget(this.workspaceCards, this);
@@ -2791,7 +2800,7 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
          JSplitPane decompSplitPane = (JSplitPane) panels[0];
          java.awt.Component leftComp = decompSplitPane.getLeftComponent();
          java.awt.Component rightComp = decompSplitPane.getRightComponent();
-         
+
          // Set link property for scrollbar synchronization (always set, even if content loading fails)
          if (leftComp instanceof JScrollPane && rightComp instanceof JScrollPane) {
             JScrollPane leftScroll = (JScrollPane) leftComp;
@@ -2813,7 +2822,7 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
             // Default to left if components aren't scroll panes
             this.jTB.putClientProperty(panels[0], "left");
          }
-         
+
          try {
             File file = this.hash_TabComponent2File.get(tabComponent);
             if (file != null && leftComp instanceof JScrollPane) {
@@ -2836,7 +2845,7 @@ public class Decompiler extends JFrame implements DropTargetListener, KeyListene
                      }
                   }
                }
-               
+
                // Update link property after content is loaded
                if (rightComp instanceof JScrollPane) {
                   JScrollPane leftScroll = (JScrollPane) leftComp;
