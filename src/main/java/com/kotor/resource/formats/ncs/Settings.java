@@ -62,6 +62,9 @@ public class Settings extends Properties implements ActionListener {
    private JTextField nwnnsscompPathField;
    private JButton browseNwnnsscompButton;
    private JComboBox<String> nwnnsscompComboBox;
+   private JCheckBox preferNcsdisCheckBox;
+   private JTextField ncsdisPathField;
+   private JButton browseNcsdisButton;
    private JTextField k1NwscriptPathField;
    private JButton browseK1NwscriptButton;
    private JTextField k2NwscriptPathField;
@@ -149,6 +152,37 @@ public class Settings extends Properties implements ActionListener {
          if (chooser.showOpenDialog(this.frame) == JFileChooser.APPROVE_OPTION) {
             this.k2NwscriptPathField.setText(chooser.getSelectedFile().getAbsolutePath());
          }
+      } else if (src == this.browseNcsdisButton) {
+         // Browse for ncsdis.exe file
+         String currentPath = this.ncsdisPathField.getText().trim();
+         File initialDir = currentPath.isEmpty() ? CompilerUtil.getToolsDirectory() : new File(currentPath);
+         if (initialDir.isFile()) {
+            initialDir = initialDir.getParentFile();
+         }
+
+         JFileChooser chooser = new JFileChooser(initialDir);
+         chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
+         chooser.setDialogTitle("Select ncsdis.exe");
+         chooser.setFileFilter(new javax.swing.filechooser.FileFilter() {
+            @Override
+            public boolean accept(File f) {
+               return f.isDirectory() || f.getName().equalsIgnoreCase("ncsdis.exe");
+            }
+            @Override
+            public String getDescription() {
+               return "ncsdis.exe";
+            }
+         });
+
+         int result = chooser.showOpenDialog(this.frame);
+         if (result == JFileChooser.APPROVE_OPTION) {
+            File selectedFile = chooser.getSelectedFile();
+            this.ncsdisPathField.setText(selectedFile.getAbsolutePath());
+            updateNcsdisCheckboxState();
+            // Save immediately
+            saveSettings();
+            this.save();
+         }
       } else if (src == this.browseNwnnsscompButton) {
          // Browse for directory (folder)
          String currentPath = this.nwnnsscompPathField.getText().trim();
@@ -178,6 +212,18 @@ public class Settings extends Properties implements ActionListener {
       // File/Directory Settings
       this.setProperty("Output Directory", this.outputDirectoryField.getText());
       this.setProperty("Open Directory", this.openDirectoryField.getText());
+
+      // Save ncsdis preference
+      this.setProperty("Prefer ncsdis", String.valueOf(this.preferNcsdisCheckBox.isSelected()));
+      String ncsdisPath = this.ncsdisPathField.getText().trim();
+      if (!ncsdisPath.isEmpty()) {
+         this.setProperty("ncsdis Path", ncsdisPath);
+         FileDecompiler.ncsdisPath = ncsdisPath;
+      } else {
+         this.remove("ncsdis Path");
+         FileDecompiler.ncsdisPath = null;
+      }
+      FileDecompiler.preferNcsdis = this.preferNcsdisCheckBox.isSelected();
 
       // Save folder path and filename separately (EXCLUSIVELY from Settings UI)
       String selectedCompiler = (String) this.nwnnsscompComboBox.getSelectedItem();
@@ -270,6 +316,18 @@ public class Settings extends Properties implements ActionListener {
       String defaultOutputDir = new File(appDir, "ncsdecomp_converted").getAbsolutePath();
       this.outputDirectoryField.setText(this.getProperty("Output Directory", defaultOutputDir));
       this.openDirectoryField.setText(this.getProperty("Open Directory", appDir.getAbsolutePath()));
+
+      // Load ncsdis preference
+      String defaultNcsdisPath = new File(toolsDir, "ncsdis.exe").getAbsolutePath();
+      String ncsdisPath = FileDecompiler.ncsdisPath != null ? FileDecompiler.ncsdisPath : this.getProperty("ncsdis Path", defaultNcsdisPath);
+      this.ncsdisPathField.setText(ncsdisPath);
+      boolean preferNcsdis = Boolean.parseBoolean(this.getProperty("Prefer ncsdis", "true")); // Default to true
+      this.preferNcsdisCheckBox.setSelected(preferNcsdis);
+      FileDecompiler.preferNcsdis = preferNcsdis;
+      FileDecompiler.ncsdisPath = ncsdisPath;
+
+      // Update checkbox state based on whether ncsdis.exe exists
+      updateNcsdisCheckboxState();
 
       // Default nwnnsscomp path: tools/ directory (relative to app)
       String defaultNwnnsscompPath = toolsDir.getAbsolutePath();
@@ -454,6 +512,18 @@ public class Settings extends Properties implements ActionListener {
       FileDecompiler.isK2Selected = gameVariant.equals("k2") || gameVariant.equals("tsl") || gameVariant.equals("2");
       FileDecompiler.preferSwitches = Boolean.parseBoolean(this.getProperty("Prefer Switches", "false"));
       FileDecompiler.strictSignatures = Boolean.parseBoolean(this.getProperty("Strict Signatures", "false"));
+      
+      // Load ncsdis preference (defaults to true)
+      FileDecompiler.preferNcsdis = Boolean.parseBoolean(this.getProperty("Prefer ncsdis", "true"));
+      String ncsdisPathProp = this.getProperty("ncsdis Path", "");
+      if (!ncsdisPathProp.isEmpty()) {
+         File ncsdisFile = new File(ncsdisPathProp);
+         if (!ncsdisFile.isAbsolute()) {
+            ncsdisFile = new File(CompilerUtil.getNCSDecompDirectory(), ncsdisPathProp);
+         }
+         FileDecompiler.ncsdisPath = ncsdisFile.getAbsolutePath();
+         System.out.println("[INFO] Settings.load: ncsdis path: " + FileDecompiler.ncsdisPath);
+      }
 
       // Handle both old "nwnnsscomp Path" and new split "nwnnsscomp Folder Path" + "nwnnsscomp Filename" properties
       // New properties take precedence
@@ -727,9 +797,58 @@ public class Settings extends Properties implements ActionListener {
       });
       panel.add(this.nwnnsscompComboBox, gbc);
 
-      // K1 nwscript Path
+      // ncsdis.exe preference checkbox (gridy = 3)
       gbc.gridx = 0;
       gbc.gridy = 3;
+      gbc.gridwidth = 4;
+      gbc.weightx = 1.0;
+      gbc.anchor = GridBagConstraints.WEST;
+      this.preferNcsdisCheckBox = new JCheckBox("Prefer ncsdis.exe for pcode decompilation (faster, no nwscript.nss required)");
+      this.preferNcsdisCheckBox.setToolTipText("If checked, ncsdis.exe will be used instead of nwnnsscomp for bytecode decompilation");
+      this.preferNcsdisCheckBox.addActionListener(e -> {
+         // Save immediately when checkbox changes
+         saveSettings();
+         this.save();
+      });
+      panel.add(this.preferNcsdisCheckBox, gbc);
+
+      // ncsdis.exe path (gridy = 4)
+      gbc.gridx = 0;
+      gbc.gridy = 4;
+      gbc.gridwidth = 1;
+      gbc.weightx = 0.0;
+      gbc.anchor = GridBagConstraints.EAST;
+      panel.add(new JLabel("ncsdis.exe:"), gbc);
+      gbc.gridx = 1;
+      gbc.weightx = 1.0;
+      gbc.anchor = GridBagConstraints.WEST;
+      this.ncsdisPathField = new JTextField(30);
+      this.ncsdisPathField.setToolTipText("Path to ncsdis.exe for pcode decompilation");
+      // Add document listener to update checkbox state when path changes
+      this.ncsdisPathField.getDocument().addDocumentListener(new DocumentListener() {
+         @Override
+         public void insertUpdate(DocumentEvent e) {
+            updateNcsdisCheckboxState();
+         }
+         @Override
+         public void removeUpdate(DocumentEvent e) {
+            updateNcsdisCheckboxState();
+         }
+         @Override
+         public void changedUpdate(DocumentEvent e) {
+            updateNcsdisCheckboxState();
+         }
+      });
+      panel.add(this.ncsdisPathField, gbc);
+      gbc.gridx = 2;
+      gbc.weightx = 0.0;
+      this.browseNcsdisButton = new JButton("Browse...");
+      this.browseNcsdisButton.addActionListener(this);
+      panel.add(this.browseNcsdisButton, gbc);
+
+      // K1 nwscript Path (gridy = 5)
+      gbc.gridx = 0;
+      gbc.gridy = 5;
       gbc.weightx = 0.0;
       panel.add(new JLabel("KotOR 1 nwscript.nss:"), gbc);
       gbc.gridx = 1;
@@ -743,9 +862,9 @@ public class Settings extends Properties implements ActionListener {
       this.browseK1NwscriptButton.addActionListener(this);
       panel.add(this.browseK1NwscriptButton, gbc);
 
-      // K2 nwscript Path
+      // K2 nwscript Path (gridy = 6)
       gbc.gridx = 0;
-      gbc.gridy = 4;
+      gbc.gridy = 6;
       gbc.weightx = 0.0;
       panel.add(new JLabel("KotOR 2 nwscript.nss:"), gbc);
       gbc.gridx = 1;
@@ -941,6 +1060,36 @@ public class Settings extends Properties implements ActionListener {
       panel.add(new JLabel(), gbc);
 
       return panel;
+   }
+
+   /**
+    * Updates the ncsdis checkbox state based on whether ncsdis.exe exists at the specified path.
+    * Disables (greys out) the checkbox if ncsdis.exe is not found.
+    */
+   private void updateNcsdisCheckboxState() {
+      String ncsdisPath = this.ncsdisPathField.getText().trim();
+      boolean ncsdisExists = false;
+
+      if (!ncsdisPath.isEmpty()) {
+         File ncsdisFile = new File(ncsdisPath);
+         ncsdisExists = ncsdisFile.exists() && ncsdisFile.isFile();
+      }
+
+      // Enable checkbox only if ncsdis.exe exists
+      this.preferNcsdisCheckBox.setEnabled(ncsdisExists);
+
+      // Update tooltip based on state
+      if (ncsdisExists) {
+         this.preferNcsdisCheckBox.setToolTipText("If checked, ncsdis.exe will be used instead of nwnnsscomp for bytecode decompilation");
+      } else {
+         this.preferNcsdisCheckBox.setToolTipText("ncsdis.exe not found at specified path - checkbox disabled");
+         // Uncheck if it was checked but ncsdis doesn't exist
+         if (this.preferNcsdisCheckBox.isSelected()) {
+            this.preferNcsdisCheckBox.setSelected(false);
+            saveSettings();
+            this.save();
+         }
+      }
    }
 
    /**

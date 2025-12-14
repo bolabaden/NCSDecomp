@@ -86,6 +86,17 @@ public class FileDecompiler {
    public static String nwnnsscompPath = null;
 
    /**
+    * Path to ncsdis.exe for pcode decompilation, null means use default (tools/ncsdis.exe).
+    */
+   public static String ncsdisPath = null;
+
+   /**
+    * If true, prefer ncsdis.exe over nwnnsscomp for pcode decompilation.
+    * Defaults to true since ncsdis is faster and has no nwscript.nss dependency.
+    */
+   public static boolean preferNcsdis = true;
+
+   /**
     * Builds a decompiler configured for the current working directory.
     * <p>
     * Actions data is loaded lazily when needed (via {@link #ensureActionsLoaded()}).
@@ -1113,10 +1124,14 @@ public class FileDecompiler {
    }
 
    /**
-    * Returns the compiler executable location.
+    * Returns the compiler executable location for pcode decompilation.
+    * <p>
+    * If preferNcsdis is true and ncsdis.exe is available, returns ncsdis.exe.
+    * Otherwise, returns nwnnsscomp.exe.
     * <p>
     * Resolution order:
     * <ol>
+    *   <li>If preferNcsdis: Try ncsdis.exe from ncsdisPath or default location</li>
     *   <li>CLI argument (nwnnsscompPath) - if explicitly specified via command line</li>
     *   <li>Settings (GUI mode) - if configured and exists</li>
     *   <li>Automatic fallback - searches in app directory's tools/, CWD tools/, etc.</li>
@@ -1125,6 +1140,18 @@ public class FileDecompiler {
     * Returns null only if no compiler is found anywhere.
     */
    private File getCompilerFile() {
+      // Priority 1: Check if ncsdis.exe is preferred and available
+      if (preferNcsdis) {
+         File ncsdisFile = getNcsdisFile();
+         if (ncsdisFile != null && ncsdisFile.exists() && ncsdisFile.isFile()) {
+            System.out.println("[INFO] FileDecompiler.getCompilerFile: Using preferred ncsdis.exe: " + ncsdisFile.getAbsolutePath());
+            return ncsdisFile;
+         } else if (preferNcsdis) {
+            System.out.println("[INFO] FileDecompiler.getCompilerFile: ncsdis.exe preferred but not found, falling back to nwnnsscomp");
+         }
+      }
+      
+      // Fall back to nwnnsscomp.exe resolution
       // 1. CLI MODE: Use nwnnsscompPath if explicitly set via command-line argument
       if (nwnnsscompPath != null && !nwnnsscompPath.trim().isEmpty()) {
          File cliCompiler = new File(nwnnsscompPath);
@@ -1167,6 +1194,44 @@ public class FileDecompiler {
 
       // No compiler found anywhere
       System.out.println("[INFO] FileDecompiler.getCompilerFile: No compiler found anywhere");
+      return null;
+   }
+
+   /**
+    * Returns the ncsdis.exe file location.
+    * <p>
+    * Resolution order:
+    * <ol>
+    *   <li>ncsdisPath if explicitly set</li>
+    *   <li>tools/ncsdis.exe in app directory</li>
+    *   <li>ncsdis.exe in CWD</li>
+    * </ol>
+    * <p>
+    * Returns null if ncsdis.exe is not found.
+    */
+   private File getNcsdisFile() {
+      // 1. Check explicit path
+      if (ncsdisPath != null && !ncsdisPath.trim().isEmpty()) {
+         File ncsdisFile = new File(ncsdisPath);
+         if (ncsdisFile.exists() && ncsdisFile.isFile()) {
+            return ncsdisFile;
+         }
+         System.out.println("[INFO] FileDecompiler.getNcsdisFile: ncsdisPath not found: " + ncsdisPath);
+      }
+
+      // 2. Try app directory's tools/
+      File toolsDir = CompilerUtil.getToolsDirectory();
+      File ncsdisInTools = new File(toolsDir, "ncsdis.exe");
+      if (ncsdisInTools.exists() && ncsdisInTools.isFile()) {
+         return ncsdisInTools;
+      }
+
+      // 3. Try CWD
+      File ncsdisInCwd = new File("ncsdis.exe");
+      if (ncsdisInCwd.exists() && ncsdisInCwd.isFile()) {
+         return ncsdisInCwd;
+      }
+
       return null;
    }
 
