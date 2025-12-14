@@ -175,7 +175,18 @@ $toolPayload = @(
     "k1_nwscript.nss",
     "tsl_nwscript.nss",
     "nwnnsscomp_kscript.exe",
-    "nwnnsscomp_ktool.exe"
+    "nwnnsscomp_ktool.exe",
+    "ncsdis.exe",
+    "icudt63.dll",
+    "icuin63.dll",
+    "icuuc63.dll",
+    "libboost_filesystem.dll",
+    "libboost_locale.dll",
+    "libboost_thread.dll",
+    "libgcc_s_seh-1.dll",
+    "libiconv-2.dll",
+    "libstdc++-6.dll",
+    "libwinpthread-1.dll"
 )
 
 # Collect destinations: root tools/ plus each app-image tools/
